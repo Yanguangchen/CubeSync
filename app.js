@@ -38,10 +38,72 @@
     inputs.forEach(renderBarcode);
   }
 
+  function resultRowHtml(rowCount) {
+    return `
+      <td data-label="TEST NUMBER"><input type="text" name="testNumber${rowCount}" aria-label="Row ${rowCount} test number"></td>
+      <td data-label="CLIENT CUBE MARKING"><input type="text" name="clientCubeMarking${rowCount}" aria-label="Row ${rowCount} client cube marking"></td>
+      <td data-label="DATE TESTED"><input type="date" name="dateTested${rowCount}" aria-label="Row ${rowCount} date tested"></td>
+      <td data-label="AGE (days)"><input type="number" name="ageDays${rowCount}" min="0" step="1" aria-label="Row ${rowCount} age in days"></td>
+      <td data-label="WEIGHT AS RECEIVED (kg)"><input type="number" name="weightKg${rowCount}" min="0" step="0.01" aria-label="Row ${rowCount} weight as received in kg"></td>
+      <td data-label="LOAD (kN)"><input type="number" name="loadKn${rowCount}" min="0" step="0.01" aria-label="Row ${rowCount} load in kN"></td>
+      <td data-label="COMPRESSIVE STRENGTH (N/mm2)"><input type="number" name="strength${rowCount}" min="0" step="0.01" aria-label="Row ${rowCount} compressive strength"></td>
+      <td data-label="MODE OF FAILURE">
+        <input type="text" name="failureMode${rowCount}" aria-label="Row ${rowCount} mode of failure">
+        <button type="button" class="remove-row-btn">Remove</button>
+      </td>
+      <td class="barcode-cell" data-label="BARCODE">
+        <input type="text" name="barcode${rowCount}" data-barcode-input placeholder="Enter barcode text" aria-label="Row ${rowCount} barcode text">
+        <div class="barcode-preview" aria-live="polite"><span class="barcode-placeholder">Paste Barcode Here</span></div>
+        <p class="barcode-message" role="alert"></p>
+      </td>
+    `;
+  }
+
+  function setSaveStatus(element, message, isError) {
+    if (!element) return;
+    element.textContent = message;
+    element.classList.toggle("is-error", Boolean(isError));
+  }
+
+  function populateField(form, name, value) {
+    const control = form.elements[name];
+    if (!control) return;
+    control.value = value == null ? "" : value;
+  }
+
+  function populateResults(form, results, tableBody, addRow, renumberRows) {
+    if (!Array.isArray(results) || !tableBody) return;
+
+    while (tableBody.querySelectorAll("tr").length < results.length) {
+      addRow();
+    }
+
+    results.forEach(function (result, index) {
+      const rowNumber = index + 1;
+      window.CubeSyncFormData.RESULT_FIELDS.forEach(function (field) {
+        populateField(form, `${field}${rowNumber}`, result[field]);
+      });
+    });
+
+    renumberRows();
+    renderAll(Array.from(document.querySelectorAll("[data-barcode-input]")));
+  }
+
+  function populateForm(form, data, tableBody, addRow, renumberRows) {
+    window.CubeSyncFormData.FORM_FIELDS.forEach(function (field) {
+      populateField(form, field, data[field]);
+    });
+    populateResults(form, data.results, tableBody, addRow, renumberRows);
+  }
+
   window.addEventListener("DOMContentLoaded", function () {
     const form = document.getElementById("cubeRequestForm");
     const printButton = document.getElementById("printButton");
+    const saveButton = document.getElementById("saveFormButton");
+    const saveStatus = document.getElementById("saveStatus");
     const barcodeInputs = Array.from(document.querySelectorAll("[data-barcode-input]"));
+    const urlParams = new URLSearchParams(window.location.search);
+    let currentDocId = urlParams.get("id");
 
     barcodeInputs.forEach(function (input) {
       input.addEventListener("input", function () {
@@ -59,7 +121,58 @@
       form.addEventListener("reset", function () {
         window.setTimeout(function () {
           renderAll(barcodeInputs);
+          setSaveStatus(saveStatus, "", false);
         }, 0);
+      });
+
+      form.addEventListener("submit", async function (event) {
+        event.preventDefault();
+
+        const store = window.CubeSyncFirestore;
+        const formData = window.CubeSyncFormData;
+
+        if (!store || !formData) {
+          setSaveStatus(saveStatus, "Firestore unavailable", true);
+          return;
+        }
+
+        const auth = window.CubeSyncAuth;
+
+        if (auth && !auth.currentUser()) {
+          setSaveStatus(saveStatus, "Sign in required...", false);
+          try {
+            await auth.signInWithGoogle();
+          } catch (error) {
+            setSaveStatus(saveStatus, error.message || "Sign in failed", true);
+            return;
+          }
+        }
+
+        if (auth && !auth.isAllowedUser(auth.currentUser())) {
+          setSaveStatus(saveStatus, "Google account is not allowed", true);
+          auth.signOutUser().catch(() => {});
+          return;
+        }
+
+        if (saveButton) {
+          saveButton.disabled = true;
+        }
+        setSaveStatus(saveStatus, "Saving...", false);
+
+        try {
+          const payload = formData.buildCubeRequestFromForm(form);
+          currentDocId = await store.saveCubeRequest(payload, currentDocId);
+          const url = new URL(window.location.href);
+          url.searchParams.set("id", currentDocId);
+          window.history.replaceState({}, "", url);
+          setSaveStatus(saveStatus, "Saved", false);
+        } catch (error) {
+          setSaveStatus(saveStatus, error.message || "Save failed", true);
+        } finally {
+          if (saveButton) {
+            saveButton.disabled = false;
+          }
+        }
       });
     }
 
@@ -131,53 +244,6 @@
     const addRowBtn = document.getElementById("addRowButton");
     const tableBody = document.querySelector(".results-table tbody");
 
-    if (addRowBtn && tableBody) {
-      addRowBtn.addEventListener("click", function () {
-        const rowCount = tableBody.querySelectorAll("tr").length + 1;
-        const newRow = document.createElement("tr");
-        
-        // Template for row content
-        const rowHtml = `
-          <td data-label="TEST NUMBER"><input type="text" name="testNumber${rowCount}" aria-label="Row ${rowCount} test number"></td>
-          <td data-label="CLIENT CUBE MARKING"><input type="text" name="clientCubeMarking${rowCount}" aria-label="Row ${rowCount} client cube marking"></td>
-          <td data-label="DATE TESTED"><input type="date" name="dateTested${rowCount}" aria-label="Row ${rowCount} date tested"></td>
-          <td data-label="AGE (days)"><input type="number" name="ageDays${rowCount}" min="0" step="1" aria-label="Row ${rowCount} age in days"></td>
-          <td data-label="WEIGHT AS RECEIVED (kg)"><input type="number" name="weightKg${rowCount}" min="0" step="0.01" aria-label="Row ${rowCount} weight as received in kg"></td>
-          <td data-label="LOAD (kN)"><input type="number" name="loadKn${rowCount}" min="0" step="0.01" aria-label="Row ${rowCount} load in kN"></td>
-          <td data-label="COMPRESSIVE STRENGTH (N/mm2)"><input type="number" name="strength${rowCount}" min="0" step="0.01" aria-label="Row ${rowCount} compressive strength"></td>
-          <td data-label="MODE OF FAILURE">
-            <input type="text" name="failureMode${rowCount}" aria-label="Row ${rowCount} mode of failure">
-            <button type="button" class="remove-row-btn">Remove</button>
-          </td>
-          <td class="barcode-cell" data-label="BARCODE">
-            <input type="text" name="barcode${rowCount}" data-barcode-input placeholder="Enter barcode text" aria-label="Row ${rowCount} barcode text">
-            <div class="barcode-preview" aria-live="polite"><span class="barcode-placeholder">Paste Barcode Here</span></div>
-            <p class="barcode-message" role="alert"></p>
-          </td>
-        `;
-
-        newRow.innerHTML = rowHtml;
-        tableBody.appendChild(newRow);
-
-        // Attach barcode listener to new input
-        const newInput = newRow.querySelector("[data-barcode-input]");
-        if (newInput) {
-          newInput.addEventListener("input", function () {
-            renderBarcode(newInput);
-          });
-        }
-
-        // Attach remove listener
-        const removeBtn = newRow.querySelector(".remove-row-btn");
-        if (removeBtn) {
-          removeBtn.addEventListener("click", function () {
-            newRow.remove();
-            renumberRows();
-          });
-        }
-      });
-    }
-
     function renumberRows() {
       const rows = tableBody.querySelectorAll("tr");
       rows.forEach((row, index) => {
@@ -198,12 +264,59 @@
       });
     }
 
-    // Attach remove listeners to initial rows if they have remove buttons
-    document.querySelectorAll(".remove-row-btn").forEach(btn => {
-      btn.addEventListener("click", function() {
-        this.closest("tr").remove();
-        renumberRows();
-      });
+    function attachRowListeners(row) {
+      const newInput = row.querySelector("[data-barcode-input]");
+      if (newInput) {
+        newInput.addEventListener("input", function () {
+          renderBarcode(newInput);
+        });
+      }
+
+      const removeBtn = row.querySelector(".remove-row-btn");
+      if (removeBtn) {
+        removeBtn.addEventListener("click", function () {
+          row.remove();
+          renumberRows();
+        });
+      }
+    }
+
+    function addResultRow() {
+      if (!tableBody) return;
+      const rowCount = tableBody.querySelectorAll("tr").length + 1;
+      const newRow = document.createElement("tr");
+      newRow.innerHTML = resultRowHtml(rowCount);
+      tableBody.appendChild(newRow);
+      attachRowListeners(newRow);
+    }
+
+    if (addRowBtn && tableBody) {
+      addRowBtn.addEventListener("click", addResultRow);
+    }
+
+    document.querySelectorAll(".remove-row-btn").forEach((button) => {
+      attachRowListeners(button.closest("tr"));
     });
+
+    if (currentDocId && form) {
+      const store = window.CubeSyncFirestore;
+
+      if (store && window.CubeSyncFormData) {
+        setSaveStatus(saveStatus, "Loading...", false);
+        store.getCubeRequest(currentDocId)
+          .then(function (record) {
+            if (!record) {
+              setSaveStatus(saveStatus, "Form not found", true);
+              return;
+            }
+
+            populateForm(form, record, tableBody, addResultRow, renumberRows);
+            setSaveStatus(saveStatus, "Loaded", false);
+          })
+          .catch(function (error) {
+            setSaveStatus(saveStatus, error.message || "Load failed", true);
+          });
+      }
+    }
   });
 })();

@@ -1,137 +1,87 @@
 (function () {
   "use strict";
 
-  const STORAGE_KEY = "cubesync.rpa.forms";
-  
-  // Get current date in Singapore Time (SGT)
   function getSGTDate(date = new Date()) {
-    return new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'Asia/Singapore',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit'
+    return new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Singapore",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit"
     }).format(date);
   }
 
   function getSGTTime(date = new Date()) {
-    return new Intl.DateTimeFormat('en-GB', {
-      timeZone: 'Asia/Singapore',
-      hour: '2-digit',
-      minute: '2-digit',
+    return new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Asia/Singapore",
+      hour: "2-digit",
+      minute: "2-digit",
       hour12: true
     }).format(date);
   }
 
   const todaySGT = getSGTDate();
 
-  const seedData = [
-    {
-      id: "rpa-001",
-      reportNo: "RAK-CUBE-2406-001",
-      client: "Acme Construction",
-      project: "Bukit Batok BTO",
-      submittedAt: todaySGT + "T08:32:00",
-      validationStatus: "Validated",
-      rpaStatus: "Submitted to ERP",
-      erpStatus: "Success",
-      erpReferenceNo: "ERP-99210",
-      attemptCount: 1,
-      lastError: "",
-      history: [
-        { time: todaySGT + "T08:45:00", event: "Bot picked up record" },
-        { time: todaySGT + "T08:46:20", event: "Successfully posted to ERP. Ref: ERP-99210" }
-      ]
-    },
-    {
-      id: "rpa-002",
-      reportNo: "RAK-CUBE-2406-002",
-      client: "Northstar Builders",
-      project: "Jurong Logistics",
-      submittedAt: todaySGT + "T08:40:00",
-      validationStatus: "Validated",
-      rpaStatus: "Ready for Bot",
-      erpStatus: "Pending",
-      erpReferenceNo: "",
-      attemptCount: 0,
-      lastError: "",
-      history: []
-    },
-    {
-      id: "rpa-003",
-      reportNo: "RAK-CUBE-2406-003",
-      client: "Kinetic Civil",
-      project: "Service Tunnel",
-      submittedAt: todaySGT + "T09:15:00",
-      validationStatus: "Validated",
-      rpaStatus: "In Progress",
-      erpStatus: "Processing",
-      erpReferenceNo: "",
-      attemptCount: 1,
-      lastError: "",
-      history: [
-        { time: todaySGT + "T10:05:00", event: "Bot started processing" }
-      ]
-    },
-    {
-      id: "rpa-004",
-      reportNo: "RAK-CUBE-2406-004",
-      client: "BuildRight",
-      project: "Changi Terminal 5",
-      submittedAt: todaySGT + "T10:20:00",
-      validationStatus: "Validated",
-      rpaStatus: "Failed",
-      erpStatus: "Error",
-      erpReferenceNo: "",
-      attemptCount: 3,
-      lastError: "Connection timeout while accessing ERP portal",
-      history: [
-        { time: todaySGT + "T10:30:00", event: "Attempt 1: Network error" },
-        { time: todaySGT + "T10:45:00", event: "Attempt 2: Timeout" },
-        { time: todaySGT + "T11:00:00", event: "Attempt 3: Fatal timeout" }
-      ]
-    },
-    // Old failure for the warning banner
-    {
-      id: "rpa-old-001",
-      reportNo: "RAK-CUBE-2406-999",
-      client: "Legacy Corp",
-      project: "Old Project",
-      submittedAt: "2026-06-15T14:00:00",
-      validationStatus: "Validated",
-      rpaStatus: "Failed",
-      erpStatus: "Error",
-      erpReferenceNo: "",
-      attemptCount: 5,
-      lastError: "Invalid project code in ERP",
-      history: []
-    }
-  ];
-
   const state = {
-    forms: loadForms(),
+    forms: [],
     viewDate: todaySGT,
-    selectedId: null
+    loading: false
   };
 
   const elements = {};
 
-  function loadForms() {
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-    if (!stored) {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(seedData));
-      return seedData;
-    }
-    return JSON.parse(stored);
+  function store() {
+    return window.CubeSyncFirestore;
   }
 
-  function saveForms() {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state.forms));
+  function helper() {
+    return window.CubeSyncFormData;
+  }
+
+  function authHelper() {
+    return window.CubeSyncAuth;
+  }
+
+  function escapeHtml(value) {
+    return String(value == null ? "" : value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  function toDate(value) {
+    if (!value) return null;
+    if (value instanceof Date) return value;
+    if (typeof value.toDate === "function") return value.toDate();
+
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  function queueDate(form) {
+    const raw = form.raw || {};
+    const date = toDate(raw.submittedAt || raw.createdAt || raw.updatedAt || raw.internalDate);
+    return date || new Date();
+  }
+
+  function rpaStatus(form) {
+    return form.raw && form.raw.rpaStatus ? form.raw.rpaStatus : "Ready for Bot";
+  }
+
+  function erpStatus(form) {
+    return form.raw && form.raw.erpStatus ? form.raw.erpStatus : "Pending";
+  }
+
+  function attemptCount(form) {
+    const value = form.raw && form.raw.attemptCount;
+    return Number.isFinite(Number(value)) ? Number(value) : 0;
   }
 
   function getFilteredQueue() {
     return state.forms
-      .filter(f => f.submittedAt.startsWith(state.viewDate))
-      .sort((a, b) => a.submittedAt.localeCompare(b.submittedAt)); // Oldest first
+      .filter((form) => getSGTDate(queueDate(form)) === state.viewDate)
+      .sort((left, right) => queueDate(left) - queueDate(right));
   }
 
   function getStatusClass(status) {
@@ -142,30 +92,43 @@
     return "";
   }
 
-      const erpStatusSelector = isDisabled ? 
-        '<span class="status-pill status-failed">Disabled</span>' : 
-        `
-        <select data-action="update-erp" data-id="${form.id}" class="erp-selector">
-          <option value="Pending" ${form.erpStatus === "Pending" ? "selected" : ""}>Pending</option>
-          <option value="Processing" ${form.erpStatus === "Processing" ? "selected" : ""}>Processing</option>
-          <option value="Success" ${form.erpStatus === "Success" ? "selected" : ""}>Success</option>
-          <option value="Error" ${form.erpStatus === "Error" ? "selected" : ""}>Error</option>
+  function renderQueue() {
+    if (state.loading) {
+      elements.queueList.innerHTML = `<tr><td colspan="7">Loading Firestore forms...</td></tr>`;
+      return;
+    }
+
+    const rows = getFilteredQueue().map(function (form) {
+      const status = rpaStatus(form);
+      const time = getSGTTime(queueDate(form));
+      const isDisabled = status === "Disabled";
+      const rowClass = isDisabled ? "disabled-row" : "";
+      const statusClass = getStatusClass(status);
+      const currentErpStatus = erpStatus(form);
+      const erpStatusSelector = isDisabled
+        ? '<span class="status-pill status-failed">Disabled</span>'
+        : `
+        <select data-action="update-erp" data-id="${escapeHtml(form.id)}" class="erp-selector ${statusClass}">
+          <option value="Pending" ${currentErpStatus === "Pending" ? "selected" : ""}>Pending</option>
+          <option value="Processing" ${currentErpStatus === "Processing" ? "selected" : ""}>Processing</option>
+          <option value="Success" ${currentErpStatus === "Success" ? "selected" : ""}>Success</option>
+          <option value="Error" ${currentErpStatus === "Error" ? "selected" : ""}>Error</option>
         </select>
         `;
-      
+
       return `
-        <tr data-id="${form.id}" tabindex="0" class="${rowClass}">
-          <td><strong>${time}</strong></td>
-          <td>${form.reportNo}</td>
-          <td>${form.client}</td>
-          <td>${form.project}</td>
+        <tr data-id="${escapeHtml(form.id)}" tabindex="0" class="${rowClass}">
+          <td><strong>${escapeHtml(time)}</strong></td>
+          <td>${escapeHtml(form.reportNo || form.id)}</td>
+          <td>${escapeHtml(form.client)}</td>
+          <td>${escapeHtml(form.project)}</td>
           <td>${erpStatusSelector}</td>
-          <td>${form.attemptCount}</td>
+          <td>${escapeHtml(attemptCount(form))}</td>
           <td>
             <div class="row-actions">
               <button type="button" data-action="open">Open Form</button>
-              <button type="button" class="${isDisabled ? '' : 'danger'}" data-action="toggle-disable" data-id="${form.id}">
-                ${isDisabled ? 'Enable RPA' : 'Disable RPA'}
+              <button type="button" class="${isDisabled ? "" : "danger"}" data-action="toggle-disable" data-id="${escapeHtml(form.id)}">
+                ${isDisabled ? "Enable RPA" : "Disable RPA"}
               </button>
             </div>
           </td>
@@ -173,49 +136,126 @@
       `;
     }).join("");
 
-    elements.queueList.innerHTML = rows || `<tr><td colspan="7">No records submitted for this date.</td></tr>`;
-    
-    // Update date display
-    const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-    const dateObj = new Date(state.viewDate);
-    elements.currentDateDisplay.textContent = dateObj.toLocaleDateString('en-SG', options);
-    
-    // Update button states
+    elements.queueList.innerHTML = rows || `<tr><td colspan="7">No Firestore forms submitted for this date.</td></tr>`;
+
+    const options = { weekday: "long", year: "numeric", month: "long", day: "numeric" };
+    const dateObj = new Date(`${state.viewDate}T00:00:00+08:00`);
+    elements.currentDateDisplay.textContent = dateObj.toLocaleDateString("en-SG", options);
     elements.todayBtn.classList.toggle("active", state.viewDate === todaySGT);
   }
 
-  function updateERPStatus(id, newStatus) {
-    const form = state.forms.find(f => f.id === id);
-    if (!form) return;
+  async function loadQueue() {
+    const firestore = store();
+    const formData = helper();
 
-    form.erpStatus = newStatus;
-    if (newStatus === "Processing") {
-      form.rpaStatus = "In Progress";
-    } else if (newStatus === "Success") {
-      form.rpaStatus = "Submitted to ERP";
-    } else if (newStatus === "Error") {
-      form.rpaStatus = "Failed";
+    if (!firestore || !formData) {
+      elements.queueList.innerHTML = `<tr><td colspan="7">Firestore is not available.</td></tr>`;
+      return;
     }
-    
-    saveForms();
+
+    state.loading = true;
+    renderQueue();
+
+    try {
+      const records = await firestore.listCubeRequests();
+      state.forms = records.map((record) => formData.normalizeCubeRequestForDashboard(record, record.id));
+    } catch (error) {
+      elements.queueList.innerHTML = `<tr><td colspan="7">${escapeHtml(error.message || "Unable to load Firestore forms.")}</td></tr>`;
+      return;
+    } finally {
+      state.loading = false;
+    }
+
     renderQueue();
   }
 
-  function toggleDisable(id) {
-    const form = state.forms.find(f => f.id === id);
-    if (!form) return;
+  function setDashboardLocked(locked) {
+    elements.authGate.classList.toggle("is-hidden", !locked);
+    elements.dashboardShell.classList.toggle("is-hidden", locked);
+  }
 
-    if (form.rpaStatus === "Disabled") {
-      form.rpaStatus = "Ready for Bot"; // Or restore previous status
-    } else {
-      form.rpaStatus = "Disabled";
-    }
-    saveForms();
+  function clearQueue() {
+    state.forms = [];
+    state.loading = false;
     renderQueue();
+  }
+
+  function bindAuthGate() {
+    const auth = authHelper();
+    const authMessage = elements.authGate.querySelector("p:not(.eyebrow)");
+
+    if (!auth) {
+      setDashboardLocked(true);
+      authMessage.textContent = "Firebase Auth is not available. Check the Firebase SDK script.";
+      return;
+    }
+
+    elements.signInButton.addEventListener("click", async function () {
+      try {
+        await auth.signInWithGoogle();
+      } catch (error) {
+        window.alert(error.message || "Unable to sign in with Google.");
+      }
+    });
+
+    elements.signOutButton.addEventListener("click", async function () {
+      try {
+        await auth.signOutUser();
+      } catch (error) {
+        window.alert(error.message || "Unable to sign out.");
+      }
+    });
+
+    auth.onAuthChange(function (user) {
+      if (!user) {
+        elements.authUser.textContent = "";
+        authMessage.textContent = "Use your Google account to access Firestore-backed RPA operations.";
+        setDashboardLocked(true);
+        clearQueue();
+        return;
+      }
+
+      if (!auth.isAllowedUser(user)) {
+        elements.authUser.textContent = "";
+        authMessage.textContent = `${user.email || "This Google account"} is not allowed for CubeSync.`;
+        setDashboardLocked(true);
+        clearQueue();
+        auth.signOutUser().catch(() => {});
+        return;
+      }
+
+      elements.authUser.textContent = user.email || user.displayName || "Signed in";
+      setDashboardLocked(false);
+      loadQueue();
+    });
+  }
+
+  async function updateERPStatus(id, newStatus) {
+    const firestore = store();
+    if (!firestore) return;
+
+    const updates = { erpStatus: newStatus };
+    if (newStatus === "Processing") updates.rpaStatus = "In Progress";
+    if (newStatus === "Success") updates.rpaStatus = "Submitted to ERP";
+    if (newStatus === "Error") updates.rpaStatus = "Failed";
+    if (newStatus === "Pending") updates.rpaStatus = "Ready for Bot";
+
+    await firestore.updateCubeRequest(id, updates);
+    await loadQueue();
+  }
+
+  async function toggleDisable(id) {
+    const firestore = store();
+    const form = state.forms.find((item) => item.id === id);
+    if (!firestore || !form) return;
+
+    const nextStatus = rpaStatus(form) === "Disabled" ? "Ready for Bot" : "Disabled";
+    await firestore.updateCubeRequest(id, { rpaStatus: nextStatus });
+    await loadQueue();
   }
 
   function changeDate(days) {
-    const date = new Date(state.viewDate);
+    const date = new Date(`${state.viewDate}T00:00:00+08:00`);
     date.setDate(date.getDate() + days);
     state.viewDate = getSGTDate(date);
     elements.datePicker.value = state.viewDate;
@@ -224,10 +264,33 @@
 
   function bindElements() {
     [
+      "authGate", "dashboardShell", "signInButton", "signOutButton", "authUser",
       "queueList", "prevDay", "todayBtn", "nextDay", "datePicker", "currentDateDisplay"
-    ].forEach(id => {
+    ].forEach((id) => {
       elements[id] = document.getElementById(id);
     });
+  }
+
+  function bindThemeToggle() {
+    const themeToggle = document.getElementById("themeToggle");
+    const themeSwitchParts = document.querySelectorAll(
+      ".theme-switch-face, .theme-switch-mouth, .theme-switch-eye, .theme-switch-tongue"
+    );
+
+    function applyTheme(theme) {
+      const isLight = theme === "light";
+      document.documentElement.setAttribute("data-theme", isLight ? "light" : "dark");
+      localStorage.setItem("theme", isLight ? "light" : "dark");
+      if (themeToggle) themeToggle.checked = isLight;
+      themeSwitchParts.forEach(function (element) {
+        element.classList.toggle("happy", isLight);
+      });
+    }
+
+    applyTheme(localStorage.getItem("theme") || "light");
+    if (themeToggle) {
+      themeToggle.addEventListener("change", () => applyTheme(themeToggle.checked ? "light" : "dark"));
+    }
   }
 
   window.addEventListener("DOMContentLoaded", function () {
@@ -235,34 +298,27 @@
     elements.datePicker.value = state.viewDate;
     renderQueue();
 
-    elements.queueList.addEventListener("click", e => {
-      const btn = e.target.closest("button[data-action]");
-      const row = e.target.closest("tr[data-id]");
-      const selector = e.target.closest("select[data-action]");
-      
-      if (selector) return; // Handled by change event
+    elements.queueList.addEventListener("click", async function (event) {
+      const button = event.target.closest("button[data-action]");
+      const row = event.target.closest("tr[data-id]");
+      const selector = event.target.closest("select[data-action]");
 
-      if (!row) return;
+      if (selector || !row) return;
 
-      if (btn) {
-        const action = btn.dataset.action;
-        const id = btn.dataset.id || row.dataset.id;
+      const id = button && button.dataset.id ? button.dataset.id : row.dataset.id;
 
-        if (action === "open") {
-          window.location.href = `rpa-view.html?id=${id}`;
-        } else if (action === "toggle-disable") {
-          toggleDisable(id);
-        }
-      } else {
-        // Row click defaults to opening the form
-        window.location.href = `rpa-view.html?id=${row.dataset.id}`;
+      if (button && button.dataset.action === "toggle-disable") {
+        await toggleDisable(id);
+        return;
       }
+
+      window.location.href = `rpa-view.html?id=${encodeURIComponent(id)}`;
     });
 
-    elements.queueList.addEventListener("change", e => {
-      const selector = e.target.closest("select[data-action='update-erp']");
+    elements.queueList.addEventListener("change", async function (event) {
+      const selector = event.target.closest("select[data-action='update-erp']");
       if (selector) {
-        updateERPStatus(selector.dataset.id, selector.value);
+        await updateERPStatus(selector.dataset.id, selector.value);
       }
     });
 
@@ -273,23 +329,12 @@
       elements.datePicker.value = todaySGT;
       renderQueue();
     });
-
     elements.datePicker.addEventListener("change", () => {
       state.viewDate = elements.datePicker.value;
       renderQueue();
     });
 
-    // Theme toggle (reused from main dashboard)
-    const themeToggle = document.getElementById("themeToggle");
-    function applyTheme(theme) {
-      const isLight = theme === "light";
-      document.documentElement.setAttribute("data-theme", isLight ? "light" : "dark");
-      localStorage.setItem("theme", isLight ? "light" : "dark");
-      if (themeToggle) themeToggle.checked = isLight;
-    }
-    applyTheme(localStorage.getItem("theme") || "light");
-    if (themeToggle) {
-      themeToggle.addEventListener("change", () => applyTheme(themeToggle.checked ? "light" : "dark"));
-    }
+    bindThemeToggle();
+    bindAuthGate();
   });
 })();

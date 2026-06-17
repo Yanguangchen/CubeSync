@@ -9,10 +9,21 @@
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#003399">
     <link rel="stylesheet" href="dashboard.css">
+    <script src="barcode.js" defer></script>
+    <script src="cubesync-form-data.js" defer></script>
+    <script type="module" src="firestore.js"></script>
     <script src="dashboard.js" defer></script>
   </head>
   <body>
-    <main class="dashboard-shell">
+    <section id="authGate" class="auth-gate glass-panel">
+      <img class="auth-logo" src="assets/logoBanner.png" alt="CubeSync">
+      <p class="eyebrow">Authentication</p>
+      <h1>Sign in to CubeSync</h1>
+      <p>Use your Google account to access Firestore-backed dashboards.</p>
+      <button type="button" id="signInButton">Sign in with Google</button>
+    </section>
+
+    <main id="dashboardShell" class="dashboard-shell is-hidden">
       <header class="topbar glass-panel">
         <div class="brand-block">
           <img class="dashboard-logo" src="assets/logoBanner.png" alt="CubeSync">
@@ -20,6 +31,8 @@
           <h1>Human Dashboard</h1>
         </div>
         <nav class="top-actions" aria-label="Dashboard actions">
+          <span id="authUser" class="auth-user"></span>
+          <button type="button" id="signOutButton">Sign out</button>
           <div class="theme-switch">
             <div class="theme-switch-face">
               <input type="checkbox" id="themeToggle" class="theme-switch-input" aria-label="Toggle light and dark mode">

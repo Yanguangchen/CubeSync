@@ -19,9 +19,9 @@ test("original digital form keeps the PDF form sections and ten barcode inputs",
   const css = fs.readFileSync("styles.css", "utf8");
 
   assert.match(html, /styles\.css/);
-  assert.match(css, /html \{\s*font-family: Arial, Helvetica, sans-serif;/);
-  assert.match(css, /body \{[\s\S]*font-family: Arial, Helvetica, sans-serif;/);
-  assert.match(css, /button,\s*input,\s*select \{[\s\S]*font-family: Arial, Helvetica, sans-serif;/);
+  assert.match(css, /html \{\s*font-family: Arial, sans-serif;/);
+  assert.match(css, /body \{[\s\S]*font-family: Arial, sans-serif;/);
+  assert.match(css, /button,\s*input,\s*select \{[\s\S]*font-family: Arial, sans-serif;/);
   assertConcreteForm(html);
 });
 

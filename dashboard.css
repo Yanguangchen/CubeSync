@@ -75,6 +75,10 @@ body {
   transition: background var(--transition);
 }
 
+.is-hidden {
+  display: none !important;
+}
+
 [data-theme="dark"] body {
   background:
     linear-gradient(120deg, rgba(82, 160, 252, 0.1), rgba(66, 213, 187, 0.05) 43%, rgba(30, 41, 59, 0.2)),
@@ -95,6 +99,41 @@ a {
   background: var(--surface);
   backdrop-filter: blur(20px);
   box-shadow: var(--shadow-soft);
+}
+
+.auth-gate {
+  width: min(480px, calc(100vw - 32px));
+  margin: 12vh auto 0;
+  padding: 24px;
+  border-radius: 18px;
+  text-align: center;
+}
+
+.auth-logo {
+  display: block;
+  width: min(320px, 70vw);
+  height: auto;
+  margin: 0 auto 16px;
+}
+
+.auth-gate h1 {
+  margin: 0 0 8px;
+  font-size: 28px;
+}
+
+.auth-gate p:not(.eyebrow) {
+  margin: 0 0 18px;
+  color: var(--muted);
+}
+
+.auth-user {
+  max-width: 220px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 button,
@@ -623,6 +662,62 @@ textarea:focus {
 .detail-list dd {
   margin: 3px 0 0;
   color: var(--ink);
+}
+
+.dashboard-barcodes {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.dashboard-barcodes h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.dashboard-barcodes ul {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dashboard-barcodes li {
+  display: grid;
+  gap: 6px;
+}
+
+.dashboard-barcodes code {
+  color: var(--ink);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.dashboard-barcode-preview {
+  min-height: 56px;
+  overflow-x: auto;
+  padding: 6px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.dashboard-barcode-preview svg {
+  display: block;
+  width: auto;
+  max-width: none;
+}
+
+.dashboard-barcode-preview svg rect:not(.barcode-background) {
+  fill: #000000;
+}
+
+.barcode-error {
+  color: var(--error);
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .detail-actions {

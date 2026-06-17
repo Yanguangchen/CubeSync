@@ -84,6 +84,7 @@ button:hover,
   border-color: var(--brand-blue);
 }
 
+#saveFormButton,
 #printButton,
 .add-row-btn {
   background: var(--brand-blue);
@@ -91,6 +92,7 @@ button:hover,
   color: #ffffff;
 }
 
+#saveFormButton:hover,
 #printButton:hover,
 .add-row-btn:hover {
   background: var(--brand-blue-strong);
@@ -121,6 +123,19 @@ button:hover,
   display: flex;
   justify-content: flex-end;
   gap: 8px;
+}
+
+.save-status {
+  align-self: center;
+  min-width: 96px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: right;
+}
+
+.save-status.is-error {
+  color: var(--error);
 }
 
 .mode-toggle {

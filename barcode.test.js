@@ -42,3 +42,22 @@ test("renders an accessible SVG barcode with visible text", () => {
   assert.match(svg, /<rect /);
   assert.match(svg, />CUBE-001<\/text>/);
 });
+
+test("escapes special characters in SVG output", () => {
+  const svg = renderBarcodeSvg("CUBE & 001", { includeText: true });
+  assert.match(svg, /aria-label="Barcode for CUBE &amp; 001"/);
+  assert.match(svg, />CUBE &amp; 001<\/text>/);
+});
+
+test("renderBarcodeSvg handles missing options object", () => {
+  const svg = renderBarcodeSvg("ABC");
+  assert.match(svg, /height="54"/);
+  assert.match(svg, /width="127\.60"/);
+});
+
+test("encodeCode128B handles empty input", () => {
+  const encoded = encodeCode128B("");
+  assert.equal(encoded.input, "");
+  assert.deepEqual(encoded.codes, []);
+  assert.equal(encoded.pattern, "");
+});
