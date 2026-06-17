@@ -2,12 +2,17 @@
   "use strict";
 
   function getSGTDate(date = new Date()) {
-    return new Intl.DateTimeFormat("en-CA", {
+    const formatter = new Intl.DateTimeFormat("en-GB", {
       timeZone: "Asia/Singapore",
       year: "numeric",
       month: "2-digit",
       day: "2-digit"
-    }).format(date);
+    });
+    const parts = formatter.formatToParts(date);
+    const d = parts.find((p) => p.type === "day").value;
+    const m = parts.find((p) => p.type === "month").value;
+    const y = parts.find((p) => p.type === "year").value;
+    return `${y}-${m}-${d}`;
   }
 
   function getSGTTime(date = new Date()) {
@@ -28,6 +33,7 @@
   };
 
   const elements = {};
+  let initialized = false;
 
   function store() {
     return window.CubeSyncFirestore;
@@ -35,6 +41,10 @@
 
   function helper() {
     return window.CubeSyncFormData;
+  }
+
+  function exportHelper() {
+    return window.CubeSyncExport;
   }
 
   function authHelper() {
@@ -84,6 +94,10 @@
       .sort((left, right) => queueDate(left) - queueDate(right));
   }
 
+  function getExportableForms() {
+    return state.forms.filter((form) => rpaStatus(form) !== "Disabled");
+  }
+
   function getStatusClass(status) {
     if (status === "Ready for Bot") return "status-ready";
     if (status === "In Progress") return "status-processing";
@@ -92,7 +106,16 @@
     return "";
   }
 
+  function setExportButtonState() {
+    if (!elements.exportAllButton) return;
+
+    elements.exportAllButton.disabled = state.loading || getExportableForms().length === 0;
+    elements.exportAllButton.textContent = state.loading ? "Loading forms..." : "Export all CSV";
+  }
+
   function renderQueue() {
+    setExportButtonState();
+
     if (state.loading) {
       elements.queueList.innerHTML = `<tr><td colspan="7">Loading Firestore forms...</td></tr>`;
       return;
@@ -160,6 +183,9 @@
       const records = await firestore.listCubeRequests();
       state.forms = records.map((record) => formData.normalizeCubeRequestForDashboard(record, record.id));
     } catch (error) {
+      state.forms = [];
+      state.loading = false;
+      setExportButtonState();
       elements.queueList.innerHTML = `<tr><td colspan="7">${escapeHtml(error.message || "Unable to load Firestore forms.")}</td></tr>`;
       return;
     } finally {
@@ -255,17 +281,52 @@
   }
 
   function changeDate(days) {
-    const date = new Date(`${state.viewDate}T00:00:00+08:00`);
+    const date = new Date(`${state.viewDate}T12:00:00+08:00`);
     date.setDate(date.getDate() + days);
     state.viewDate = getSGTDate(date);
     elements.datePicker.value = state.viewDate;
     renderQueue();
   }
 
+  function exportArchiveName() {
+    return `cubesync-rpa-test-data-${new Date().toISOString().slice(0, 10)}.zip`;
+  }
+
+  function exportAllForms() {
+    const exporter = exportHelper();
+
+    if (!exporter) {
+      window.alert("CSV export is not available yet. Check the RPA dashboard scripts.");
+      return;
+    }
+
+    const exportableForms = getExportableForms();
+
+    if (!exportableForms.length) {
+      window.alert("No enabled RPA forms are loaded for export.");
+      return;
+    }
+
+    const originalLabel = elements.exportAllButton.textContent;
+    elements.exportAllButton.disabled = true;
+    elements.exportAllButton.textContent = "Exporting...";
+
+    try {
+      const files = exporter.buildExportFiles(exportableForms);
+      exporter.downloadFilesAsZip(files, exportArchiveName());
+    } catch (error) {
+      window.alert(error.message || "Unable to export forms.");
+    } finally {
+      elements.exportAllButton.textContent = originalLabel;
+      setExportButtonState();
+    }
+  }
+
   function bindElements() {
     [
       "authGate", "dashboardShell", "signInButton", "signOutButton", "authUser",
-      "queueList", "prevDay", "todayBtn", "nextDay", "datePicker", "currentDateDisplay"
+      "queueList", "prevDay", "todayBtn", "nextDay", "datePicker", "currentDateDisplay",
+      "exportAllButton"
     ].forEach((id) => {
       elements[id] = document.getElementById(id);
     });
@@ -294,6 +355,9 @@
   }
 
   window.addEventListener("DOMContentLoaded", function () {
+    if (initialized) return;
+    initialized = true;
+
     bindElements();
     elements.datePicker.value = state.viewDate;
     renderQueue();
@@ -324,6 +388,7 @@
 
     elements.prevDay.addEventListener("click", () => changeDate(-1));
     elements.nextDay.addEventListener("click", () => changeDate(1));
+    elements.exportAllButton.addEventListener("click", exportAllForms);
     elements.todayBtn.addEventListener("click", () => {
       state.viewDate = todaySGT;
       elements.datePicker.value = todaySGT;

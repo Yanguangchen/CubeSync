@@ -214,6 +214,7 @@ These selectors apply to `rpa-dashboard.html`.
 | Next day button | `#nextDay` |
 | Date picker | `#datePicker` |
 | Current date display | `#currentDateDisplay` |
+| Export all CSV button | `#exportAllButton` |
 | ERP selector | `select[data-action="update-erp"]` |
 | ERP selector class | `.erp-selector` |
 | Open form button | `button[data-action="open"]` |

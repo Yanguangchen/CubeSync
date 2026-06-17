@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>RPA Form View - CubeSync</title>
     <link rel="icon" type="image/png" href="favicon.png">
+    <link rel="apple-touch-icon" href="assets/icon-192.png">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#42d5bb">
     <link rel="stylesheet" href="styles.css">
     <style>
       .rpa-form-capture-view {
@@ -182,5 +185,6 @@
         </div>
       </section>
     </main>
+    <script>if("serviceWorker"in navigator){navigator.serviceWorker.register("./sw.js").catch(()=>{});}</script>
   </body>
 </html>

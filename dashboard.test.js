@@ -24,6 +24,8 @@ test("dashboard frontend exposes form CRUD controls", () => {
   assert.match(html, /signOutButton/);
   assert.match(html, /assets\/logoBanner\.png/);
   assert.match(html, /formList/);
+  assert.doesNotMatch(html, /exportAllButton/);
+  assert.doesNotMatch(html, /cubesync-export\.js/);
   assert.match(html, /detailPanel/);
   assert.match(html, /editDialog/);
   assert.match(html, /printArea/);
@@ -43,6 +45,9 @@ test("dashboard frontend exposes form CRUD controls", () => {
   assert.match(js, /updateCubeRequest/);
   assert.match(js, /deleteCubeRequest/);
   assert.match(js, /CubeSyncBarcode/);
+  assert.doesNotMatch(js, /CubeSyncExport/);
+  assert.doesNotMatch(js, /buildExportFiles/);
+  assert.doesNotMatch(js, /downloadFilesAsZip/);
   assert.match(js, /renderBarcodeSvg/);
   assert.match(js, /raw\.results/);
   assert.doesNotMatch(js, /barcodeSvg/);

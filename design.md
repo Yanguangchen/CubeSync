@@ -259,8 +259,11 @@ Avoid animating layout properties on data-heavy views (tables).
 | File | Scope |
 |------|-------|
 | `glassmorphic.css` | Stepped request form (primary UI) |
-| `dashboard.css` | Form list, metrics, dark mode |
+| `dashboard.css` | Form list, detail panel, dark mode |
 | `styles.css` | Original print-oriented form |
+| `rpa-dashboard.css` | RPA queue page overrides |
 | `design.md` | This document — source of truth for tokens |
+| `architecture.md` | UML diagrams: class, sequence, component, state, ER |
+| `RPA_SELECTOR_REFERENCE.md` | Stable selectors for RPA automation |
 
 When adding new UI, define tokens in `:root` first, then reference semantic names (`--accent`, `--muted`) in component rules — not raw hex values inline.

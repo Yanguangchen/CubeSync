@@ -13,6 +13,7 @@ test("app.js handles multi-step navigation in glassmorphic form", async () => {
   global.URLSearchParams = dom.window.URLSearchParams;
   global.Event = dom.window.Event;
   global.scrollTo = () => {};
+  global.window.scrollTo = () => {};
 
   // Mock dependencies and assign to window
   global.window.CubeSyncBarcode = require("./barcode.js");
@@ -38,6 +39,63 @@ test("app.js handles multi-step navigation in glassmorphic form", async () => {
   delete require.cache[require.resolve("./app.js")];
 });
 
+test("glassmorphic final step saves to Firestore instead of printing", async () => {
+  const dom = new JSDOM(glassHtml, { url: "http://localhost/glassmorphic.html" });
+  global.window = dom.window;
+  global.document = dom.window.document;
+  global.navigator = dom.window.navigator;
+  global.URLSearchParams = dom.window.URLSearchParams;
+  global.Event = dom.window.Event;
+  global.scrollTo = () => {};
+  global.window.scrollTo = () => {};
+
+  let printCalls = 0;
+  let savedPayload = null;
+  global.window.print = () => {
+    printCalls += 1;
+  };
+  global.window.CubeSyncBarcode = require("./barcode.js");
+  global.window.CubeSyncFormData = require("./cubesync-form-data.js");
+  global.window.CubeSyncAuth = {
+    currentUser: () => ({ email: "test@rakmat.com.sg" }),
+    isAllowedUser: () => true
+  };
+  global.window.CubeSyncFirestore = {
+    saveCubeRequest: async (payload) => {
+      savedPayload = payload;
+      return "saved-form-1";
+    }
+  };
+
+  require("./app.js");
+
+  const event = new global.Event("DOMContentLoaded");
+  global.window.dispatchEvent(event);
+
+  global.document.querySelector('[name="reportNo"]').value = "GLASS-001";
+  global.document.querySelector('[name="client"]').value = "Glass Client";
+  global.document.querySelector('[name="testNumber1"]').value = "T-001";
+  global.document.querySelector('[name="barcode1"]').value = "BC-GLASS-001";
+
+  const nextBtn = global.document.getElementById("nextStep");
+  nextBtn.click();
+  nextBtn.click();
+
+  await new Promise(resolve => setTimeout(resolve, 20));
+
+  assert.equal(printCalls, 0);
+  assert.equal(savedPayload.reportNo, "GLASS-001");
+  assert.equal(savedPayload.client, "Glass Client");
+  assert.equal(savedPayload.template, "Glassmorphic");
+  assert.equal(savedPayload.results.length, 1);
+  assert.equal(savedPayload.results[0].testNumber, "T-001");
+  assert.equal(savedPayload.results[0].barcode, "BC-GLASS-001");
+  assert.equal(global.document.getElementById("saveStatus").textContent, "Saved");
+  assert.equal(new global.window.URL(global.window.location.href).searchParams.get("id"), "saved-form-1");
+
+  delete require.cache[require.resolve("./app.js")];
+});
+
 test("app.js renders barcodes and handles dynamic rows", async () => {
   const dom = new JSDOM(glassHtml, { url: "http://localhost/" });
   global.window = dom.window;
@@ -46,6 +104,7 @@ test("app.js renders barcodes and handles dynamic rows", async () => {
   global.URLSearchParams = dom.window.URLSearchParams;
   global.Event = dom.window.Event;
   global.scrollTo = () => {};
+  global.window.scrollTo = () => {};
 
   global.window.CubeSyncBarcode = require("./barcode.js");
   global.window.CubeSyncFormData = require("./cubesync-form-data.js");

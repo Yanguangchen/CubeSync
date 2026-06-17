@@ -44,7 +44,13 @@ test("dashboard.js handles auth and loads forms", async () => {
         project: "Project X",
         status: "Ready",
         template: "Original",
-        updatedAt: "2026-06-17"
+        updatedAt: "2026-06-17",
+        results: [
+          {
+            testNumber: "T-001",
+            barcode: "REPORT-001-T-001"
+          }
+        ]
       }
     ],
     updateCubeRequest: async () => {},

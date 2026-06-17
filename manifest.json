@@ -3,21 +3,66 @@
   "short_name": "CubeSync",
   "description": "Digital submission and management for concrete cube test requests.",
   "start_url": "./dashboard.html",
+  "scope": "./",
+  "id": "/dashboard.html",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#003399",
+  "orientation": "any",
+  "background_color": "#eef4f8",
+  "theme_color": "#42d5bb",
+  "categories": ["business", "productivity"],
   "icons": [
     {
-      "src": "favicon.png",
+      "src": "assets/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
-      "src": "favicon.png",
+      "src": "assets/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "assets/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "assets/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "New Form",
+      "short_name": "New Form",
+      "url": "./glassmorphic.html",
+      "description": "Open a new concrete cube request form",
+      "icons": [
+        {
+          "src": "assets/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "RPA Queue",
+      "short_name": "RPA Queue",
+      "url": "./rpa-dashboard.html",
+      "description": "View the RPA automation queue",
+      "icons": [
+        {
+          "src": "assets/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
     }
   ]
 }

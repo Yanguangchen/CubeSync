@@ -9,16 +9,22 @@ test("RPA dashboard opens Firestore cube request documents", () => {
   const js = fs.readFileSync("rpa-dashboard.js", "utf8");
 
   assert.match(html, /cubesync-form-data\.js/);
+  assert.match(html, /cubesync-export\.js/);
   assert.match(html, /firestore\.js/);
   assert.match(html, /authGate/);
   assert.match(html, /signInButton/);
   assert.match(html, /signOutButton/);
+  assert.match(html, /exportAllButton/);
+  assert.match(html, /Export all CSV/);
   assert.match(js, /CubeSyncFirestore/);
   assert.match(js, /CubeSyncAuth/);
+  assert.match(js, /CubeSyncExport/);
   assert.match(js, /onAuthChange/);
   assert.match(js, /signInWithGoogle/);
   assert.match(js, /listCubeRequests/);
   assert.match(js, /updateCubeRequest/);
+  assert.match(js, /buildExportFiles/);
+  assert.match(js, /downloadFilesAsZip/);
   assert.match(js, /rpa-view\.html\?id=/);
   assert.doesNotMatch(js, /cubesync\.rpa\.forms/);
 });

@@ -65,6 +65,17 @@
     element.classList.toggle("is-error", Boolean(isError));
   }
 
+  function submitForm(form, submitter) {
+    if (!form) return;
+
+    if (typeof form.requestSubmit === "function") {
+      form.requestSubmit(submitter || undefined);
+      return;
+    }
+
+    form.dispatchEvent(new window.Event("submit", { bubbles: true, cancelable: true }));
+  }
+
   function populateField(form, name, value) {
     const control = form.elements[name];
     if (!control) return;
@@ -218,8 +229,7 @@
           currentStep++;
           updateSteps();
         } else {
-          // Final step action - could trigger print or validation
-          window.print();
+          submitForm(form, saveButton);
         }
       });
 
@@ -300,6 +310,7 @@
 
     if (currentDocId && form) {
       const store = window.CubeSyncFirestore;
+      const shouldPrint = urlParams.get("print") === "true";
 
       if (store && window.CubeSyncFormData) {
         setSaveStatus(saveStatus, "Loading...", false);
@@ -312,6 +323,12 @@
 
             populateForm(form, record, tableBody, addResultRow, renumberRows);
             setSaveStatus(saveStatus, "Loaded", false);
+
+            if (shouldPrint) {
+              window.setTimeout(function () {
+                window.print();
+              }, 500);
+            }
           })
           .catch(function (error) {
             setSaveStatus(saveStatus, error.message || "Load failed", true);

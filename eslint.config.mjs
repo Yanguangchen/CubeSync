@@ -3,8 +3,10 @@ import js from "@eslint/js";
 const browserGlobals = {
   FormData: "readonly",
   Intl: "readonly",
+  Blob: "readonly",
   URL: "readonly",
   URLSearchParams: "readonly",
+  TextEncoder: "readonly",
   console: "readonly",
   document: "readonly",
   encodeURIComponent: "readonly",
@@ -40,6 +42,7 @@ export default [
     files: [
       "app.js",
       "barcode.js",
+      "cubesync-export.js",
       "cubesync-form-data.js",
       "dashboard.js",
       "rpa-dashboard.js",

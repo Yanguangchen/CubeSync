@@ -46,6 +46,14 @@
   font-size: 0.85rem;
 }
 
+.queue-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
 .current-date-badge {
   font-size: 1.4rem;
   font-weight: 700;
@@ -85,4 +93,21 @@
 
 .hidden {
   display: none !important;
+}
+
+@media (max-width: 680px) {
+  .queue-controls,
+  .date-selector,
+  .queue-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .queue-actions {
+    justify-content: flex-start;
+  }
+
+  .current-date-badge {
+    font-size: 1.1rem;
+  }
 }

@@ -342,25 +342,8 @@
     const form = state.forms.find((item) => item.id === id);
     if (!form) return;
 
-    const barcodeItems = barcodeValues(form).map((value) => `
-      <li>
-        <code>${escapeHtml(value)}</code>
-        ${renderBarcodePreview(value)}
-      </li>
-    `).join("");
-
-    elements.printArea.innerHTML = `
-      <h1>${escapeHtml(form.reportNo || form.id)}</h1>
-      <p><strong>Client:</strong> ${escapeHtml(form.client)}</p>
-      <p><strong>Project:</strong> ${escapeHtml(form.project)}</p>
-      <p><strong>Template:</strong> ${escapeHtml(form.template)}</p>
-      <p><strong>Status:</strong> ${escapeHtml(form.status)}</p>
-      <p><strong>Concrete grade:</strong> ${escapeHtml(form.grade)}</p>
-      <p><strong>Location represented:</strong> ${escapeHtml(form.location)}</p>
-      <p><strong>Notes:</strong> ${escapeHtml(form.notes)}</p>
-      ${barcodeItems ? `<h2>Barcodes</h2><ul>${barcodeItems}</ul>` : ""}
-    `;
-    window.print();
+    const url = form.template === "Glassmorphic" ? "glassmorphic.html" : "index.html";
+    window.open(`${url}?id=${encodeURIComponent(id)}&print=true`, "_blank");
   }
 
   function openTemplate(id) {

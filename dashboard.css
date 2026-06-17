@@ -503,6 +503,22 @@ button:disabled {
   gap: 10px;
 }
 
+.export-button {
+  background: var(--accent-secondary-soft);
+  border-color: var(--brand-blue);
+  color: var(--brand-blue-strong);
+}
+
+[data-theme="dark"] .export-button {
+  color: var(--brand-blue);
+}
+
+.export-button:hover:not(:disabled) {
+  background: var(--brand-blue);
+  border-color: var(--brand-blue);
+  color: #ffffff;
+}
+
 label span {
   display: block;
   margin-bottom: 5px;
