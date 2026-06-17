@@ -72,8 +72,8 @@ self.addEventListener("fetch", (event) => {
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) {
-        // Return cache immediately, but update in the background.
-        const fetchPromise = fetch(event.request)
+        // Stale-while-revalidate: return cached now, update in the background.
+        fetch(event.request)
           .then((response) => {
             if (response && response.ok) {
               const clone = response.clone();
@@ -81,11 +81,9 @@ self.addEventListener("fetch", (event) => {
                 cache.put(event.request, clone);
               });
             }
-            return response;
           })
-          .catch(() => cached);
+          .catch(() => {});
 
-        // Stale-while-revalidate: return cached now, update later.
         return cached;
       }
 

@@ -63,6 +63,22 @@ export default [
     }
   },
   {
+    files: ["sw.js"],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: "script",
+      globals: {
+        caches: "readonly",
+        clients: "readonly",
+        fetch: "readonly",
+        Request: "readonly",
+        Response: "readonly",
+        self: "readonly",
+        URL: "readonly"
+      }
+    }
+  },
+  {
     files: ["*.test.js"],
     languageOptions: {
       ecmaVersion: 2022,
