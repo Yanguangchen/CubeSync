@@ -95,13 +95,6 @@
     return "";
   }
 
-  function renderMetrics() {
-    elements.totalForms.textContent = state.forms.length;
-    elements.draftForms.textContent = state.forms.filter((form) => form.status === "Draft").length;
-    elements.readyForms.textContent = state.forms.filter((form) => form.status === "Ready").length;
-    elements.archivedForms.textContent = state.forms.filter((form) => form.status === "Archived").length;
-  }
-
   function renderForms() {
     const rows = filteredForms().map(function (form) {
       const selectedClass = form.id === state.selectedId ? " selected" : "";
@@ -126,7 +119,6 @@
     }).join("");
 
     elements.formList.innerHTML = rows || `<tr><td colspan="7">No forms match the current filters.</td></tr>`;
-    renderMetrics();
   }
 
   function selectedForm() {
@@ -279,8 +271,7 @@
   function bindElements() {
     [
       "formList", "detailPanel", "detailContent", "detailTitle", "searchInput",
-      "statusFilter", "totalForms", "draftForms", "readyForms", "archivedForms",
-      "editDialog", "editForm", "closeEditorButton", "cancelEditButton",
+      "statusFilter", "editDialog", "editForm", "closeEditorButton", "cancelEditButton",
       "detailViewButton", "detailEditButton", "detailPrintButton", "detailDeleteButton",
       "printArea"
     ].forEach((id) => {

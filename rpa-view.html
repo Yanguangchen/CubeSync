@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>RPA Form View - CubeSync</title>
+    <link rel="icon" type="image/png" href="favicon.png">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+      .rpa-form-capture-view {
+        max-width: 1000px;
+        margin: 20px auto;
+        padding: 40px;
+        background: #fff;
+        box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        border-radius: 8px;
+      }
+      .rpa-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+        padding-bottom: 20px;
+        border-bottom: 2px solid #003399;
+      }
+      .rpa-data-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 20px;
+      }
+      .rpa-field {
+        display: flex;
+        flex-direction: column;
+      }
+      .rpa-label {
+        font-weight: 700;
+        font-size: 0.75rem;
+        color: #666;
+        text-transform: uppercase;
+        margin-bottom: 4px;
+      }
+      .rpa-value {
+        font-size: 1.1rem;
+        color: #000;
+        padding: 8px;
+        background: #f8f9fa;
+        border-radius: 4px;
+        border: 1px solid #dee2e6;
+      }
+      .rpa-back-link {
+        display: inline-block;
+        margin-bottom: 20px;
+        color: #003399;
+        text-decoration: none;
+        font-weight: 600;
+      }
+      .rpa-back-link:hover {
+        text-decoration: underline;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="rpa-form-capture-view">
+      <a href="rpa-dashboard.html" class="rpa-back-link">← Back to Queue</a>
+      
+      <header class="rpa-header">
+        <div>
+          <h1 id="reportNoDisplay">Loading...</h1>
+          <p id="submittedAtDisplay"></p>
+        </div>
+        <div id="statusBadge" class="status-pill"></div>
+      </header>
+
+      <section class="rpa-data-grid">
+        <div class="rpa-field">
+          <span class="rpa-label">Client</span>
+          <div id="clientDisplay" class="rpa-value"></div>
+        </div>
+        <div class="rpa-field">
+          <span class="rpa-label">Project</span>
+          <div id="projectDisplay" class="rpa-value"></div>
+        </div>
+        <div class="rpa-field">
+          <span class="rpa-label">ERP Status</span>
+          <div id="erpStatusDisplay" class="rpa-value"></div>
+        </div>
+        <div class="rpa-field">
+          <span class="rpa-label">ERP Reference No</span>
+          <div id="erpRefDisplay" class="rpa-value"></div>
+        </div>
+      </section>
+
+      <div style="margin-top: 20px; display: flex; gap: 10px;">
+        <button type="button" id="btnDisable" class="danger" style="padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: 600;">Disable RPA</button>
+      </div>
+
+      <section style="margin-top: 40px;">
+        <h2 class="rpa-label">Last Error / Notes</h2>
+        <div id="errorDisplay" class="rpa-value" style="min-height: 60px; color: #dc3545;"></div>
+      </section>
+    </div>
+
+    <script>
+      (function() {
+        const params = new URLSearchParams(window.location.search);
+        const id = params.get('id');
+        const STORAGE_KEY = "cubesync.rpa.forms";
+        const btnDisable = document.getElementById('btnDisable');
+        
+        let forms = [];
+        let form = null;
+
+        const stored = window.localStorage.getItem(STORAGE_KEY);
+        if (stored) {
+          forms = JSON.parse(stored);
+          form = forms.find(f => f.id === id);
+          
+          if (form) {
+            updateUI();
+          }
+        }
+
+        function updateUI() {
+          document.getElementById('reportNoDisplay').textContent = form.reportNo;
+          document.getElementById('submittedAtDisplay').textContent = 'Submitted: ' + new Date(form.submittedAt).toLocaleString();
+          document.getElementById('clientDisplay').textContent = form.client;
+          document.getElementById('projectDisplay').textContent = form.project;
+          document.getElementById('erpStatusDisplay').textContent = form.rpaStatus === "Disabled" ? "Disabled" : form.erpStatus;
+          document.getElementById('erpRefDisplay').textContent = form.erpReferenceNo || 'N/A';
+          document.getElementById('errorDisplay').textContent = form.lastError || 'No errors reported.';
+
+          const isDisabled = form.rpaStatus === "Disabled";
+          btnDisable.textContent = isDisabled ? 'Enable RPA' : 'Disable RPA';
+          btnDisable.classList.toggle('danger', !isDisabled);
+          
+          if (isDisabled) {
+            document.querySelector('.rpa-form-capture-view').style.opacity = '0.7';
+          } else {
+            document.querySelector('.rpa-form-capture-view').style.opacity = '1';
+          }
+        }
+
+        btnDisable.addEventListener('click', function() {
+          if (form.rpaStatus === "Disabled") {
+            form.rpaStatus = "Ready for Bot";
+          } else {
+            form.rpaStatus = "Disabled";
+          }
+          window.localStorage.setItem(STORAGE_KEY, JSON.stringify(forms));
+          updateUI();
+        });
+      })();
+    </script>
+  </body>
+</html>

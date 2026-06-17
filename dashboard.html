@@ -4,6 +4,10 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Concrete Cube Dashboard</title>
+    <link rel="icon" type="image/png" href="favicon.png">
+    <link rel="apple-touch-icon" href="favicon.png">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#003399">
     <link rel="stylesheet" href="dashboard.css">
     <script src="dashboard.js" defer></script>
   </head>
@@ -13,7 +17,7 @@
         <div class="brand-block">
           <img class="dashboard-logo" src="assets/logoBanner.png" alt="CubeSync">
           <p class="eyebrow">CubeSync</p>
-          <h1>Dashboard</h1>
+          <h1>Human Dashboard</h1>
         </div>
         <nav class="top-actions" aria-label="Dashboard actions">
           <div class="theme-switch">
@@ -24,28 +28,11 @@
               <div class="theme-switch-eye theme-switch-eye-2"></div>
             </div>
           </div>
+          <a href="rpa-dashboard.html" class="rpa-link">RPA Bot Queue</a>
           <a href="index.html">New Original Form</a>
           <a href="glassmorphic.html">New Glassmorphic Form</a>
         </nav>
       </header>
-      <section class="metric-grid" aria-label="Form summary">
-        <article class="glass-panel">
-          <span>Total forms</span>
-          <strong id="totalForms">0</strong>
-        </article>
-        <article class="glass-panel">
-          <span>Drafts</span>
-          <strong id="draftForms">0</strong>
-        </article>
-        <article class="glass-panel">
-          <span>Ready to print</span>
-          <strong id="readyForms">0</strong>
-        </article>
-        <article class="glass-panel">
-          <span>Archived</span>
-          <strong id="archivedForms">0</strong>
-        </article>
-      </section>
 
       <section class="workspace">
         <section class="list-panel glass-panel" aria-labelledby="formsTitle">

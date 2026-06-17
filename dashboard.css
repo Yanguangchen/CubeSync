@@ -131,6 +131,22 @@ button:hover,
   background: rgba(255, 255, 255, 0.1);
 }
 
+.rpa-link {
+  background: rgba(245, 158, 11, 0.1) !important;
+  border-color: #f59e0b !important;
+  color: #d97706 !important;
+}
+
+[data-theme="dark"] .rpa-link {
+  background: rgba(245, 158, 11, 0.2) !important;
+  color: #fbbf24 !important;
+}
+
+.rpa-link:hover {
+  background: #f59e0b !important;
+  color: white !important;
+}
+
 .top-actions a:first-of-type,
 #detailViewButton,
 button[type="submit"] {
@@ -164,41 +180,6 @@ button:disabled {
 .danger:hover {
   background: var(--error-soft);
   border-color: var(--error);
-}
-
-.metric-grid article {
-  min-height: 104px;
-  padding: 16px;
-  border-radius: 16px;
-  background: var(--brand-sky-soft);
-  transition: transform var(--transition), box-shadow var(--transition), background var(--transition);
-  cursor: default;
-}
-
-.metric-grid article:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow);
-  background: var(--surface);
-}
-
-[data-theme="dark"] .metric-grid article {
-  background: rgba(139, 207, 251, 0.08);
-}
-
-[data-theme="dark"] .metric-grid article:hover {
-  background: rgba(139, 207, 251, 0.14);
-}
-
-.metric-grid strong {
-  display: block;
-  margin-top: 8px;
-  font-size: 30px;
-  line-height: 1;
-  color: var(--brand-blue-strong);
-}
-
-[data-theme="dark"] .metric-grid strong {
-  color: var(--brand-sky);
 }
 
 .status-ready {
@@ -453,34 +434,6 @@ button:disabled {
   border-color: var(--accent-strong);
 }
 
-.metric-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-  margin-bottom: 14px;
-}
-
-.metric-grid article {
-  min-height: 104px;
-  padding: 16px;
-  border-radius: 16px;
-}
-
-.metric-grid span {
-  display: block;
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 700;
-  text-transform: uppercase;
-}
-
-.metric-grid strong {
-  display: block;
-  margin-top: 8px;
-  font-size: 30px;
-  line-height: 1;
-}
-
 .workspace {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 370px;
@@ -733,10 +686,6 @@ textarea:focus {
   .detail-panel {
     position: static;
   }
-
-  .metric-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
 }
 
 @media (max-width: 680px) {
@@ -765,7 +714,6 @@ textarea:focus {
   }
 
   .filters,
-  .metric-grid,
   .edit-grid {
     grid-template-columns: 1fr;
   }

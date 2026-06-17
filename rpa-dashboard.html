@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>RPA Daily Bot Queue - CubeSync</title>
+    <link rel="icon" type="image/png" href="favicon.png">
+    <link rel="apple-touch-icon" href="favicon.png">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#003399">
+    <link rel="stylesheet" href="dashboard.css">
+    <link rel="stylesheet" href="rpa-dashboard.css">
+    <script src="rpa-dashboard.js" defer></script>
+  </head>
+  <body>
+    <main class="dashboard-shell">
+      <header class="topbar glass-panel">
+        <div class="brand-block">
+          <img class="dashboard-logo" src="assets/logoBanner.png" alt="CubeSync">
+          <p class="eyebrow">RPA Operations</p>
+          <h1>Daily Bot Queue</h1>
+        </div>
+        <nav class="top-actions" aria-label="Dashboard actions">
+          <div class="theme-switch">
+            <div class="theme-switch-face">
+              <input type="checkbox" id="themeToggle" class="theme-switch-input" aria-label="Toggle light and dark mode">
+              <div class="theme-switch-mouth"><div class="theme-switch-tongue"></div></div>
+              <div class="theme-switch-eye theme-switch-eye-1"></div>
+              <div class="theme-switch-eye theme-switch-eye-2"></div>
+            </div>
+          </div>
+          <a href="dashboard.html">Main Dashboard</a>
+          <a href="index.html">New Form</a>
+        </nav>
+      </header>
+
+      <header class="queue-controls glass-panel">
+        <div class="date-navigator">
+          <h2>CubeSync Daily RPA Queue</h2>
+          <div class="date-selector">
+            <button type="button" id="prevDay">Previous Day</button>
+            <button type="button" id="todayBtn" class="active">Today</button>
+            <button type="button" id="nextDay">Next Day</button>
+            <div class="picker-wrap">
+              <input type="date" id="datePicker" aria-label="Select date">
+            </div>
+          </div>
+        </div>
+        <div id="currentDateDisplay" class="current-date-badge"></div>
+      </header>
+
+      <section class="workspace">
+        <section class="list-panel glass-panel" aria-labelledby="queueTitle" style="grid-column: span 2;">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Queue</p>
+              <h2 id="queueTitle">Forms Submitted Today</h2>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table class="form-table rpa-table">
+              <thead>
+                <tr>
+                  <th scope="col">Time Submitted</th>
+                  <th scope="col">Report No</th>
+                  <th scope="col">Client</th>
+                  <th scope="col">Project</th>
+                  <th scope="col">ERP Status</th>
+                  <th scope="col">Attempts</th>
+                  <th scope="col">Action</th>
+                </tr>
+              </thead>
+              <tbody id="queueList"></tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+    </main>
+  </body>
+</html>

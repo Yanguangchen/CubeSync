@@ -7,8 +7,12 @@ test("dashboard frontend exposes form CRUD controls", () => {
   const css = fs.readFileSync("dashboard.css", "utf8");
   const js = fs.readFileSync("dashboard.js", "utf8");
 
-  assert.match(html, /<title>Dashboard<\/title>/);
+  assert.match(html, /<title>Concrete Cube Dashboard<\/title>/);
   assert.match(html, /<h1>Dashboard<\/h1>/);
+  assert.doesNotMatch(html, /metric-grid/);
+  assert.doesNotMatch(js, /renderMetrics/);
+  assert.doesNotMatch(js, /totalForms/);
+  assert.doesNotMatch(css, /\.metric-grid/);
   assert.doesNotMatch(html, /<h1>Concrete Cube Dashboard<\/h1>/);
   assert.match(html, /dashboard\.css/);
   assert.match(html, /dashboard\.js/);

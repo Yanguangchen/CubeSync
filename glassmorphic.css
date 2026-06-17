@@ -1,34 +1,32 @@
 :root {
-  /* Brand */
-  --brand-mint: #42d5bb;
-  --brand-blue: #52a0fc;
-  --brand-sky: #8bcffb;
-  --brand-mint-strong: #2bb8a0;
-  --brand-blue-strong: #3a8ae8;
-  --brand-sky-soft: #d4edfd;
+  /* Brand - Rakmat Professional Blue */
+  --brand-blue: #003399;
+  --brand-blue-strong: #002266;
+  --brand-accent: #E31E24;
+  --brand-sky-soft: #f0f5ff;
 
   /* Semantic */
-  --accent: var(--brand-mint);
-  --accent-strong: var(--brand-mint-strong);
-  --accent-soft: rgba(66, 213, 187, 0.14);
+  --accent: var(--brand-blue);
+  --accent-strong: var(--brand-blue-strong);
+  --accent-soft: rgba(0, 51, 153, 0.1);
   --accent-secondary: var(--brand-blue);
-  --accent-secondary-soft: rgba(82, 160, 252, 0.14);
-  --highlight: var(--brand-sky);
-  --highlight-soft: var(--brand-sky-soft);
+  --accent-secondary-soft: rgba(0, 51, 153, 0.05);
+  --highlight: #e6eefc;
+  --highlight-soft: #f0f5ff;
 
   /* Neutrals */
-  --ink: #1f2733;
-  --muted: #6b7480;
-  --line: #e3e7ec;
-  --line-strong: #cdd3da;
+  --ink: #000000;
+  --muted: #4b5563;
+  --line: rgba(0, 51, 153, 0.12);
+  --line-strong: rgba(0, 51, 153, 0.24);
   --surface: #ffffff;
-  --subtle: #f5f7f9;
+  --subtle: #f9fafb;
   --page-bg: #eef4f8;
 
   /* Feedback */
   --error: #b42318;
   --error-soft: rgba(180, 35, 24, 0.10);
-  --success: var(--brand-mint);
+  --success: var(--brand-blue);
   --success-soft: var(--accent-soft);
 
   /* Spacing */
@@ -153,8 +151,8 @@ button:hover,
 .add-row-btn,
 #nextStep,
 button[type="submit"] {
-  background: linear-gradient(135deg, var(--brand-mint) 0%, var(--brand-blue) 100%);
-  border-color: var(--brand-mint);
+  background: linear-gradient(135deg, var(--brand-blue) 0%, var(--brand-blue-strong) 100%);
+  border-color: var(--brand-blue);
   color: #ffffff;
 }
 
@@ -162,9 +160,9 @@ button[type="submit"] {
 .add-row-btn:hover,
 #nextStep:hover,
 button[type="submit"]:hover {
-  background: linear-gradient(135deg, var(--brand-mint-strong) 0%, var(--brand-blue-strong) 100%);
-  border-color: var(--brand-mint-strong);
-  box-shadow: 0 4px 12px rgba(66, 213, 187, 0.24);
+  background: linear-gradient(135deg, var(--brand-blue-strong) 0%, #001133 100%);
+  border-color: var(--brand-blue-strong);
+  box-shadow: 0 4px 12px rgba(0, 51, 153, 0.24);
 }
 
 .version-link {

@@ -1,0 +1,88 @@
+/* RPA Dashboard Specific Styles */
+
+.queue-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px;
+  margin-bottom: 14px;
+  border-radius: 18px;
+}
+
+.date-navigator h2 {
+  margin: 0 0 10px;
+  font-size: 1.2rem;
+  color: var(--muted);
+}
+
+.date-selector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.date-selector button {
+  min-height: 34px;
+  padding: 0 14px;
+  font-size: 0.9rem;
+}
+
+.date-selector button.active {
+  background: var(--brand-blue);
+  color: white;
+  border-color: var(--brand-blue);
+}
+
+.picker-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+#datePicker {
+  min-height: 34px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+}
+
+.current-date-badge {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--brand-blue-strong);
+}
+
+[data-theme="dark"] .current-date-badge {
+  color: var(--brand-sky);
+}
+
+.rpa-table th {
+  font-size: 10px;
+}
+
+.status-pill.status-processing {
+  background: rgba(245, 158, 11, 0.15);
+  color: #d97706;
+}
+
+.status-pill.status-failed {
+  background: rgba(239, 68, 68, 0.15);
+  color: #dc2626;
+}
+
+.detail-actions.rpa-actions {
+  grid-template-columns: 1fr;
+}
+
+.disabled-row {
+  opacity: 0.6;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="dark"] .disabled-row {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.hidden {
+  display: none !important;
+}

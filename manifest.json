@@ -1,0 +1,23 @@
+{
+  "name": "CubeSync - Concrete Cube Test Request",
+  "short_name": "CubeSync",
+  "description": "Digital submission and management for concrete cube test requests.",
+  "start_url": "./dashboard.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#003399",
+  "icons": [
+    {
+      "src": "favicon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "favicon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
