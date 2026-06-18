@@ -11,10 +11,18 @@
     <link rel="stylesheet" href="styles.css">
     <script src="barcode.js" defer></script>
     <script src="cubesync-form-data.js" defer></script>
+    <script src="env.js"></script>
     <script type="module" src="firestore.js"></script>
+    <script src="https://www.google.com/recaptcha/api.js?render=explicit" async defer></script>
+    <script src="chime.js" defer></script>
     <script src="app.js" defer></script>
   </head>
   <body>
+    <script>
+      window.addEventListener("DOMContentLoaded", () => {
+        if (window.CubeSyncChime) window.CubeSyncChime.attachButtonChimes();
+      });
+    </script>
     <div class="page-tools" aria-label="Form actions">
       <div class="tool-section left">
         <a class="version-link" href="dashboard.html">← Dashboard</a>
@@ -26,6 +34,7 @@
         </div>
       </div>
       <div class="tool-section right">
+        <div id="recaptchaContainer"></div>
         <span id="saveStatus" class="save-status" role="status" aria-live="polite"></span>
         <button type="submit" form="cubeRequestForm" id="saveFormButton">Save</button>
         <button type="button" id="printButton">Print</button>

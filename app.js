@@ -65,6 +65,58 @@
     element.classList.toggle("is-error", Boolean(isError));
   }
 
+  function recaptchaSiteKey() {
+    const env = window.CubeSyncEnv || {};
+    return String(env.RECAPTCHA_SITE_KEY || "").trim();
+  }
+
+  function renderRecaptcha(container, statusElement, attempt) {
+    if (!container || container.dataset.widgetId) return;
+
+    const siteKey = recaptchaSiteKey();
+    if (!siteKey) {
+      setSaveStatus(statusElement, "reCAPTCHA site key is not configured", true);
+      return;
+    }
+
+    if (!window.grecaptcha || typeof window.grecaptcha.render !== "function") {
+      if ((attempt || 0) < 20) {
+        window.setTimeout(function () {
+          renderRecaptcha(container, statusElement, (attempt || 0) + 1);
+        }, 250);
+      }
+      return;
+    }
+
+    const widgetId = window.grecaptcha.render(container, {
+      sitekey: siteKey
+    });
+    container.dataset.widgetId = String(widgetId);
+  }
+
+  function recaptchaToken(container) {
+    if (!container) return "";
+
+    const widgetId = container.dataset.widgetId;
+    if (!widgetId || !window.grecaptcha || typeof window.grecaptcha.getResponse !== "function") {
+      throw new Error("reCAPTCHA is still loading. Try again in a moment.");
+    }
+
+    const token = window.grecaptcha.getResponse(Number(widgetId));
+    if (!token) {
+      throw new Error("Complete the reCAPTCHA before saving.");
+    }
+
+    return token;
+  }
+
+  function resetRecaptcha(container) {
+    if (!container || !container.dataset.widgetId || !window.grecaptcha) return;
+    if (typeof window.grecaptcha.reset === "function") {
+      window.grecaptcha.reset(Number(container.dataset.widgetId));
+    }
+  }
+
   function submitForm(form, submitter) {
     if (!form) return;
 
@@ -112,6 +164,7 @@
     const printButton = document.getElementById("printButton");
     const saveButton = document.getElementById("saveFormButton");
     const saveStatus = document.getElementById("saveStatus");
+    const recaptchaContainer = document.getElementById("recaptchaContainer");
     const barcodeInputs = Array.from(document.querySelectorAll("[data-barcode-input]"));
     const urlParams = new URLSearchParams(window.location.search);
     let currentDocId = urlParams.get("id");
@@ -147,21 +200,11 @@
           return;
         }
 
-        const auth = window.CubeSyncAuth;
-
-        if (auth && !auth.currentUser()) {
-          setSaveStatus(saveStatus, "Sign in required...", false);
-          try {
-            await auth.signInWithGoogle();
-          } catch (error) {
-            setSaveStatus(saveStatus, error.message || "Sign in failed", true);
-            return;
-          }
-        }
-
-        if (auth && !auth.isAllowedUser(auth.currentUser())) {
-          setSaveStatus(saveStatus, "Google account is not allowed", true);
-          auth.signOutUser().catch(() => {});
+        let token = "";
+        try {
+          token = recaptchaToken(recaptchaContainer);
+        } catch (error) {
+          setSaveStatus(saveStatus, error.message || "reCAPTCHA failed", true);
           return;
         }
 
@@ -172,13 +215,17 @@
 
         try {
           const payload = formData.buildCubeRequestFromForm(form);
-          currentDocId = await store.saveCubeRequest(payload, currentDocId);
+          currentDocId = await store.savePublicCubeRequest(payload, currentDocId, token);
           const url = new URL(window.location.href);
           url.searchParams.set("id", currentDocId);
           window.history.replaceState({}, "", url);
           setSaveStatus(saveStatus, "Saved", false);
+          if (window.CubeSyncChime && typeof window.CubeSyncChime.showEncouragingPopup === "function") {
+            window.CubeSyncChime.showEncouragingPopup("Great job! Form submitted successfully.");
+          }
         } catch (error) {
           setSaveStatus(saveStatus, error.message || "Save failed", true);
+          resetRecaptcha(recaptchaContainer);
         } finally {
           if (saveButton) {
             saveButton.disabled = false;
@@ -249,6 +296,7 @@
     }
 
     renderAll(barcodeInputs);
+    renderRecaptcha(recaptchaContainer, saveStatus);
 
     // Dynamic rows
     const addRowBtn = document.getElementById("addRowButton");

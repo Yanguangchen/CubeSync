@@ -45,7 +45,10 @@ test("original and glassmorphic forms submit the same Firestore fields", () => {
   for (const html of [originalHtml, glassHtml]) {
     assert.match(html, /<form id="cubeRequestForm"[^>]*data-template="/);
     assert.match(html, /cubesync-form-data\.js/);
+    assert.match(html, /env\.js/);
     assert.match(html, /firestore\.js/);
+    assert.match(html, /recaptcha\/api\.js\?render=explicit/);
+    assert.match(html, /id="recaptchaContainer"/);
     assert.match(html, /id="saveFormButton"/);
     assert.match(html, /id="saveStatus"/);
   }

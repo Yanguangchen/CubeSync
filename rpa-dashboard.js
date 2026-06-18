@@ -71,7 +71,7 @@
 
   function queueDate(form) {
     const raw = form.raw || {};
-    const date = toDate(raw.submittedAt || raw.createdAt || raw.updatedAt || raw.internalDate);
+    const date = toDate(raw.internalDate || raw.submittedAt || raw.createdAt || raw.updatedAt);
     return date || new Date();
   }
 
@@ -250,8 +250,20 @@
         return;
       }
 
-      elements.authUser.textContent = user.email || user.displayName || "Signed in";
+      if (elements.authUser) elements.authUser.textContent = user.email || user.displayName || "Signed in";
       setDashboardLocked(false);
+      
+      // Play startup sound once on enter
+      if (!window.rpaStartupSoundPlayed) {
+        window.rpaStartupSoundPlayed = true;
+        const audio = new Audio("assets/startupsound.mp3");
+        audio.volume = 0.3; // Lower the volume
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(err => console.warn("Startup sound blocked:", err));
+        }
+      }
+
       loadQueue();
     });
   }
@@ -325,7 +337,7 @@
   function bindElements() {
     [
       "authGate", "dashboardShell", "signInButton", "signOutButton", "authUser",
-      "queueList", "prevDay", "todayBtn", "nextDay", "datePicker", "currentDateDisplay",
+      "queueList", "prevDay", "todayBtn", "datePicker", "currentDateDisplay",
       "exportAllButton"
     ].forEach((id) => {
       elements[id] = document.getElementById(id);
@@ -359,6 +371,7 @@
     initialized = true;
 
     bindElements();
+    elements.datePicker.max = todaySGT;
     elements.datePicker.value = state.viewDate;
     renderQueue();
 
@@ -387,7 +400,6 @@
     });
 
     elements.prevDay.addEventListener("click", () => changeDate(-1));
-    elements.nextDay.addEventListener("click", () => changeDate(1));
     elements.exportAllButton.addEventListener("click", exportAllForms);
     elements.todayBtn.addEventListener("click", () => {
       state.viewDate = todaySGT;

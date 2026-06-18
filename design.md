@@ -201,6 +201,13 @@ Load via Google Fonts:
 - Zebra rows: alternate `--subtle`
 - Row inputs: transparent until hover/focus
 
+### reCAPTCHA v2 Widget
+
+- **Placement:** Positioned immediately above the primary "Save" or "Next" button on the final step of the form.
+- **Sizing:** Standard reCAPTCHA v2 widget size (304px x 78px). Ensure sufficient clear space (at least `--space-2`) around the widget.
+- **Loading State:** While reCAPTCHA is loading, a placeholder with the text "reCAPTCHA is loading..." should be visible to prevent layout shift.
+- **Error Feedback:** If verification fails or the user forgets to complete the challenge, a semantic `--error` message is displayed below the widget.
+
 ### Barcode cells
 
 - Input max-width: `220px`

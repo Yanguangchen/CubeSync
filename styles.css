@@ -138,6 +138,12 @@ button:hover,
   color: var(--error);
 }
 
+.recaptcha-section {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 18px;
+}
+
 .mode-toggle {
   display: flex;
   background: var(--line);

@@ -65,14 +65,80 @@ body {
   min-height: 100vh;
   margin: 0;
   background: var(--page-bg);
-  background: linear-gradient(
-    135deg,
-    rgba(66, 213, 187, 0.12) 0%,
-    rgba(82, 160, 252, 0.10) 50%,
-    rgba(139, 207, 251, 0.14) 100%
-  );
   line-height: 1.4;
   transition: background var(--transition);
+}
+
+/* Animated Background Blobs */
+.bg-blobs {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  background-color: var(--page-bg);
+  transition: background-color 1s ease;
+}
+
+.blob {
+  position: absolute;
+  width: min(700px, 90vw);
+  height: min(700px, 90vw);
+  border-radius: 50%;
+  filter: blur(90px);
+  opacity: 0.55;
+  animation: dreamy-flow 30s infinite alternate ease-in-out;
+  pointer-events: none;
+}
+
+.blob-1 {
+  top: -15%;
+  left: -10%;
+  background: radial-gradient(circle, var(--brand-mint) 0%, transparent 70%);
+  animation-duration: 35s;
+}
+
+.blob-2 {
+  bottom: -20%;
+  right: -5%;
+  background: radial-gradient(circle, var(--brand-blue) 0%, transparent 70%);
+  animation-duration: 40s;
+  animation-delay: -7s;
+}
+
+.blob-3 {
+  top: 35%;
+  right: 10%;
+  width: min(500px, 70vw);
+  height: min(500px, 70vw);
+  background: radial-gradient(circle, var(--brand-sky) 0%, transparent 70%);
+  animation-duration: 30s;
+  animation-delay: -12s;
+}
+
+.blob-4 {
+  bottom: 15%;
+  left: 15%;
+  width: min(600px, 80vw);
+  height: min(600px, 80vw);
+  background: radial-gradient(circle, var(--brand-mint) 0%, transparent 70%);
+  opacity: 0.35;
+  animation-duration: 45s;
+  animation-delay: -20s;
+}
+
+@keyframes dreamy-flow {
+  0% { transform: translate(0, 0) scale(1) rotate(0deg); }
+  33% { transform: translate(8%, 12%) scale(1.15) rotate(120deg); }
+  66% { transform: translate(-12%, 8%) scale(0.9) rotate(240deg); }
+  100% { transform: translate(6%, -12%) scale(1.1) rotate(360deg); }
+}
+
+[data-theme="dark"] .bg-blobs {
+  background-color: #020617;
+}
+
+[data-theme="dark"] .blob {
+  opacity: 0.3;
 }
 
 .is-hidden {
@@ -80,9 +146,7 @@ body {
 }
 
 [data-theme="dark"] body {
-  background:
-    linear-gradient(120deg, rgba(82, 160, 252, 0.1), rgba(66, 213, 187, 0.05) 43%, rgba(30, 41, 59, 0.2)),
-    linear-gradient(180deg, #0f172a 0%, #020617 100%);
+  background: #020617;
 }
 
 button,
@@ -95,10 +159,18 @@ a {
 }
 
 .glass-panel {
-  border: 1px solid var(--line);
-  background: var(--surface);
-  backdrop-filter: blur(20px);
-  box-shadow: var(--shadow-soft);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(24px) saturate(180%);
+  box-shadow: 
+    0 8px 32px 0 rgba(31, 38, 135, 0.08),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.15);
+}
+
+[data-theme="dark"] .glass-panel {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(15, 23, 42, 0.65);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
 }
 
 .auth-gate {

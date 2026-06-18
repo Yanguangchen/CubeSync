@@ -54,15 +54,30 @@ test("glassmorphic final step saves to Firestore instead of printing", async () 
   global.window.print = () => {
     printCalls += 1;
   };
+  global.window.CubeSyncEnv = {
+    RECAPTCHA_SITE_KEY: "test-site-key"
+  };
+  global.window.grecaptcha = {
+    render: () => 0,
+    getResponse: () => "test-recaptcha-token",
+    reset: () => {}
+  };
   global.window.CubeSyncBarcode = require("./barcode.js");
   global.window.CubeSyncFormData = require("./cubesync-form-data.js");
+  let signInCalls = 0;
   global.window.CubeSyncAuth = {
-    currentUser: () => ({ email: "test@rakmat.com.sg" }),
-    isAllowedUser: () => true
+    currentUser: () => null,
+    isAllowedUser: () => false,
+    signInWithGoogle: async () => {
+      signInCalls += 1;
+      throw new Error("Customer form submissions must not require sign-in");
+    }
   };
   global.window.CubeSyncFirestore = {
-    saveCubeRequest: async (payload) => {
+    savePublicCubeRequest: async (payload, id, recaptchaToken) => {
       savedPayload = payload;
+      assert.equal(id, null);
+      assert.equal(recaptchaToken, "test-recaptcha-token");
       return "saved-form-1";
     }
   };
@@ -90,6 +105,7 @@ test("glassmorphic final step saves to Firestore instead of printing", async () 
   assert.equal(savedPayload.results.length, 1);
   assert.equal(savedPayload.results[0].testNumber, "T-001");
   assert.equal(savedPayload.results[0].barcode, "BC-GLASS-001");
+  assert.equal(signInCalls, 0);
   assert.equal(global.document.getElementById("saveStatus").textContent, "Saved");
   assert.equal(new global.window.URL(global.window.location.href).searchParams.get("id"), "saved-form-1");
 

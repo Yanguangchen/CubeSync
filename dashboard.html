@@ -8,13 +8,29 @@
     <link rel="apple-touch-icon" href="assets/icon-192.png">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#42d5bb">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="dashboard.css">
     <script src="barcode.js" defer></script>
     <script src="cubesync-form-data.js" defer></script>
+    <script src="env.js"></script>
     <script type="module" src="firestore.js"></script>
+    <script src="chime.js" defer></script>
     <script src="dashboard.js" defer></script>
   </head>
   <body>
+    <script>
+      window.addEventListener("DOMContentLoaded", () => {
+        if (window.CubeSyncChime) window.CubeSyncChime.attachButtonChimes();
+      });
+    </script>
+    <div class="bg-blobs" aria-hidden="true">
+      <div class="blob blob-1"></div>
+      <div class="blob blob-2"></div>
+      <div class="blob blob-3"></div>
+      <div class="blob blob-4"></div>
+    </div>
     <section id="authGate" class="auth-gate glass-panel">
       <img class="auth-logo" src="assets/logoBanner.png" alt="CubeSync">
       <p class="eyebrow">Authentication</p>

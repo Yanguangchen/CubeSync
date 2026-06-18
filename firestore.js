@@ -171,6 +171,30 @@ async function saveCubeRequest(payload, id) {
   return reference.id;
 }
 
+async function savePublicCubeRequest(payload, id, recaptchaToken) {
+  const response = await fetch("/api/cube-request-submit", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(withoutUndefined({
+      id,
+      payload,
+      recaptchaToken
+    }))
+  });
+  const result = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    if (response.status === 405) {
+      throw new Error(result.error || "Submission API is not running. Use Vercel or vercel dev; Live Server cannot run /api functions.");
+    }
+    throw new Error(result.error || "Form submission failed");
+  }
+
+  return result.id;
+}
+
 async function updateCubeRequest(id, updates) {
   await updateDoc(cubeRequestDocument(id), withoutUndefined({
     ...updates,
@@ -189,6 +213,7 @@ window.CubeSyncFirestore = {
   firebaseConfig,
   listCubeRequests,
   getCubeRequest,
+  savePublicCubeRequest,
   saveCubeRequest,
   updateCubeRequest,
   deleteCubeRequest

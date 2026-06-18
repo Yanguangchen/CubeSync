@@ -10,9 +10,11 @@
     <meta name="theme-color" content="#42d5bb">
     <link rel="stylesheet" href="dashboard.css">
     <link rel="stylesheet" href="rpa-dashboard.css">
+    <link rel="stylesheet" href="xp-taskbar.css">
     <script src="cubesync-form-data.js" defer></script>
     <script src="cubesync-export.js" defer></script>
     <script type="module" src="firestore.js"></script>
+    <script src="chime.js" defer></script>
     <script src="rpa-dashboard.js" defer></script>
   </head>
   <body>
@@ -25,74 +27,71 @@
     </section>
 
     <main id="dashboardShell" class="dashboard-shell is-hidden">
-      <header class="topbar glass-panel">
-        <div class="brand-block">
-          <img class="dashboard-logo" src="assets/logoBanner.png" alt="CubeSync">
-          <p class="eyebrow">RPA Operations</p>
-          <h1>Daily Bot Queue</h1>
-        </div>
-        <nav class="top-actions" aria-label="Dashboard actions">
-          <span id="authUser" class="auth-user"></span>
-          <button type="button" id="signOutButton">Sign out</button>
-          <div class="theme-switch">
-            <div class="theme-switch-face">
-              <input type="checkbox" id="themeToggle" class="theme-switch-input" aria-label="Toggle light and dark mode">
-              <div class="theme-switch-mouth"><div class="theme-switch-tongue"></div></div>
-              <div class="theme-switch-eye theme-switch-eye-1"></div>
-              <div class="theme-switch-eye theme-switch-eye-2"></div>
-            </div>
-          </div>
-          <a href="dashboard.html">Main Dashboard</a>
-          <a href="index.html">New Form</a>
-        </nav>
-      </header>
+      <div class="xp-window">
+        <header class="xp-window-title">
+          <h1>CubeSync - Daily Bot Queue</h1>
+        </header>
 
-      <header class="queue-controls glass-panel">
-        <div class="date-navigator">
-          <h2>CubeSync Daily RPA Queue</h2>
-          <div class="date-selector">
+        <div class="xp-window-body">
+          <div class="xp-toolbar" style="display: flex; gap: 10px; padding: 10px; align-items: center; border-bottom: 1px solid #808080; margin-bottom: 10px;">
             <button type="button" id="prevDay">Previous Day</button>
             <button type="button" id="todayBtn" class="active">Today</button>
-            <button type="button" id="nextDay">Next Day</button>
-            <div class="picker-wrap">
-              <input type="date" id="datePicker" aria-label="Select date">
+            <input type="date" id="datePicker" aria-label="Select date" style="width: auto;">
+            <div style="flex-grow: 1;"></div>
+            <button type="button" id="exportAllButton" class="export-button" disabled>Export all CSV</button>
+            <div class="theme-switch" style="margin-left: 10px;">
+              <div class="theme-switch-face">
+                <input type="checkbox" id="themeToggle" class="theme-switch-input" aria-label="Toggle light and dark mode">
+                <div class="theme-switch-mouth"><div class="theme-switch-tongue"></div></div>
+                <div class="theme-switch-eye theme-switch-eye-1"></div>
+                <div class="theme-switch-eye theme-switch-eye-2"></div>
+              </div>
             </div>
-          </div>
-        </div>
-        <div class="queue-actions">
-          <button type="button" id="exportAllButton" class="export-button" disabled>Export all CSV</button>
-          <div id="currentDateDisplay" class="current-date-badge"></div>
-        </div>
-      </header>
-
-      <section class="workspace">
-        <section class="list-panel glass-panel" aria-labelledby="queueTitle" style="grid-column: span 2;">
-          <div class="panel-heading">
-            <div>
-              <p class="eyebrow">Queue</p>
-              <h2 id="queueTitle">Forms Submitted Today</h2>
-            </div>
+            <div id="currentDateDisplay" class="current-date-badge"></div>
           </div>
 
-          <div class="table-wrap">
-            <table class="form-table rpa-table">
-              <thead>
-                <tr>
-                  <th scope="col">Time Submitted</th>
-                  <th scope="col">Report No</th>
-                  <th scope="col">Client</th>
-                  <th scope="col">Project</th>
-                  <th scope="col">ERP Status</th>
-                  <th scope="col">Attempts</th>
-                  <th scope="col">Action</th>
-                </tr>
-              </thead>
-              <tbody id="queueList"></tbody>
-            </table>
-          </div>
-        </section>
-      </section>
+          <section class="workspace">
+            <section class="list-panel" style="grid-column: span 2;">
+
+              <div class="table-wrap">
+                <table class="form-table rpa-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Time Submitted</th>
+                      <th scope="col">Report No</th>
+                      <th scope="col">Client</th>
+                      <th scope="col">Project</th>
+                      <th scope="col">ERP Status</th>
+                      <th scope="col">Attempts</th>
+                      <th scope="col">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody id="queueList"></tbody>
+                </table>
+              </div>
+            </section>
+          </section>
+        </div>
+      </div>
     </main>
+    <footer class="xp-taskbar">
+      <div class="xp-start-btn">
+        <span>start</span>
+      </div>
+      <div class="xp-tasks">
+        <a href="dashboard.html" class="xp-task">Main Dashboard</a>
+        <a href="index.html" class="xp-task">New Form</a>
+      </div>
+      <div class="xp-tray">
+        <span id="authUser" class="auth-user xp-tray-item" style="display: none;"></span>
+        <button type="button" id="signOutButton" class="xp-tray-item xp-btn">Sign out</button>
+      </div>
+    </footer>
+    <script>
+      window.addEventListener("DOMContentLoaded", () => {
+        if (window.CubeSyncChime) window.CubeSyncChime.attachButtonChimes();
+      });
+    </script>
     <script>if("serviceWorker"in navigator){navigator.serviceWorker.register("./sw.js").catch(()=>{});}</script>
   </body>
 </html>

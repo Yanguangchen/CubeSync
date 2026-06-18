@@ -171,7 +171,6 @@ classDiagram
     AppController --> CubeSyncBarcode : uses
     AppController --> CubeSyncFormData : uses
     AppController --> CubeSyncFirestore : uses
-    AppController --> CubeSyncAuth : uses
 
     DashboardController --> CubeSyncBarcode : uses
     DashboardController --> CubeSyncFormData : uses
@@ -198,11 +197,10 @@ How a user fills out and saves a concrete cube request form.
 sequenceDiagram
     actor User
     participant Form as Form Page (app.js)
-    participant FD as CubeSyncFormData
     participant BC as CubeSyncBarcode
-    participant Auth as CubeSyncAuth
-    participant FS as CubeSyncFirestore
-    participant DB as Firestore DB
+    participant RC as reCAPTCHA v2 (Google)
+    participant API as /api/cube-request-submit (Vercel)
+    participant DB as Firestore DB (Firebase)
 
     User->>Form: Fill in request fields
     User->>Form: Type barcode text
@@ -214,34 +212,52 @@ sequenceDiagram
     Form->>Form: addResultRow() → append TR
 
     User->>Form: Click Save / Final Step
-    Form->>Auth: currentUser()
-    Auth-->>Form: user object
-
-    alt No user signed in
-        Form->>Auth: signInWithGoogle()
-        Auth-->>Form: signed-in user
+    
+    rect rgb(240, 240, 240)
+        Note over Form, RC: reCAPTCHA Flow
+        Form->>Form: renderRecaptcha() (polls for grepcaptcha)
+        User->>RC: Complete challenge
+        Form->>RC: getResponse(widgetId)
+        RC-->>Form: recaptchaToken
     end
 
-    Form->>Auth: isAllowedUser(user)
-
-    alt User not allowed
-        Form->>Auth: signOutUser()
-        Form->>Form: Show "Unauthorized" error
-    else User allowed
-        Form->>FD: buildCubeRequestFromForm(form)
-        FD-->>Form: payload object
-        Form->>FS: saveCubeRequest(payload, docId?)
-        FS->>DB: setDoc / addDoc
-        DB-->>FS: document ID
-        FS-->>Form: document ID
-        Form->>Form: Update URL with ?id=docId
-        Form->>Form: Show "Saved" status
+    Form->>API: POST payload + recaptchaToken
+    
+    rect rgb(240, 240, 240)
+        Note over API, RC: Server-Side Verification
+        API->>RC: Verify token with CUBESYNC_RECAPTCHA_SECRET_KEY
+        RC-->>API: { success: true, ... }
     end
+
+    API->>DB: Admin SDK set / add
+    DB-->>API: document ID
+    API-->>Form: { id: documentID }
+    
+    Form->>Form: Update URL with ?id=docId
+    Form->>Form: Show "Saved" status
 ```
 
 ---
 
-## 4. Sequence Diagram — Dashboard CRUD Flow
+## 4. Security Architecture
+
+CubeSync employs a hybrid security model to balance ease-of-use for customers with strict access control for internal staff.
+
+### Public Submissions
+Customers submitting cube requests do not need to sign in. Security is maintained through:
+1.  **reCAPTCHA v2:** Prevents automated spam submissions.
+2.  **API Proxy:** All public writes go through `/api/cube-request-submit`. This serverless function acts as a gatekeeper, verifying reCAPTCHA before using elevated Admin SDK privileges to write to Firestore.
+3.  **Schema Validation:** The API function strictly validates the incoming JSON payload against the `FORM_FIELDS`, `ALLOWED_TEMPLATES`, and `ALLOWED_STATUSES` sets to prevent malicious data injection.
+
+### Internal Operations
+Dashboard and RPA operations require Google Authentication:
+1.  **Firestore Rules:** The `firestore.rules` file enforces `allow read, write: if isSignedIn();` for the `cubeRequests` collection.
+2.  **Application Allowlist:** `firestore.js` maintains `CUBESYNC_ALLOWED_EMAILS`. Even if a user is signed in to Firebase, the UI remains locked unless their email is in the allowlist.
+3.  **Security Rule Mirrors:** The Firestore rules should ideally mirror this allowlist for defense-in-depth (see `firestore.rules`).
+
+---
+
+## 5. Sequence Diagram — Dashboard CRUD Flow
 
 How the human dashboard loads, displays, edits, and deletes forms.
 

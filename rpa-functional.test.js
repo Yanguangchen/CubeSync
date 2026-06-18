@@ -11,12 +11,17 @@ const rpaViewJs = fs.readFileSync("rpa-view.js", "utf8");
 const rpaDashboardHtml = fs.readFileSync("rpa-dashboard.html", "utf8");
 const rpaViewHtml = fs.readFileSync("rpa-view.html", "utf8");
 
+function stubAudio(window) {
+  window.HTMLMediaElement.prototype.play = () => Promise.resolve();
+}
+
 test("rpa-dashboard.js handles auth and loads queue", async () => {
   const dom = new JSDOM(rpaDashboardHtml, {
     runScripts: "dangerously",
     url: "http://localhost/"
   });
   const { window } = dom;
+  stubAudio(window);
   window.alert = () => {};
 
   const mockAuth = {
@@ -175,6 +180,7 @@ test("rpa-dashboard.js date navigation defaults to today and handles button clic
     url: "http://localhost/"
   });
   const { window } = dom;
+  stubAudio(window);
 
   const mockAuth = {
     onAuthChange: (cb) => cb({ email: "rpa@rakmat.com.sg" }),
@@ -234,6 +240,7 @@ test("rpa-dashboard.js only shows forms from the selected date", async () => {
     url: "http://localhost/"
   });
   const { window } = dom;
+  stubAudio(window);
 
   function getSGTDate(date) {
     const formatter = new Intl.DateTimeFormat("en-GB", {

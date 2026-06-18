@@ -818,8 +818,9 @@ service cloud.firestore {
     // CUBESYNC-ONLY RULES
     //
     // NEVER edit the WorkGrid rules above for CubeSync changes.
-    // CubeSync stores concrete cube request form documents here. Access is
-    // intentionally broad for the prototype, but still requires Firebase Auth.
+    // CubeSync stores concrete cube request form documents here. Customer-facing
+    // form submissions go through /api/cube-request-submit, which verifies
+    // reCAPTCHA v2 server-side and writes with the Admin SDK.
     // ---------------------------------------------------------------
     match /cubeRequests/{requestId} {
       allow read, write: if isSignedIn();

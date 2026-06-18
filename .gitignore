@@ -1,5 +1,52 @@
+# Dependencies
 node_modules/
-coverage/
+.pnpm-store
+*.lock
+
+# Build artifacts
 dist/
+build/
 .next/
+out/
+public/
+
+# Environment variables
+.env
+.env.local
+.env.development
+.env.test
+env.js
+
+# System files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Ollama model files
+*.bin
+*.gguf
+*.model
+ollama/
+models/
+
+# Test coverage
+.nyc_output
+coverage
+.nyc_output/
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+
+# Local development files
+.local
+
 .vercel

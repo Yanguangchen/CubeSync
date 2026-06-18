@@ -3,6 +3,7 @@ import js from "@eslint/js";
 const browserGlobals = {
   FormData: "readonly",
   Intl: "readonly",
+  Audio: "readonly",
   Blob: "readonly",
   URL: "readonly",
   URLSearchParams: "readonly",
@@ -10,6 +11,7 @@ const browserGlobals = {
   console: "readonly",
   document: "readonly",
   encodeURIComponent: "readonly",
+  fetch: "readonly",
   globalThis: "readonly",
   localStorage: "readonly",
   module: "readonly",
@@ -34,6 +36,8 @@ export default [
       "node_modules/**",
       "coverage/**",
       "dist/**",
+      "public/**",
+      "env.js",
       ".next/**"
     ]
   },
@@ -42,9 +46,11 @@ export default [
     files: [
       "app.js",
       "barcode.js",
+      "chime.js",
       "cubesync-export.js",
       "cubesync-form-data.js",
       "dashboard.js",
+      "env.example.js",
       "rpa-dashboard.js",
       "rpa-view.js"
     ],
@@ -84,6 +90,18 @@ export default [
       ecmaVersion: 2022,
       sourceType: "commonjs",
       globals: nodeGlobals
+    }
+  },
+  {
+    files: ["scripts/*.js", "api/*.js"],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: "commonjs",
+      globals: {
+        ...nodeGlobals,
+        fetch: "readonly",
+        URLSearchParams: "readonly"
+      }
     }
   }
 ];

@@ -56,10 +56,12 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
 
-  // Always go to network for Firebase, Google APIs, and analytics.
+  // Always go to network for runtime env, Firebase, Google APIs, App Check, and analytics.
   if (
+    url.pathname.endsWith("/env.js") ||
     url.hostname.includes("firebaseio.com") ||
     url.hostname.includes("googleapis.com") ||
+    url.hostname.includes("google.com") ||
     url.hostname.includes("gstatic.com") ||
     url.hostname.includes("google-analytics.com") ||
     url.hostname.includes("firebaseapp.com") ||
