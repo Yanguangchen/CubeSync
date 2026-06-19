@@ -878,7 +878,7 @@ service cloud.firestore {
       return row is map &&
         row.keys().hasOnly([
           'testNumber',
-          'clientCubeMarking',
+
           'dateTested',
           'ageDays',
           'weightKg',
@@ -888,7 +888,7 @@ service cloud.firestore {
           'barcode'
         ]) &&
         optCubeStrOrNum(row, 'testNumber', 64) &&
-        optCubeStrOrNum(row, 'clientCubeMarking', 200) &&
+
         optCubeStrOrNum(row, 'dateTested', 64) &&
         optCubeStrOrNum(row, 'ageDays', 16) &&
         optCubeStrOrNum(row, 'weightKg', 32) &&

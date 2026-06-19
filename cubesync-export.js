@@ -31,8 +31,9 @@
   ];
 
   const RESULT_FIELDS = [
-    { key: "testNumber", label: "Test number" },
-    { key: "clientCubeMarking", label: "Client cube marking" },
+    { key: "testNumber", label: "Set No" },
+    { key: "size", label: "Size" },
+    { key: "clientCubeMarking", label: "Speciment Ref #" },
     { key: "dateTested", label: "Date tested" },
     { key: "ageDays", label: "Age (days)" },
     { key: "weightKg", label: "Weight as received (kg)" },

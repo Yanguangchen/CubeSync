@@ -486,7 +486,7 @@ erDiagram
 
     TEST_RESULT {
         number testNumber "Sequential row index"
-        string clientCubeMarking "Client cube ID"
+
         string dateTested "Date of test"
         number ageDays "Age in days"
         number weightKg "Weight (kg)"

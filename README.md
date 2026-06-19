@@ -84,19 +84,23 @@ For local development, you have two options:
 
 All forms are stored in the `cubeRequests` Firestore collection.
 
-**Request fields** (14): `internalDate`, `projectCode`, `reportNo`, `client`, `method`, `project`, `concreteGrade`, `supplier`, `locationRepresented`, `additionalInformation`, `dateTimeSampled`, `slumpMeasured`, `specimenSize`, `slumpSpecified`
+**Request fields** (23): `internalDate`, `projectCode`, `projectErp`, `customerBilling`, `projectNameReport`, `clientReport`, `contactPerson`, `enableManualCubeJob`, `cubeJob`, `quote`, `testItem`, `supplier`, `supplierDisplay`, `locationRepresented`, `additionalInformation`, `dateOfCast`, `concreteGrade`, `gradeFreeText`, `specimenSize`, `slumpMeasured`, `slumpSpecified`, `personInCharge`, `managerInCharge`
 
-**Result fields** (9 per row): `testNumber`, `clientCubeMarking`, `dateTested`, `ageDays`, `weightKg`, `loadKn`, `strength`, `failureMode`, `barcode`
+**Result fields** (9 per row): `testNumber`, `dateTested`, `ageDays`, `weightKg`, `loadKn`, `strength`, `failureMode`, `barcode`
 
-**System fields**: `template`, `status`, `createdAt`, `updatedAt`, `rpaStatus`, `erpStatus`, `attemptCount`
+**System fields**: `template`, `status`, `createdAt`, `updatedAt`, `rpaStatus`, `erpStatus`, `attemptCount`, `customFields`
 
 Barcodes are stored as **text only** — SVGs are rendered client-side via Code 128-B encoding. Never store generated barcode images in Firestore.
+
+## Custom Free Text Fields
+
+Fields with dropdown menus (`specimenSize`, `managerInCharge`, `testItem`, etc.) support free-text entries dynamically wired through `app.js`. If a user enters a value not found in the baseline `.txt` options, it is recorded in the `customFields` array. 
+
+The `dashboard.html` human dashboard reads the `customFields` array and applies a `<span class="highlight-custom">` styling to visually call out newly entered custom free text values.
 
 ## Barcodes
 
 Enter text in any barcode field and a Code 128-B barcode is generated automatically. The encoder validates printable ASCII (chars 32–126), computes a weighted checksum, and renders an accessible `<svg>` with `role="img"` and `aria-label`.
-
-## Development
 
 Static files are served directly. The build script only writes `env.js` from deployment environment variables.
 

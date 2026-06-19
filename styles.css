@@ -183,7 +183,7 @@ button:hover,
 
 .form-header {
   display: grid;
-  grid-template-columns: 318px 1fr 250px;
+  grid-template-columns: 318px minmax(0, 1fr) 300px;
   align-items: start;
   gap: 16px;
   min-height: 96px;
@@ -223,13 +223,14 @@ button:hover,
 
 .internal-use label {
   display: grid;
-  grid-template-columns: 92px 1fr;
+  grid-template-columns: 122px minmax(0, 1fr);
   align-items: center;
   gap: 4px;
-  min-height: 24px;
+  min-height: 28px;
   color: var(--brand-blue-strong);
   font-size: 11px;
   font-weight: 700;
+  line-height: 1.15;
 }
 
 h1 {
@@ -245,29 +246,30 @@ h1 {
 
 .request-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 0;
   border-top: 1px solid var(--line);
   border-left: 1px solid var(--line);
 }
 
 .field-row {
-  grid-column: span 2;
+  grid-column: auto;
   display: grid;
-  grid-template-columns: 174px minmax(0, 1fr);
+  grid-template-columns: 140px minmax(0, 1fr);
   align-items: center;
-  min-height: 30px;
+  min-height: 32px;
   border-right: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
 }
 
 .field-row.full {
-  grid-column: span 4;
-  grid-template-columns: 174px minmax(0, 1fr);
+  grid-column: 1 / -1;
+  grid-template-columns: 190px minmax(0, 1fr);
 }
 
 .field-row.short {
-  grid-column: span 1;
+  grid-column: auto;
+  grid-template-columns: 112px minmax(0, 1fr);
 }
 
 .field-row span {
@@ -276,6 +278,8 @@ h1 {
   color: var(--brand-blue-strong);
   font-size: 11px;
   font-weight: 700;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
 }
 
 input,
@@ -295,6 +299,16 @@ select {
   min-height: 28px;
   padding: 4px 6px;
   border-left: 1px solid var(--line);
+}
+
+.field-row input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  min-height: 18px;
+  margin-left: 8px;
+  border-left: 0;
+  justify-self: start;
+  accent-color: var(--brand-blue);
 }
 
 input:focus,
@@ -513,7 +527,7 @@ select:focus {
   .field-row.full,
   .field-row.short {
     grid-column: auto;
-    grid-template-columns: 160px minmax(0, 1fr);
+    grid-template-columns: 180px minmax(0, 1fr);
   }
 }
 

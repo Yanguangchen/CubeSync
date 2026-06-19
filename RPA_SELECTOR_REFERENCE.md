@@ -76,8 +76,8 @@ Each result field uses a 1-based row suffix. For row 1:
 
 | Field | Row 1 selector | Firestore field |
 | --- | --- | --- |
-| Test number | `input[name="testNumber1"]` | `results[].testNumber` |
-| Client cube marking | `input[name="clientCubeMarking1"]` | `results[].clientCubeMarking` |
+| Set No | `input[name="testNumber1"]` | `results[].testNumber` |
+
 | Date tested | `input[name="dateTested1"]` | `results[].dateTested` |
 | Age in days | `input[name="ageDays1"]` | `results[].ageDays` |
 | Weight in kg | `input[name="weightKg1"]` | `results[].weightKg` |
@@ -321,7 +321,7 @@ Each `results` item contains:
 
 ```js
 testNumber
-clientCubeMarking
+
 dateTested
 ageDays
 weightKg

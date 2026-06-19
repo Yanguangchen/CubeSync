@@ -42,6 +42,8 @@ test("dashboard.js handles auth and loads forms", async () => {
         reportNo: "REPORT-001",
         client: "Client A",
         project: "Project X",
+        projectErp: "Project X",
+        customerBilling: "Client A",
         status: "Ready",
         template: "Original",
         updatedAt: "2026-06-17",

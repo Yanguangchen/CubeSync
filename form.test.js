@@ -6,8 +6,9 @@ function assertConcreteForm(html) {
   assert.match(html, /CONCRETE CUBE TEST REQUEST FORM/);
   assert.match(html, /FOR INTERNAL USE ONLY/);
   assert.match(html, /TEST RESULTS/);
-  assert.match(html, /SPECIMEN SIZE/);
-  assert.match(html, /SLUMP MEASURED/);
+  assert.match(html, /Size \*/);
+  assert.match(html, /Mean Slump \*/);
+  assert.match(html, /Specified Slump \*/);
   assert.match(html, /assets\/logo\.png/);
   assert.match(html, /barcode\.js/);
   assert.match(html, /app\.js/);

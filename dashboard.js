@@ -165,15 +165,36 @@
     }
 
     elements.detailTitle.textContent = form.reportNo || form.id;
+    const renderField = (label, value, fieldName) => {
+      if (!value) return '';
+      const isCustom = form.customFields && form.customFields.includes(fieldName);
+      const displayValue = isCustom ? `<span class="highlight-custom" title="Custom free text entry">${escapeHtml(value)}</span>` : escapeHtml(value);
+      return `<div><dt>${escapeHtml(label)}</dt><dd>${displayValue}</dd></div>`;
+    };
+
     elements.detailContent.innerHTML = `
       <dl class="detail-list">
-        <div><dt>Client</dt><dd>${escapeHtml(form.client)}</dd></div>
-        <div><dt>Project</dt><dd>${escapeHtml(form.project)}</dd></div>
-        <div><dt>Template</dt><dd>${escapeHtml(form.template)}</dd></div>
-        <div><dt>Status</dt><dd>${escapeHtml(form.status)}</dd></div>
-        <div><dt>Concrete grade</dt><dd>${escapeHtml(form.grade)}</dd></div>
-        <div><dt>Location represented</dt><dd>${escapeHtml(form.location)}</dd></div>
-        <div><dt>Notes</dt><dd>${escapeHtml(form.notes)}</dd></div>
+        ${renderField("Project (ERP)", form.projectErp, "projectErp")}
+        ${renderField("Customer (Billing)", form.customerBilling, "customerBilling")}
+        ${renderField("Project Name on Report", form.projectNameReport, "projectNameReport")}
+        ${renderField("Client Name on Report", form.clientReport, "clientReport")}
+        ${renderField("Contact", form.contactPerson, "contactPerson")}
+        ${renderField("Manual Job", form.enableManualCubeJob, "enableManualCubeJob")}
+        ${renderField("Cube Job #", form.cubeJob, "cubeJob")}
+        ${renderField("Quote", form.quote, "quote")}
+        ${renderField("Test Item", form.testItem, "testItem")}
+        ${renderField("Supplier of concrete", form.supplier, "supplier")}
+        ${renderField("Supplier display", form.supplierDisplay, "supplierDisplay")}
+        ${renderField("Location", form.location, "locationRepresented")}
+        ${renderField("Additional Info", form.notes, "additionalInformation")}
+        ${renderField("Date of Cast", form.dateOfCast, "dateOfCast")}
+        ${renderField("Grade", form.grade, "concreteGrade")}
+        ${renderField("Grade (Free text)", form.gradeFreeText, "gradeFreeText")}
+        ${renderField("Size", form.specimenSize, "specimenSize")}
+        ${renderField("Mean Slump", form.slumpMeasured, "slumpMeasured")}
+        ${renderField("Specified Slump", form.slumpSpecified, "slumpSpecified")}
+        ${renderField("Person in Charge", form.personInCharge, "personInCharge")}
+        ${renderField("Manager in Charge", form.managerInCharge, "managerInCharge")}
       </dl>
       ${renderBarcodeList(form)}
     `;

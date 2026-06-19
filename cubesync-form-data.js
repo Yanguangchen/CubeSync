@@ -9,55 +9,112 @@
 
   const COLLECTION_NAME = "cubeRequests";
   const FORM_FIELDS = [
-    "internalDate",
-    "projectCode",
-    "reportNo",
-    "client",
-    "method",
-    "project",
+    "projectErp",
+    "customerBilling",
+    "projectNameOnReport",
+    "clientNameOnReport",
+    "contact",
+    "enableManualCubeJobNumber",
+    "cubeJobNumber",
+    "quote",
+    "testItem",
     "concreteGrade",
+    "reportGrade",
     "supplier",
+    "supplierDisplay",
     "locationRepresented",
     "additionalInformation",
-    "dateTimeSampled",
+    "dateOfCast",
     "slumpMeasured",
     "specimenSize",
-    "slumpSpecified"
+    "slumpSpecified",
+    "personInCharge",
+    "managerInCharge"
+  ];
+  const REQUIRED_FORM_FIELDS = [
+    "customerBilling",
+    "contact",
+    "supplier",
+    "supplierDisplay",
+    "locationRepresented",
+    "dateOfCast",
+    "concreteGrade",
+    "reportGrade",
+    "specimenSize",
+    "slumpMeasured",
+    "slumpSpecified",
+    "personInCharge",
+    "managerInCharge"
   ];
   const RESULT_FIELDS = [
-    "testNumber",
-    "clientCubeMarking",
-    "dateTested",
-    "ageDays",
-    "weightKg",
-    "loadKn",
-    "strength",
-    "failureMode",
-    "barcode"
+    "setNo",
+    "size",
+    "specimenRef",
+    "barcode",
+    "specifiedSlump",
+    "meanSlump",
+    "resultGrade",
+    "resultDateOfCast",
+    "age",
+    "dateOfTest",
+    "invoiceNumber"
   ];
+  const RESULT_FIELD_LABELS = {
+    setNo: "Set No",
+    size: "Size",
+    specimenRef: "Specimen Ref #",
+    barcode: "Barcode",
+    specifiedSlump: "Specified Slump",
+    meanSlump: "Mean Slump",
+    resultGrade: "Concrete Grade",
+    resultDateOfCast: "Date Of Cast",
+    age: "Age",
+    dateOfTest: "Date Of Test",
+    invoiceNumber: "Invoice Number"
+  };
   const NUMBER_FIELDS = new Set([
     "slumpMeasured",
     "slumpSpecified",
-    "ageDays",
-    "weightKg",
-    "loadKn",
-    "strength"
+    "setNo",
+    "meanSlump",
+    "age"
+  ]);
+  const CHECKBOX_FIELDS = new Set([
+    "enableManualCubeJobNumber"
   ]);
   const REQUEST_FIELD_LABELS = {
-    internalDate: "Date",
-    projectCode: "Project code",
-    reportNo: "Report no.",
-    client: "Client",
-    method: "Method",
-    project: "Project",
-    concreteGrade: "Concrete grade",
-    supplier: "Supplier",
-    locationRepresented: "Location represented",
-    additionalInformation: "Additional information",
-    dateTimeSampled: "Date & time sampled",
-    slumpMeasured: "Slump measured (mm)",
-    specimenSize: "Specimen size (mm)",
-    slumpSpecified: "Slump specified (mm)"
+    projectErp: "Project (ERP)",
+    customerBilling: "Customer (Billing)",
+    projectNameOnReport: "Project Name on Report",
+    clientNameOnReport: "Client Name on Report",
+    contact: "Contact",
+    enableManualCubeJobNumber: "Enable Manual Cube Job #",
+    cubeJobNumber: "Cube Job #",
+    quote: "Quote",
+    testItem: "Test Item",
+    supplier: "Supplier Of Concrete",
+    supplierDisplay: "Supplier Of Concrete Display",
+    locationRepresented: "Location",
+    additionalInformation: "Additional Info",
+    dateOfCast: "Date of cast",
+    concreteGrade: "Grade",
+    reportGrade: "Grade",
+    specimenSize: "Size",
+    slumpMeasured: "Mean Slump",
+    slumpSpecified: "Specified Slump",
+    personInCharge: "Person In Charge",
+    managerInCharge: "Manager In Charge"
+  };
+  const FORM_FIELD_FALLBACKS = {
+    projectErp: ["projectErp", "projectCode"],
+    customerBilling: ["customerBilling", "client"],
+    projectNameOnReport: ["projectNameOnReport", "project"],
+    clientNameOnReport: ["clientNameOnReport", "client"],
+    cubeJobNumber: ["cubeJobNumber", "reportNo"],
+    testItem: ["testItem", "method"],
+    supplierDisplay: ["supplierDisplay", "supplier"],
+    dateOfCast: ["dateOfCast", "dateTimeSampled", "internalDate"],
+    reportGrade: ["reportGrade", "concreteGrade", "grade"]
   };
 
   function normalizeText(value) {
@@ -81,6 +138,10 @@
 
   function readFormValue(form, field) {
     const control = form.elements[field];
+    if (control && CHECKBOX_FIELDS.has(field)) {
+      return Boolean(control.checked);
+    }
+
     return control ? normalizeValue(field, control.value) : normalizeValue(field, "");
   }
 
@@ -110,7 +171,7 @@
   }
 
   function validateCubeRequestPayload(payload) {
-    const missingFieldKeys = FORM_FIELDS.filter((field) => !isRequestFieldFilled(field, payload[field]));
+    const missingFieldKeys = REQUIRED_FORM_FIELDS.filter((field) => !isRequestFieldFilled(field, payload[field]));
     const missingFields = missingFieldKeys.map((field) => REQUEST_FIELD_LABELS[field] || field);
 
     return {
@@ -138,10 +199,33 @@
       return request;
     }, {});
 
+    applyLegacyRequestAliases(payload);
     payload.template = form.dataset.template || "Original";
     payload.status = payload.status || "Draft";
     payload.results = collectResultRows(form);
 
+    return payload;
+  }
+
+  function firstTextValue(values) {
+    for (const value of values) {
+      const text = normalizeText(value);
+      if (text) {
+        return text;
+      }
+    }
+
+    return "";
+  }
+
+  function applyLegacyRequestAliases(payload) {
+    payload.internalDate = firstTextValue([payload.internalDate, payload.dateOfCast]);
+    payload.projectCode = firstTextValue([payload.projectCode, payload.projectErp]);
+    payload.reportNo = firstTextValue([payload.reportNo, payload.cubeJobNumber]);
+    payload.client = firstTextValue([payload.client, payload.customerBilling, payload.clientNameOnReport]);
+    payload.method = firstTextValue([payload.method, payload.testItem]);
+    payload.project = firstTextValue([payload.project, payload.projectNameOnReport, payload.projectErp]);
+    payload.dateTimeSampled = firstTextValue([payload.dateTimeSampled, payload.dateOfCast]);
     return payload;
   }
 
@@ -168,20 +252,20 @@
   function normalizeCubeRequestForDashboard(data, id) {
     return {
       id,
-      reportNo: normalizeText(data.reportNo || data.reportNumber),
-      client: normalizeText(data.client),
-      project: normalizeText(data.project),
+      reportNo: normalizeText(data.reportNo || data.cubeJobNumber || data.reportNumber),
+      client: normalizeText(data.client || data.customerBilling || data.clientNameOnReport),
+      project: normalizeText(data.project || data.projectNameOnReport || data.projectErp),
       template: normalizeText(data.template) || "Original",
       status: normalizeText(data.status) || "Draft",
-      updatedAt: formatDate(data.updatedAt) || formatDate(data.internalDate),
-      grade: normalizeText(data.concreteGrade || data.grade),
+      updatedAt: formatDate(data.updatedAt) || formatDate(data.internalDate) || formatDate(data.dateOfCast),
+      grade: normalizeText(data.concreteGrade || data.reportGrade || data.grade),
       location: normalizeText(data.locationRepresented || data.location),
       notes: normalizeText(data.additionalInformation || data.notes),
-      internalDate: formatDate(data.internalDate),
-      projectCode: normalizeText(data.projectCode),
-      method: normalizeText(data.method),
+      internalDate: formatDate(data.internalDate) || formatDate(data.dateOfCast),
+      projectCode: normalizeText(data.projectCode || data.projectErp),
+      method: normalizeText(data.method || data.testItem),
       supplier: normalizeText(data.supplier),
-      dateTimeSampled: normalizeText(data.dateTimeSampled),
+      dateTimeSampled: normalizeText(data.dateTimeSampled || data.dateOfCast),
       slumpMeasured: data.slumpMeasured,
       specimenSize: normalizeText(data.specimenSize),
       slumpSpecified: data.slumpSpecified,
@@ -190,7 +274,7 @@
   }
 
   function dashboardEditToCubeRequest(formData) {
-    return {
+    const request = {
       reportNo: normalizeText(formData.get("reportNo")),
       status: normalizeText(formData.get("status")) || "Draft",
       client: normalizeText(formData.get("client")),
@@ -208,11 +292,39 @@
       specimenSize: normalizeText(formData.get("specimenSize")),
       slumpSpecified: normalizeValue("slumpSpecified", formData.get("slumpSpecified"))
     };
+
+    request.cubeJobNumber = request.reportNo;
+    request.customerBilling = request.client;
+    request.projectNameOnReport = request.project;
+    request.projectErp = request.projectCode;
+    request.testItem = request.method;
+    request.dateOfCast = request.internalDate || request.dateTimeSampled;
+    request.supplierDisplay = request.supplier;
+    request.reportGrade = request.concreteGrade;
+    return request;
+  }
+
+  function getCubeRequestFormValue(data, field) {
+    if (!data) return "";
+    if (CHECKBOX_FIELDS.has(field)) {
+      return Boolean(data[field]);
+    }
+
+    const fallbackFields = FORM_FIELD_FALLBACKS[field] || [field];
+    for (const fallbackField of fallbackFields) {
+      const value = data[fallbackField];
+      if (value !== undefined && value !== null && normalizeText(value) !== "") {
+        return field === "dateOfCast" ? normalizeText(value).slice(0, 10) : value;
+      }
+    }
+
+    return "";
   }
 
   return {
     COLLECTION_NAME,
     FORM_FIELDS,
+    REQUIRED_FORM_FIELDS,
     RESULT_FIELDS,
     REQUEST_FIELD_LABELS,
     isRequestFieldFilled,
@@ -220,6 +332,7 @@
     validateCubeRequestPayload,
     buildCubeRequestFromForm,
     dashboardEditToCubeRequest,
+    getCubeRequestFormValue,
     normalizeCubeRequestForDashboard
   };
 });

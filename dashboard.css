@@ -930,3 +930,4 @@ textarea:focus {
     background: #ffffff;
   }
 }
+.highlight-custom { background-color: #ffeb3b; color: #333; padding: 2px 6px; border-radius: 4px; font-weight: bold; border: 1px solid #fbc02d; }

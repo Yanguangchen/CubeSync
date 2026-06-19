@@ -41,7 +41,7 @@ test("rpa-dashboard.js handles auth and loads queue", async () => {
         results: [
           {
             testNumber: "T-001",
-            clientCubeMarking: "RPA-A",
+
             dateTested: "2026-06-17",
             ageDays: 7,
             weightKg: 8.1,
@@ -121,9 +121,9 @@ test("rpa-dashboard.js handles auth and loads queue", async () => {
   ]);
   assert.match(
     exported.files[0].content,
-    /T-001,RPA-A,2026-06-17,7,8.1,600,35,Normal,BC-RPA-001/
+    /T-001,,,2026-06-17,7,8.1,600,35,Normal,BC-RPA-001/
   );
-  assert.match(exported.files[1].content, /T-OLD,,,,,,,,BC-OLD-001/);
+  assert.match(exported.files[1].content, /T-OLD,,,,,,,,,BC-OLD-001/);
   assert.doesNotMatch(JSON.stringify(exported.files), /RPA-DISABLED/);
   assert.doesNotMatch(JSON.stringify(exported.files), /BC-DISABLED-001/);
 });
@@ -139,7 +139,7 @@ test("rpa-view.js renders form data and barcodes", async () => {
     getCubeRequest: async (id) => ({
       id,
       reportNo: "VIEW-001",
-      client: "View Client",
+      clientReport: "View Client",
       concreteGrade: "C50",
       results: [
         { testNumber: "1", barcode: "BC-001" }

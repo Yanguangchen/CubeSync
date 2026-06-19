@@ -27,6 +27,7 @@ function sampleForm(overrides = {}) {
       results: [
         {
           testNumber: "T-001",
+          size: "150 x 150 x 150",
           clientCubeMarking: "CUBE-A",
           dateTested: "2026-06-17",
           ageDays: 7,
@@ -94,7 +95,7 @@ test("CSV export keeps test result data on a fixed row", () => {
   assert.equal(rows[CSV_RESULT_HEADER_ROW - 1], resultHeader);
   assert.equal(
     rows[CSV_TEST_DATA_START_ROW - 1],
-    "T-001,CUBE-A,2026-06-17,7,8.25,620,35.1,Normal,RAK-CUBE-001-T-001"
+    "T-001,150 x 150 x 150,CUBE-A,2026-06-17,7,8.25,620,35.1,Normal,RAK-CUBE-001-T-001"
   );
 });
 
@@ -132,7 +133,7 @@ test("CSV export escapes commas, quotes, and newlines", () => {
 
   assert.match(csv, /Client,"Acme, ""North""\nDivision"/);
   assert.match(csv, /Project,"Tower, Phase 2"/);
-  assert.match(csv, /T-001,,,,,,,"Shear, ""angled""\nline",ESCAPE-001/);
+  assert.match(csv, /T-001,,,,,,,,"Shear, ""angled""\nline",ESCAPE-001/);
 });
 
 test("export builds one sanitized CSV file per form", () => {

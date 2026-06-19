@@ -2,20 +2,27 @@
   "use strict";
 
   const FORM_FIELD_LABELS = {
-    internalDate: "Internal date",
-    projectCode: "Project code",
-    reportNo: "Report no.",
-    client: "Client",
-    method: "Method",
-    project: "Project",
-    concreteGrade: "Concrete grade",
-    supplier: "Supplier",
-    locationRepresented: "Location represented",
-    additionalInformation: "Additional information",
-    dateTimeSampled: "Date and time sampled",
-    slumpMeasured: "Slump measured (mm)",
-    specimenSize: "Specimen size (mm)",
-    slumpSpecified: "Slump specified (mm)"
+    projectErp: "Project (ERP)",
+    customerBilling: "Customer (Billing)",
+    projectNameOnReport: "Project Name on Report",
+    clientNameOnReport: "Client Name on Report",
+    contact: "Contact",
+    enableManualCubeJobNumber: "Enable Manual Cube Job #",
+    cubeJobNumber: "Cube Job #",
+    quote: "Quote",
+    testItem: "Test Item",
+    concreteGrade: "Grade",
+    reportGrade: "Grade",
+    supplier: "Supplier Of Concrete",
+    supplierDisplay: "Supplier Of Concrete Display",
+    locationRepresented: "Location",
+    additionalInformation: "Additional Info",
+    dateOfCast: "Date of cast",
+    slumpMeasured: "Mean Slump",
+    specimenSize: "Size",
+    slumpSpecified: "Specified Slump",
+    personInCharge: "Person In Charge",
+    managerInCharge: "Manager In Charge"
   };
 
   const RESULT_FIELD_LABELS = {
@@ -102,11 +109,20 @@
     const html = Object.entries(FORM_FIELD_LABELS).map(([field, label]) => `
       <div class="rpa-field">
         <span class="rpa-label">${escapeHtml(label)}</span>
-        <div class="rpa-value">${escapeHtml(formatValue(record[field]))}</div>
+        <div class="rpa-value">${escapeHtml(formatValue(formFieldValue(record, field)))}</div>
       </div>
     `).join("");
 
     document.getElementById("formFieldsGrid").innerHTML = html;
+  }
+
+  function formFieldValue(record, field) {
+    const formData = window.CubeSyncFormData;
+    if (formData && typeof formData.getCubeRequestFormValue === "function") {
+      return formData.getCubeRequestFormValue(record, field);
+    }
+
+    return record[field];
   }
 
   function renderResults(record) {
@@ -134,12 +150,12 @@
   }
 
   function renderSummary(record) {
-    const submittedDate = toDate(record.submittedAt || record.createdAt || record.updatedAt || record.internalDate);
+    const submittedDate = toDate(record.submittedAt || record.createdAt || record.updatedAt || record.internalDate || record.dateOfCast);
     const status = rpaStatus(record);
     const statusBadge = document.getElementById("statusBadge");
     const disableButton = document.getElementById("btnDisable");
 
-    document.getElementById("reportNoDisplay").textContent = record.reportNo || documentId;
+    document.getElementById("reportNoDisplay").textContent = record.reportNo || record.cubeJobNumber || documentId;
     document.getElementById("submittedAtDisplay").textContent = submittedDate
       ? `Submitted: ${submittedDate.toLocaleString("en-SG", { timeZone: "Asia/Singapore" })}`
       : "";

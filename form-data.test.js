@@ -6,6 +6,7 @@ const {
   buildCubeRequestFromForm,
   COLLECTION_NAME,
   FORM_FIELDS,
+  REQUIRED_FORM_FIELDS,
   RESULT_FIELDS,
   validateCubeRequestForm,
   validateCubeRequestPayload,
@@ -30,7 +31,7 @@ function fakeForm(fields, rows) {
   return {
     dataset: { template: "Original" },
     elements: Object.fromEntries(
-      Object.entries(fields).map(([key, value]) => [key, { value }])
+      Object.entries(fields).map(([key, value]) => [key, { value, checked: Boolean(value) }])
     ),
     querySelectorAll(selector) {
       return selector === ".results-table tbody tr" ? rows.map(fakeRow) : [];
@@ -59,20 +60,42 @@ test("original and glassmorphic forms submit the same Firestore fields", () => {
 test("shared schema maps Firestore cube requests into dashboard records", () => {
   assert.equal(COLLECTION_NAME, "cubeRequests");
   assert.deepEqual(FORM_FIELDS, [
-    "internalDate",
-    "projectCode",
-    "reportNo",
-    "client",
-    "method",
-    "project",
+    "projectErp",
+    "customerBilling",
+    "projectNameOnReport",
+    "clientNameOnReport",
+    "contact",
+    "enableManualCubeJobNumber",
+    "cubeJobNumber",
+    "quote",
+    "testItem",
     "concreteGrade",
+    "reportGrade",
     "supplier",
+    "supplierDisplay",
     "locationRepresented",
     "additionalInformation",
-    "dateTimeSampled",
+    "dateOfCast",
     "slumpMeasured",
     "specimenSize",
-    "slumpSpecified"
+    "slumpSpecified",
+    "personInCharge",
+    "managerInCharge"
+  ]);
+  assert.deepEqual(REQUIRED_FORM_FIELDS, [
+    "customerBilling",
+    "contact",
+    "supplier",
+    "supplierDisplay",
+    "locationRepresented",
+    "dateOfCast",
+    "concreteGrade",
+    "reportGrade",
+    "specimenSize",
+    "slumpMeasured",
+    "slumpSpecified",
+    "personInCharge",
+    "managerInCharge"
   ]);
   assert.deepEqual(RESULT_FIELDS, [
     "testNumber",
@@ -133,20 +156,27 @@ test("shared schema maps Firestore cube requests into dashboard records", () => 
 
 test("validateCubeRequestForm requires every request field except test results", () => {
   const completeFields = {
-    internalDate: "2026-06-18",
-    projectCode: "PRJ-001",
-    reportNo: "RAK-CUBE-1",
-    client: "Acme",
-    method: "BS EN 12390-3 : 2019",
-    project: "Tower",
+    projectErp: "ERP-001",
+    customerBilling: "Acme Billing",
+    projectNameOnReport: "Tower",
+    clientNameOnReport: "Acme",
+    contact: "Jane",
+    enableManualCubeJobNumber: false,
+    cubeJobNumber: "RAK-CUBE-1",
+    quote: "",
+    testItem: "Cube",
     concreteGrade: "C35/45",
+    reportGrade: "C35/45",
     supplier: "Supplier A",
+    supplierDisplay: "Supplier A Display",
     locationRepresented: "Level 12",
-    additionalInformation: "Rush job",
-    dateTimeSampled: "2026-06-18T10:30",
+    additionalInformation: "",
+    dateOfCast: "2026-06-18",
     slumpMeasured: "120",
     specimenSize: "150 x 150 x 150",
-    slumpSpecified: "100"
+    slumpSpecified: "100",
+    personInCharge: "Jane",
+    managerInCharge: "John"
   };
 
   const validForm = fakeForm(completeFields, []);
@@ -155,31 +185,30 @@ test("validateCubeRequestForm requires every request field except test results",
   assert.equal(validResult.valid, true);
   assert.equal(validResult.message, "");
 
-  const invalidForm = fakeForm({ ...completeFields, client: "", internalDate: "" }, []);
+  const invalidForm = fakeForm({ ...completeFields, customerBilling: "", contact: "" }, []);
   const invalidResult = validateCubeRequestForm(invalidForm);
 
   assert.equal(invalidResult.valid, false);
-  assert.deepEqual(invalidResult.missingFieldKeys, ["internalDate", "client"]);
-  assert.match(invalidResult.message, /Date/);
-  assert.match(invalidResult.message, /Client/);
+  assert.deepEqual(invalidResult.missingFieldKeys, ["customerBilling", "contact"]);
+  assert.match(invalidResult.message, /Customer \(Billing\)/);
+  assert.match(invalidResult.message, /Contact/);
 });
 
 test("validateCubeRequestPayload rejects empty numeric request fields", () => {
   const payload = {
-    internalDate: "2026-06-18",
-    projectCode: "PRJ-001",
-    reportNo: "RAK-CUBE-1",
-    client: "Acme",
-    method: "BS EN 12390-3 : 2019",
-    project: "Tower",
+    customerBilling: "Acme Billing",
+    contact: "Jane",
     concreteGrade: "C35/45",
+    reportGrade: "C35/45",
     supplier: "Supplier A",
+    supplierDisplay: "Supplier A Display",
     locationRepresented: "Level 12",
-    additionalInformation: "Rush job",
-    dateTimeSampled: "2026-06-18T10:30",
+    dateOfCast: "2026-06-18",
     slumpMeasured: null,
     specimenSize: "150 x 150 x 150",
-    slumpSpecified: ""
+    slumpSpecified: "",
+    personInCharge: "Jane",
+    managerInCharge: "John"
   };
 
   const result = validateCubeRequestPayload(payload);
@@ -190,8 +219,11 @@ test("validateCubeRequestPayload rejects empty numeric request fields", () => {
 
 test("form serialization stores barcode text, not generated barcode images", () => {
   const payload = buildCubeRequestFromForm(fakeForm({
-    reportNo: "RAK-CUBE-42",
-    client: "Acme",
+    customerBilling: "Acme",
+    cubeJobNumber: "RAK-CUBE-42",
+    projectNameOnReport: "Tower",
+    testItem: "Cube",
+    dateOfCast: "2026-06-18",
     specimenSize: "150 x 150 x 150"
   }, [
     {
@@ -207,6 +239,11 @@ test("form serialization stores barcode text, not generated barcode images", () 
   assert.equal(payload.results.length, 1);
   assert.equal(payload.results[0].barcode, "RAK-CUBE-42-T-001");
   assert.equal(payload.results[0].ageDays, 7);
+  assert.equal(payload.reportNo, "RAK-CUBE-42");
+  assert.equal(payload.client, "Acme");
+  assert.equal(payload.project, "Tower");
+  assert.equal(payload.method, "Cube");
+  assert.equal(payload.internalDate, "2026-06-18");
   assert.equal("barcodeSvg" in payload.results[0], false);
   assert.equal("barcodeImage" in payload.results[0], false);
   assert.equal(JSON.stringify(payload).includes("<svg"), false);

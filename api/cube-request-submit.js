@@ -1,10 +1,10 @@
 const { loadDotEnv } = require("../scripts/load-env");
-const { validateCubeRequestPayload } = require("../cubesync-form-data");
+const { FORM_FIELDS: REQUEST_FORM_FIELDS, validateCubeRequestPayload } = require("../cubesync-form-data");
 
 const COLLECTION_NAME = "cubeRequests";
 const ALLOWED_TEMPLATES = new Set(["Original", "Glassmorphic"]);
 const ALLOWED_STATUSES = new Set(["Draft", "Ready", "Archived"]);
-const FORM_FIELDS = new Set([
+const LEGACY_FORM_FIELDS = [
   "internalDate",
   "projectCode",
   "reportNo",
@@ -18,7 +18,11 @@ const FORM_FIELDS = new Set([
   "dateTimeSampled",
   "slumpMeasured",
   "specimenSize",
-  "slumpSpecified",
+  "slumpSpecified"
+];
+const FORM_FIELDS = new Set([
+  ...REQUEST_FORM_FIELDS,
+  ...LEGACY_FORM_FIELDS,
   "template",
   "status",
   "results"
@@ -228,5 +232,8 @@ module.exports = async function handler(request, response) {
 
 module.exports._test = {
   parseServiceAccount,
+  setFirebaseAdminForTest(testAdmin) {
+    admin = testAdmin;
+  },
   stripWrappingQuotes
 };

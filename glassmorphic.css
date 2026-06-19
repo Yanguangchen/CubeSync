@@ -384,20 +384,30 @@ h1 {
 /* Request details -------------------------------------------- */
 .request-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: var(--space-3) var(--space-4);
 }
 
 .field-row {
-  grid-column: span 2;
+  grid-column: auto;
 }
 
 .field-row.full {
-  grid-column: span 4;
+  grid-column: 1 / -1;
 }
 
 .field-row.short {
-  grid-column: span 1;
+  grid-column: auto;
+}
+
+.field-row.toggle-row {
+  align-self: end;
+}
+
+.field-row.toggle-row input[type="checkbox"] {
+  width: auto;
+  min-height: 0;
+  justify-self: start;
 }
 
 input,
@@ -412,6 +422,16 @@ select {
   color: var(--ink);
   outline: 0;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+input[type="checkbox"] {
+  width: 20px;
+  min-width: 20px;
+  min-height: 20px;
+  height: 20px;
+  padding: 0;
+  justify-self: start;
+  accent-color: var(--accent);
 }
 
 input:hover,

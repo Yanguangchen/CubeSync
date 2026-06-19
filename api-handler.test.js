@@ -72,3 +72,117 @@ test("submission API service account parser accepts valid JSON and normalizes pr
   assert.equal(account.type, "service_account");
   assert.equal(account.private_key, "-----BEGIN PRIVATE KEY-----\nABC\n-----END PRIVATE KEY-----\n");
 });
+
+test("submission API writes new request fields to Firestore", async () => {
+  const savedDocuments = [];
+  const serverTimestamp = { ".sv": "timestamp" };
+  function firestore() {
+    return {
+      collection(name) {
+        assert.equal(name, "cubeRequests");
+        return {
+          add(data) {
+            savedDocuments.push(data);
+            return Promise.resolve({ id: "new-cube-request" });
+          }
+        };
+      }
+    };
+  }
+  firestore.FieldValue = {
+    serverTimestamp() {
+      return serverTimestamp;
+    }
+  };
+
+  const previousFetch = global.fetch;
+  const previousSecret = process.env.CUBESYNC_RECAPTCHA_SECRET_KEY;
+  global.fetch = async () => ({
+    async json() {
+      return { success: true };
+    }
+  });
+  process.env.CUBESYNC_RECAPTCHA_SECRET_KEY = "test-secret";
+  handler._test.setFirebaseAdminForTest({
+    apps: [{}],
+    firestore
+  });
+
+  try {
+    const response = mockResponse();
+    await handler({
+      method: "POST",
+      headers: {},
+      socket: { remoteAddress: "127.0.0.1" },
+      body: {
+        recaptchaToken: "captcha-token",
+        payload: {
+          projectErp: "ERP-001",
+          customerBilling: "Acme Billing",
+          projectNameOnReport: "Tower",
+          clientNameOnReport: "Acme Client",
+          contact: "Jane",
+          enableManualCubeJobNumber: true,
+          cubeJobNumber: "CUBE-001",
+          quote: "Q-001",
+          testItem: "Concrete cube",
+          supplier: "Supplier A",
+          supplierDisplay: "Supplier A Display",
+          locationRepresented: "Level 12",
+          additionalInformation: "Rush job",
+          dateOfCast: "2026-06-18",
+          concreteGrade: "C35/45",
+          reportGrade: "C35/45",
+          specimenSize: "150 x 150 x 150",
+          slumpMeasured: 120,
+          slumpSpecified: 100,
+          personInCharge: "Jane",
+          managerInCharge: "John",
+          template: "Original",
+          status: "Draft",
+          results: []
+        }
+      }
+    }, response);
+
+    assert.equal(response.statusCode, 200);
+    assert.deepEqual(JSON.parse(response.body), { id: "new-cube-request" });
+    assert.equal(savedDocuments.length, 1);
+    assert.deepEqual(savedDocuments[0], {
+      projectErp: "ERP-001",
+      customerBilling: "Acme Billing",
+      projectNameOnReport: "Tower",
+      clientNameOnReport: "Acme Client",
+      contact: "Jane",
+      enableManualCubeJobNumber: true,
+      cubeJobNumber: "CUBE-001",
+      quote: "Q-001",
+      testItem: "Concrete cube",
+      supplier: "Supplier A",
+      supplierDisplay: "Supplier A Display",
+      locationRepresented: "Level 12",
+      additionalInformation: "Rush job",
+      dateOfCast: "2026-06-18",
+      concreteGrade: "C35/45",
+      reportGrade: "C35/45",
+      specimenSize: "150 x 150 x 150",
+      slumpMeasured: 120,
+      slumpSpecified: 100,
+      personInCharge: "Jane",
+      managerInCharge: "John",
+      template: "Original",
+      status: "Draft",
+      results: [],
+      updatedAt: serverTimestamp,
+      createdAt: serverTimestamp
+    });
+  } finally {
+    global.fetch = previousFetch;
+    if (previousSecret === undefined) {
+      delete process.env.CUBESYNC_RECAPTCHA_SECRET_KEY;
+    } else {
+      process.env.CUBESYNC_RECAPTCHA_SECRET_KEY = previousSecret;
+    }
+    handler._test.setFirebaseAdminForTest(null);
+  }
+});

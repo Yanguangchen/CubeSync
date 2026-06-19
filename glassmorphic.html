@@ -66,22 +66,6 @@
         </nav>
 
         <div class="form-step active" data-step="1">
-          <section class="internal-use" aria-labelledby="internalUseTitle">
-            <h2 id="internalUseTitle">FOR INTERNAL USE ONLY</h2>
-            <label>
-              <span>DATE :</span>
-              <input type="date" name="internalDate">
-            </label>
-            <label>
-              <span>PROJECT CODE:</span>
-              <input type="text" name="projectCode">
-            </label>
-            <label>
-              <span>REPORT NO :</span>
-              <input type="text" name="reportNo">
-            </label>
-          </section>
-
           <div class="title-band">
             <p>Digital lab submission</p>
             <h1>CONCRETE CUBE TEST REQUEST FORM</h1>
@@ -89,51 +73,88 @@
 
           <section class="request-grid" aria-label="Concrete cube request details">
             <label class="field-row">
-              <span>CLIENT :</span>
-              <input type="text" name="client">
+              <span>Project (ERP) :</span>
+              <input type="text" name="projectErp">
             </label>
             <label class="field-row">
-              <span>METHOD :</span>
-              <input type="text" name="method">
+              <span>Customer (Billing) * :</span>
+              <input type="text" name="customerBilling" required>
             </label>
             <label class="field-row">
-              <span>PROJECT :</span>
-              <input type="text" name="project">
+              <span>Project Name on Report :</span>
+              <input type="text" name="projectNameOnReport">
             </label>
-            <label class="field-row short">
-              <span>CONCRETE GRADE :</span>
-              <input type="text" name="concreteGrade">
+            <label class="field-row">
+              <span>Client Name on Report :</span>
+              <input type="text" name="clientNameOnReport">
             </label>
-            <label class="field-row full">
-              <span>SUPPLIER:</span>
-              <input type="text" name="supplier">
+            <label class="field-row">
+              <span>Contact * :</span>
+              <input type="text" name="contact" required>
             </label>
-            <label class="field-row full">
-              <span>LOCATION REPRESENTED:</span>
-              <input type="text" name="locationRepresented">
+            <label class="field-row toggle-row">
+              <span>Enable Manual Cube Job # :</span>
+              <input type="checkbox" name="enableManualCubeJobNumber">
             </label>
-            <label class="field-row full">
-              <span>ADDITIONAL INFORMATION:</span>
+            <label class="field-row">
+              <span>Cube Job # :</span>
+              <input type="text" name="cubeJobNumber">
+            </label>
+            <label class="field-row">
+              <span>Quote :</span>
+              <input type="text" name="quote">
+            </label>
+            <label class="field-row">
+              <span>Test Item :</span>
+              <input type="text" name="testItem">
+            </label>
+            <label class="field-row">
+              <span>Supplier Of Concrete * :</span>
+              <input type="text" name="supplier" required>
+            </label>
+            <label class="field-row">
+              <span>Supplier Of Concrete Display * :</span>
+              <input type="text" name="supplierDisplay" required>
+            </label>
+            <label class="field-row">
+              <span>Location * :</span>
+              <input type="text" name="locationRepresented" required>
+            </label>
+            <label class="field-row">
+              <span>Additional Info :</span>
               <input type="text" name="additionalInformation">
             </label>
             <label class="field-row">
-              <span>DATE &amp; TIME SAMPLED:</span>
-              <input type="datetime-local" name="dateTimeSampled">
-            </label>
-            <label class="field-row short">
-              <span>SLUMP MEASURED (mm):</span>
-              <input type="number" name="slumpMeasured" min="0" step="1">
+              <span>Date of cast * :</span>
+              <input type="date" name="dateOfCast" required>
             </label>
             <label class="field-row">
-              <span>SPECIMEN SIZE (mm):</span>
-              <select name="specimenSize">
-                <option value="100 x 100 x 100">100 x 100 x 100</option>
-                <option value="150 x 150 x 150" selected>150 x 150 x 150</option>
-              </select>
+              <span>Grade * :</span>
+              <input type="text" name="concreteGrade" required>
             </label>
-            <label class="field-row short">
-              <span>SLUMP SPECIFIED (mm):</span>
-              <input type="number" name="slumpSpecified" min="0" step="1">
+            <label class="field-row">
+              <span>Grade * :</span>
+              <input type="text" name="reportGrade" required>
+            </label>
+            <label class="field-row">
+              <span>Size * :</span>
+              <input type="text" name="specimenSize" placeholder="150 x 150 x 150" required>
+            </label>
+            <label class="field-row">
+              <span>Mean Slump * :</span>
+              <input type="number" name="slumpMeasured" min="0" step="1" required>
+            </label>
+            <label class="field-row">
+              <span>Specified Slump * :</span>
+              <input type="number" name="slumpSpecified" min="0" step="1" required>
+            </label>
+            <label class="field-row">
+              <span>Person In Charge * :</span>
+              <input type="text" name="personInCharge" required>
+            </label>
+            <label class="field-row">
+              <span>Manager In Charge * :</span>
+              <input type="text" name="managerInCharge" required>
             </label>
           </section>
         </div>
