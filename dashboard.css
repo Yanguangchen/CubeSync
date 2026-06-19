@@ -931,3 +931,79 @@ textarea:focus {
   }
 }
 .highlight-custom { background-color: #ffeb3b; color: #333; padding: 2px 6px; border-radius: 4px; font-weight: bold; border: 1px solid #fbc02d; }
+
+.field-config-dialog {
+  width: min(920px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  border: 1px solid var(--line-strong);
+  padding: 0;
+}
+
+.field-config-dialog form {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  max-height: calc(100vh - 32px);
+}
+
+.field-config-dialog header,
+.field-config-dialog footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.field-config-dialog footer {
+  border-bottom: 0;
+  border-top: 1px solid var(--line);
+}
+
+.field-config-intro {
+  margin: 0;
+  padding: 12px 20px;
+  color: var(--muted);
+  border-bottom: 1px solid var(--line);
+}
+
+.field-config-groups {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  padding: 20px;
+  overflow: auto;
+}
+
+.field-config-group h3 {
+  margin: 0 0 12px;
+  font-size: 1rem;
+}
+
+.field-config-list {
+  display: grid;
+  gap: 8px;
+}
+
+.field-config-list label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--subtle);
+  cursor: pointer;
+}
+
+.field-config-list input {
+  width: auto;
+  margin: 0;
+}
+
+@media (max-width: 760px) {
+  .field-config-groups {
+    grid-template-columns: 1fr;
+  }
+}

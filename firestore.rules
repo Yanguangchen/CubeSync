@@ -1035,6 +1035,20 @@ service cloud.firestore {
       allow delete: if isCubeSyncStaff();
     }
 
+    function isValidFormFieldConfig(data) {
+      return data.keys().hasOnly(['requestFields', 'resultFields', 'updatedAt']) &&
+        data.requestFields is map &&
+        data.resultFields is map &&
+        optCubeSyncTimestamp(data, 'updatedAt');
+    }
+
+    match /settings/formFieldConfig {
+      allow read: if isCubeSyncStaff();
+      allow create, update: if isCubeSyncStaff() &&
+        isValidFormFieldConfig(request.resource.data);
+      allow delete: if false;
+    }
+
     // Default deny everything else.
     match /{document=**} {
       allow read, write: if false;

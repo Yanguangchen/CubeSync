@@ -8,6 +8,9 @@
   "use strict";
 
   const COLLECTION_NAME = "cubeRequests";
+  const SETTINGS_COLLECTION = "settings";
+  const FORM_FIELD_CONFIG_DOC_ID = "formFieldConfig";
+  const FORM_FIELD_CONFIG_STORAGE_KEY = "cubesync-form-field-config";
   const FORM_FIELDS = [
     "projectErp",
     "customerBilling",
@@ -147,6 +150,9 @@
 
   function hasRowValue(row) {
     return RESULT_FIELDS.some((field) => {
+      if (field === "setNo") {
+        return false;
+      }
       const value = row[field];
       return value !== "" && value !== null;
     });
@@ -170,8 +176,242 @@
     return normalizeText(value) !== "";
   }
 
-  function validateCubeRequestPayload(payload) {
-    const missingFieldKeys = REQUIRED_FORM_FIELDS.filter((field) => !isRequestFieldFilled(field, payload[field]));
+  function defaultFormFieldConfig() {
+    return {
+      requestFields: Object.fromEntries(FORM_FIELDS.map((field) => [field, true])),
+      resultFields: Object.fromEntries(RESULT_FIELDS.map((field) => [field, true]))
+    };
+  }
+
+  function normalizeFormFieldConfig(raw) {
+    const defaults = defaultFormFieldConfig();
+    if (!raw || typeof raw !== "object") {
+      return defaults;
+    }
+
+    const requestFields = { ...defaults.requestFields };
+    const resultFields = { ...defaults.resultFields };
+
+    if (raw.requestFields && typeof raw.requestFields === "object") {
+      FORM_FIELDS.forEach((field) => {
+        if (typeof raw.requestFields[field] === "boolean") {
+          requestFields[field] = raw.requestFields[field];
+        }
+      });
+    }
+
+    if (raw.resultFields && typeof raw.resultFields === "object") {
+      RESULT_FIELDS.forEach((field) => {
+        if (typeof raw.resultFields[field] === "boolean") {
+          resultFields[field] = raw.resultFields[field];
+        }
+      });
+    }
+
+    return { requestFields, resultFields };
+  }
+
+  function getActiveRequiredFormFields(config) {
+    const normalized = normalizeFormFieldConfig(config);
+    return REQUIRED_FORM_FIELDS.filter((field) => normalized.requestFields[field] !== false);
+  }
+
+  function isRequestFieldEnabled(config, field) {
+    return normalizeFormFieldConfig(config).requestFields[field] !== false;
+  }
+
+  function isResultFieldEnabled(config, field) {
+    return normalizeFormFieldConfig(config).resultFields[field] !== false;
+  }
+
+  function findRequestFieldRow(form, field) {
+    const control = form.elements[field];
+    if (!control || typeof control.closest !== "function") {
+      return null;
+    }
+
+    return control.closest(".field-row, .toggle-row, label");
+  }
+
+  function getRequestFieldStep(form, field) {
+    const control = form.elements[field];
+    if (!control || typeof control.closest !== "function") {
+      return null;
+    }
+
+    const step = control.closest(".form-step");
+    if (!step || !step.dataset.step) {
+      return null;
+    }
+
+    return parseInt(step.dataset.step, 10);
+  }
+
+  function syncNativeFormConstraints(form, options) {
+    if (!form) {
+      return;
+    }
+
+    const activeStep = options && options.activeStep;
+    const normalized = normalizeFormFieldConfig(options && options.config);
+    const activeRequired = getActiveRequiredFormFields(options && options.config);
+
+    FORM_FIELDS.forEach((field) => {
+      const control = form.elements[field];
+      if (!control || control.type === "checkbox") {
+        return;
+      }
+
+      const enabled = normalized.requestFields[field] !== false;
+      const fieldStep = getRequestFieldStep(form, field);
+      const onActiveStep = activeStep == null || fieldStep == null || fieldStep === activeStep;
+      const shouldRequire = enabled && activeRequired.includes(field) && onActiveStep;
+
+      if (shouldRequire) {
+        control.setAttribute("required", "");
+      } else {
+        control.removeAttribute("required");
+      }
+    });
+  }
+
+  function applyRequestFieldState(form, field, enabled) {
+    const row = findRequestFieldRow(form, field);
+    const control = form.elements[field];
+
+    if (row) {
+      row.hidden = !enabled;
+      row.classList.toggle("field-disabled", !enabled);
+    }
+
+    if (!control) {
+      return;
+    }
+
+    if (!enabled) {
+      control.disabled = true;
+      control.dataset.configDisabled = "true";
+      control.removeAttribute("required");
+      if (control.type === "checkbox") {
+        control.checked = false;
+      } else if (control.type !== "hidden") {
+        control.value = "";
+      }
+      return;
+    }
+
+    delete control.dataset.configDisabled;
+    if (control.type === "checkbox") {
+      control.disabled = false;
+      return;
+    }
+
+    control.disabled = false;
+  }
+
+  function applyResultColumnState(table, columnIndex, enabled) {
+    const headerCell = table.querySelector(`thead th:nth-child(${columnIndex + 1})`);
+    if (headerCell) {
+      headerCell.hidden = !enabled;
+      headerCell.classList.toggle("field-disabled", !enabled);
+    }
+
+    table.querySelectorAll("tbody tr").forEach((row) => {
+      const cell = row.cells[columnIndex];
+      if (!cell) {
+        return;
+      }
+
+      cell.hidden = !enabled;
+      cell.classList.toggle("field-disabled", !enabled);
+      cell.querySelectorAll("input, select, textarea, button").forEach((input) => {
+        input.disabled = !enabled;
+        if (!enabled) {
+          input.dataset.configDisabled = "true";
+        } else {
+          delete input.dataset.configDisabled;
+        }
+      });
+    });
+  }
+
+  function applyResultFieldState(table, field, enabled) {
+    const markedCells = table.querySelectorAll(`[data-result-field="${field}"]`);
+    if (markedCells.length) {
+      markedCells.forEach((cell) => {
+        cell.hidden = !enabled;
+        cell.classList.toggle("field-disabled", !enabled);
+        cell.querySelectorAll("input, select, textarea, button").forEach((input) => {
+          input.disabled = !enabled;
+          if (!enabled) {
+            input.dataset.configDisabled = "true";
+          } else {
+            delete input.dataset.configDisabled;
+          }
+        });
+      });
+      return;
+    }
+
+    const index = RESULT_FIELDS.indexOf(field);
+    if (index >= 0) {
+      applyResultColumnState(table, index, enabled);
+    }
+  }
+
+  function applyFormFieldConfig(form, config, options) {
+    if (!form) {
+      return normalizeFormFieldConfig(config);
+    }
+
+    const normalized = normalizeFormFieldConfig(config);
+
+    FORM_FIELDS.forEach((field) => {
+      applyRequestFieldState(form, field, normalized.requestFields[field] !== false);
+    });
+
+    const table = form.querySelector(".results-table");
+    if (table) {
+      RESULT_FIELDS.forEach((field) => {
+        applyResultFieldState(table, field, normalized.resultFields[field] !== false);
+      });
+    }
+
+    syncNativeFormConstraints(form, {
+      config: normalized,
+      activeStep: options && options.activeStep
+    });
+
+    return normalized;
+  }
+
+  function syncFormFieldConfig(form, config, options) {
+    return applyFormFieldConfig(form, config, options);
+  }
+
+  function readFormFieldConfigFromEditor(editorForm) {
+    const config = defaultFormFieldConfig();
+
+    FORM_FIELDS.forEach((field) => {
+      const control = editorForm.elements[`request-${field}`];
+      if (control) {
+        config.requestFields[field] = Boolean(control.checked);
+      }
+    });
+
+    RESULT_FIELDS.forEach((field) => {
+      const control = editorForm.elements[`result-${field}`];
+      if (control) {
+        config.resultFields[field] = Boolean(control.checked);
+      }
+    });
+
+    return config;
+  }
+
+  function validateCubeRequestPayload(payload, config) {
+    const requiredFields = config ? getActiveRequiredFormFields(config) : REQUIRED_FORM_FIELDS;
+    const missingFieldKeys = requiredFields.filter((field) => !isRequestFieldFilled(field, payload[field]));
     const missingFields = missingFieldKeys.map((field) => REQUEST_FIELD_LABELS[field] || field);
 
     return {
@@ -184,13 +424,13 @@
     };
   }
 
-  function validateCubeRequestForm(form) {
+  function validateCubeRequestForm(form, config) {
     const payload = FORM_FIELDS.reduce((request, field) => {
       request[field] = readFormValue(form, field);
       return request;
     }, {});
 
-    return validateCubeRequestPayload(payload);
+    return validateCubeRequestPayload(payload, config);
   }
 
   function buildCubeRequestFromForm(form) {
@@ -269,6 +509,20 @@
       slumpMeasured: data.slumpMeasured,
       specimenSize: normalizeText(data.specimenSize),
       slumpSpecified: data.slumpSpecified,
+      projectErp: normalizeText(data.projectErp || data.projectCode),
+      customerBilling: normalizeText(data.customerBilling || data.client),
+      projectNameReport: normalizeText(data.projectNameOnReport || data.projectNameReport || data.project),
+      clientReport: normalizeText(data.clientNameOnReport || data.clientReport || data.client),
+      contactPerson: normalizeText(data.contact || data.contactPerson),
+      enableManualCubeJob: Boolean(data.enableManualCubeJobNumber || data.enableManualCubeJob),
+      cubeJob: normalizeText(data.cubeJobNumber || data.cubeJob || data.reportNo),
+      quote: normalizeText(data.quote),
+      testItem: normalizeText(data.testItem || data.method),
+      supplierDisplay: normalizeText(data.supplierDisplay || data.supplier),
+      dateOfCast: formatDate(data.dateOfCast) || formatDate(data.internalDate),
+      gradeFreeText: normalizeText(data.reportGrade || data.gradeFreeText),
+      personInCharge: normalizeText(data.personInCharge),
+      managerInCharge: normalizeText(data.managerInCharge),
       raw: data
     };
   }
@@ -323,10 +577,24 @@
 
   return {
     COLLECTION_NAME,
+    SETTINGS_COLLECTION,
+    FORM_FIELD_CONFIG_DOC_ID,
+    FORM_FIELD_CONFIG_STORAGE_KEY,
     FORM_FIELDS,
     REQUIRED_FORM_FIELDS,
     RESULT_FIELDS,
     REQUEST_FIELD_LABELS,
+    RESULT_FIELD_LABELS,
+    defaultFormFieldConfig,
+    normalizeFormFieldConfig,
+    getActiveRequiredFormFields,
+    isRequestFieldEnabled,
+    isResultFieldEnabled,
+    applyFormFieldConfig,
+    syncNativeFormConstraints,
+    syncFormFieldConfig,
+    getRequestFieldStep,
+    readFormFieldConfigFromEditor,
     isRequestFieldFilled,
     validateCubeRequestForm,
     validateCubeRequestPayload,

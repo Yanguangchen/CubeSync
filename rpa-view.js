@@ -26,15 +26,17 @@
   };
 
   const RESULT_FIELD_LABELS = {
-    testNumber: "Test number",
-    clientCubeMarking: "Client cube marking",
-    dateTested: "Date tested",
-    ageDays: "Age (days)",
-    weightKg: "Weight as received (kg)",
-    loadKn: "Load (kN)",
-    strength: "Compressive strength (N/mm2)",
-    failureMode: "Mode of failure",
-    barcode: "Barcode"
+    setNo: "Set No",
+    size: "Size",
+    specimenRef: "Specimen Ref #",
+    barcode: "Barcode",
+    specifiedSlump: "Specified Slump",
+    meanSlump: "Mean Slump",
+    resultGrade: "Concrete Grade",
+    resultDateOfCast: "Date Of Cast",
+    age: "Age",
+    dateOfTest: "Date Of Test",
+    invoiceNumber: "Invoice Number"
   };
 
   const params = new URLSearchParams(window.location.search);

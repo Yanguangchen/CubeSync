@@ -113,7 +113,7 @@ test("glassmorphic final step saves to Firestore instead of printing", async () 
 
   dispatchDOMContentLoaded();
   fillRequiredRequestFields(global.document);
-  global.document.querySelector('[name="testNumber1"]').value = "T-001";
+  global.document.querySelector('[name="specimenRef1"]').value = "T-001";
   global.document.querySelector('[name="barcode1"]').value = "BC-GLASS-001";
 
   const nextBtn = global.document.getElementById("nextStep");
@@ -131,7 +131,7 @@ test("glassmorphic final step saves to Firestore instead of printing", async () 
   assert.equal(savedPayload.dateOfCast, "2026-06-18");
   assert.equal(savedPayload.template, "Glassmorphic");
   assert.equal(savedPayload.results.length, 1);
-  assert.equal(savedPayload.results[0].testNumber, "T-001");
+  assert.equal(savedPayload.results[0].specimenRef, "T-001");
   assert.equal(savedPayload.results[0].barcode, "BC-GLASS-001");
   assert.equal(signInCalls, 0);
   assert.equal(global.document.getElementById("saveStatus").textContent, "Saved");
@@ -176,8 +176,8 @@ test("app.js loads autocomplete options for ERP and billing fields", async () =>
 
   await new Promise((resolve) => setTimeout(resolve, 50));
 
-  assert.ok(fetchCalledWith.includes("project erp.txt"));
-  assert.ok(fetchCalledWith.includes("customer billing.txt"));
+  assert.ok(fetchCalledWith.includes(encodeURI("project erp.txt")));
+  assert.ok(fetchCalledWith.includes(encodeURI("customer billing.txt")));
 
   ["projectErp", "customerBilling"].forEach((inputName) => {
     const inputs = global.document.querySelectorAll(`input[name="${inputName}"]`);
@@ -202,6 +202,102 @@ test("app.js loads autocomplete options for ERP and billing fields", async () =>
       assert.match(options[2].textContent, /Option C/);
     });
   });
+
+  delete require.cache[require.resolve("./app.js")];
+});
+
+test("app.js applies cached field config and skips disabled required fields", async () => {
+  installDom(glassHtml, "http://localhost/glassmorphic.html");
+
+  global.window.CubeSyncEnv = { RECAPTCHA_SITE_KEY: "test-site-key" };
+  global.window.grecaptcha = {
+    render: () => 0,
+    getResponse: () => "test-recaptcha-token",
+    reset: () => {}
+  };
+
+  const disabledConfig = global.window.CubeSyncFormData.normalizeFormFieldConfig({
+    requestFields: {
+      customerBilling: false,
+      reportGrade: false
+    }
+  });
+  global.localStorage.setItem(
+    global.window.CubeSyncFormData.FORM_FIELD_CONFIG_STORAGE_KEY,
+    JSON.stringify(disabledConfig)
+  );
+
+  let savedPayload = null;
+  global.window.CubeSyncFirestore = {
+    getFormFieldConfig: async () => null,
+    savePublicCubeRequest: async (payload) => {
+      savedPayload = payload;
+      return "saved-with-config";
+    }
+  };
+
+  dispatchDOMContentLoaded();
+  await new Promise((resolve) => setTimeout(resolve, 30));
+
+  const billingRow = global.document.querySelector('[name="customerBilling"]').closest(".field-row");
+  assert.equal(billingRow.hidden, true);
+
+  fillRequiredRequestFields(global.document);
+  global.document.querySelector('[name="customerBilling"]').value = "";
+  global.document.querySelector('[name="reportGrade"]').value = "";
+  global.document.querySelector('[name="specimenRef1"]').value = "T-002";
+  global.document.querySelector('[name="barcode1"]').value = "BC-002";
+
+  global.document.getElementById("nextStep").click();
+  global.document.getElementById("nextStep").click();
+  await new Promise((resolve) => setTimeout(resolve, 30));
+
+  assert.equal(savedPayload.customerBilling, "");
+  assert.equal(savedPayload.reportGrade, "");
+  assert.equal(global.document.getElementById("saveStatus").textContent, "Saved");
+
+  delete require.cache[require.resolve("./app.js")];
+});
+
+test("app.js uses custom validation instead of native hidden-step dateOfCast errors", async () => {
+  installDom(glassHtml, "http://localhost/glassmorphic.html");
+
+  global.window.CubeSyncEnv = { RECAPTCHA_SITE_KEY: "test-site-key" };
+  global.window.grecaptcha = {
+    render: () => 0,
+    getResponse: () => "test-recaptcha-token",
+    reset: () => {}
+  };
+  global.window.CubeSyncFirestore = {
+    getFormFieldConfig: async () => null,
+    savePublicCubeRequest: async () => {
+      throw new Error("Should not save when request details are incomplete");
+    }
+  };
+
+  dispatchDOMContentLoaded();
+  await new Promise((resolve) => setTimeout(resolve, 40));
+
+  const form = global.document.getElementById("cubeRequestForm");
+  assert.ok(form.hasAttribute("novalidate"));
+
+  global.document.getElementById("nextStep").click();
+  await new Promise((resolve) => setTimeout(resolve, 10));
+
+  assert.ok(global.document.querySelector('.form-step[data-step="2"]').classList.contains("active"));
+  assert.equal(form.elements.dateOfCast.hasAttribute("required"), false);
+
+  let submitEventFired = false;
+  form.addEventListener("submit", () => {
+    submitEventFired = true;
+  });
+
+  global.document.getElementById("saveFormButton").click();
+  await new Promise((resolve) => setTimeout(resolve, 30));
+
+  assert.equal(submitEventFired, true);
+  assert.match(global.document.getElementById("saveStatus").textContent, /Date of cast/i);
+  assert.ok(global.document.querySelector('.form-step[data-step="1"]').classList.contains("active"));
 
   delete require.cache[require.resolve("./app.js")];
 });

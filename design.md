@@ -182,6 +182,32 @@ Load via Google Fonts:
 - Border radius: `--radius-sm`
 - Focus: `border-color: var(--brand-mint); box-shadow: 0 0 0 3px var(--accent-soft)`
 
+### Autocomplete dropdown (`.erp-dropdown`)
+
+Typeahead suggestions for selected request fields (`app.js` → `setupAutocomplete`):
+
+- Wrapper: `.erp-autocomplete-wrapper` (position relative, full width of field)
+- List: `.erp-dropdown` — absolute below input, white surface, shadow, `z-index: 1000`, max-height `350px`
+- Item: `.erp-dropdown-item` — hover/keyboard `.selected` uses `--subtle` / `#f1f3f4`
+- Match highlighting: matched substring normal weight; other segments wrapped in `<strong>`
+- Input: `autocomplete="off"`; native `<datalist>` is not used
+
+Options load from root static files (see `README.md` → Autocomplete) plus `localStorage`. Production builds must copy those files into `public/`.
+
+### Multi-step form validation
+
+The glassmorphic form (and original stepped layout) use **custom validation only**:
+
+| Rule | Implementation |
+|------|----------------|
+| No native HTML5 validation | `#cubeRequestForm` has `novalidate` |
+| Required field set | `REQUIRED_FORM_FIELDS` in `cubesync-form-data.js` |
+| Hidden steps | `syncNativeFormConstraints(form, { activeStep })` strips `required` from inactive steps |
+| Disabled dashboard fields | `applyFormFieldConfig()` hides rows/columns; validation skips disabled keys |
+| Submit error UX | Message in `#saveStatus`; jump to step containing first missing field; focus input |
+
+Avoid re-enabling native `required` on hidden controls — browsers throw “not focusable” for empty required fields in `display: none` steps (e.g. `dateOfCast` on step 2).
+
 ### Step indicators
 
 - Default: `--muted` text, `--subtle` background
@@ -222,10 +248,29 @@ Load via Google Fonts:
 |---------|-------------------|
 | Metric cards | `--brand-sky-soft` tint or white surface; value in `--ink`, label in `--muted` |
 | Active nav / filters | `--brand-blue` underline or `--accent-soft` fill |
+| Field settings dialog | Two-column checkbox grid; `--subtle` row backgrounds |
 | Status: draft | `--brand-sky` badge |
 | Status: ready | `--brand-mint` badge |
 | Status: archived | `--muted` badge |
 | Dark mode accent | Shift primary to `--brand-blue` (`#52A0FC`) for better contrast on dark surfaces |
+
+### Form field configuration
+
+Staff configure which request fields and test-result columns appear on **both** `index.html` and `glassmorphic.html`.
+
+| Concern | Implementation |
+|---------|----------------|
+| Dashboard UI | **Field settings** button opens `#fieldConfigDialog` with checkboxes for every `FORM_FIELDS` and `RESULT_FIELDS` entry |
+| Persistence | Firestore document `settings/formFieldConfig` (`requestFields`, `resultFields`, `updatedAt`) |
+| Local cache | `localStorage` key `cubesync-form-field-config` so forms apply settings before remote fetch completes |
+| Form apply | `CubeSyncFormData.applyFormFieldConfig(form, config, { activeStep })` hides rows/columns and syncs native constraints |
+| Validation | `validateCubeRequestForm` / `validateCubeRequestPayload` accept optional config and skip disabled required fields |
+| Native constraints | `syncNativeFormConstraints()` — only the active step’s enabled fields keep `required` |
+| Result columns | Mark headers and cells with `data-result-field="{fieldName}"` for stable show/hide targeting |
+| Access control | Firestore rules: CubeSync staff read/write only on `settings/formFieldConfig` (`firestore.rules`) |
+| Tests | `form-field-config.test.js`, `dashboard-functional.test.js`, `app-functional.test.js` |
+
+Default behavior when no config exists: all fields enabled (see `defaultFormFieldConfig()` in `cubesync-form-data.js`).
 
 ---
 
@@ -266,10 +311,16 @@ Avoid animating layout properties on data-heavy views (tables).
 | File | Scope |
 |------|-------|
 | `glassmorphic.css` | Stepped request form (primary UI) |
-| `dashboard.css` | Form list, detail panel, dark mode |
+| `dashboard.css` | Form list, detail panel, field settings dialog, dark mode |
 | `styles.css` | Original print-oriented form |
 | `rpa-dashboard.css` | RPA queue page overrides |
-| `design.md` | This document — source of truth for tokens |
+| `cubesync-form-data.js` | Schema, validation, field config, dashboard normalization |
+| `app.js` | Form UX: steps, autocomplete, barcodes, save flow |
+| `scripts/write-env.js` | Build: `env.js` + copy static assets and autocomplete files to `public/` |
+| `design.md` | This document — source of truth for tokens and UI patterns |
+| `README.md` | Project overview, schema, build/deploy, testing |
+| `form-field-config.test.js` | TDD coverage for field enable/disable and step constraints |
+| `deployment-config.test.js` | Build output contract (including autocomplete files) |
 | `architecture.md` | UML diagrams: class, sequence, component, state, ER |
 | `RPA_SELECTOR_REFERENCE.md` | Stable selectors for RPA automation |
 

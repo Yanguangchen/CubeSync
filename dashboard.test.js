@@ -31,6 +31,9 @@ test("dashboard frontend exposes form CRUD controls", () => {
   assert.match(html, /printArea/);
   assert.match(html, /New Original Form/);
   assert.match(html, /New Glassmorphic Form/);
+  assert.match(html, /fieldSettingsButton/);
+  assert.match(html, /fieldConfigDialog/);
+  assert.match(html, /fieldConfigForm/);
 
   for (const action of ["View", "Edit", "Print", "Delete"]) {
     assert.match(js, new RegExp(`data-action=\\"${action.toLowerCase()}\\"`));
@@ -59,6 +62,10 @@ test("dashboard frontend exposes form CRUD controls", () => {
   assert.match(js, /openEditor/);
   assert.match(js, /deleteForm/);
   assert.match(js, /printForm/);
+  assert.match(js, /saveFieldConfig/);
+  assert.match(js, /loadFieldConfig/);
+  assert.match(js, /renderFieldConfigEditor/);
+  assert.match(css, /\.field-config-dialog/);
   assert.match(css, /\.dashboard-shell/);
   assert.match(css, /\.dashboard-logo/);
   assert.match(css, /\.form-table/);

@@ -84,7 +84,11 @@ classDiagram
         +String COLLECTION_NAME
         +Array~String~ FORM_FIELDS
         +Array~String~ RESULT_FIELDS
+        +Array~String~ REQUIRED_FORM_FIELDS
         +buildCubeRequestFromForm(form: HTMLForm) Object
+        +validateCubeRequestForm(form: HTMLForm, config?: Object) Object
+        +applyFormFieldConfig(form: HTMLForm, config: Object, options?: Object) Object
+        +syncNativeFormConstraints(form: HTMLForm, options: Object) void
         +normalizeCubeRequestForDashboard(data: Object, id: String) Object
         +dashboardEditToCubeRequest(formData: FormData) Object
     }
@@ -106,8 +110,11 @@ classDiagram
         +listCubeRequests() Promise~Array~
         +getCubeRequest(id: String) Promise~Object~
         +saveCubeRequest(payload: Object, id?: String) Promise~String~
+        +savePublicCubeRequest(payload: Object, id: String, token: String) Promise~String~
         +updateCubeRequest(id: String, updates: Object) Promise~void~
         +deleteCubeRequest(id: String) Promise~String~
+        +getFormFieldConfig() Promise~Object~
+        +saveFormFieldConfig(config: Object) Promise~String~
     }
 
     class CubeSyncAuth {
@@ -485,19 +492,30 @@ erDiagram
     }
 
     TEST_RESULT {
-        number testNumber "Sequential row index"
-
-        string dateTested "Date of test"
-        number ageDays "Age in days"
-        number weightKg "Weight (kg)"
-        number loadKn "Load (kN)"
-        number strength "Compressive strength"
-        string failureMode "Type of failure"
+        number setNo "Set number"
+        string size "Specimen size"
+        string specimenRef "Specimen reference"
         string barcode "Barcode text (not SVG)"
+        string specifiedSlump "Specified slump"
+        number meanSlump "Mean slump"
+        string resultGrade "Concrete grade"
+        string resultDateOfCast "Date of cast"
+        number age "Age in days"
+        string dateOfTest "Date of test"
+        string invoiceNumber "Invoice number"
+    }
+
+    FORM_FIELD_CONFIG {
+        map requestFields "fieldName → enabled boolean"
+        map resultFields "columnName → enabled boolean"
+        timestamp updatedAt "Last saved from dashboard"
     }
 
     CUBE_REQUEST ||--o{ TEST_RESULT : "results[]"
+    FORM_FIELD_CONFIG ||..|| CUBE_REQUEST : "configures UI for"
 ```
+
+Settings document path: `settings/formFieldConfig` (single org-wide config, not per request).
 
 ---
 

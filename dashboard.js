@@ -6,7 +6,8 @@
     selectedId: null,
     search: "",
     status: "all",
-    loading: false
+    loading: false,
+    fieldConfig: null
   };
 
   const elements = {};
@@ -242,10 +243,109 @@
     elements.dashboardShell.classList.toggle("is-hidden", locked);
   }
 
+  function cacheFieldConfig(config) {
+    const helper = formDataHelper();
+    if (!helper || !config) return;
+
+    try {
+      localStorage.setItem(helper.FORM_FIELD_CONFIG_STORAGE_KEY, JSON.stringify(config));
+    } catch {
+      // Ignore storage failures in private browsing.
+    }
+  }
+
+  function renderFieldConfigEditor(config) {
+    const helper = formDataHelper();
+    if (!helper || !elements.fieldConfigGroups) return;
+
+    const normalized = helper.normalizeFormFieldConfig(config);
+    const requestItems = helper.FORM_FIELDS.map(function (field) {
+      const label = helper.REQUEST_FIELD_LABELS[field] || field;
+      const checked = normalized.requestFields[field] !== false ? "checked" : "";
+      return `
+        <label>
+          <input type="checkbox" name="request-${field}" ${checked}>
+          <span>${escapeHtml(label)}</span>
+        </label>
+      `;
+    }).join("");
+
+    const resultItems = helper.RESULT_FIELDS.map(function (field) {
+      const label = helper.RESULT_FIELD_LABELS[field] || field;
+      const checked = normalized.resultFields[field] !== false ? "checked" : "";
+      return `
+        <label>
+          <input type="checkbox" name="result-${field}" ${checked}>
+          <span>${escapeHtml(label)}</span>
+        </label>
+      `;
+    }).join("");
+
+    elements.fieldConfigGroups.innerHTML = `
+      <section class="field-config-group" aria-labelledby="requestFieldConfigTitle">
+        <h3 id="requestFieldConfigTitle">Request details</h3>
+        <div class="field-config-list">${requestItems}</div>
+      </section>
+      <section class="field-config-group" aria-labelledby="resultFieldConfigTitle">
+        <h3 id="resultFieldConfigTitle">Test results columns</h3>
+        <div class="field-config-list">${resultItems}</div>
+      </section>
+    `;
+  }
+
+  async function loadFieldConfig() {
+    const store = formStore();
+    const helper = formDataHelper();
+    if (!helper) return;
+
+    let config = null;
+
+    if (store && typeof store.getFormFieldConfig === "function") {
+      try {
+        config = await store.getFormFieldConfig();
+      } catch (error) {
+        window.alert(error.message || "Unable to load form field settings.");
+      }
+    }
+
+    state.fieldConfig = helper.normalizeFormFieldConfig(config);
+    cacheFieldConfig(state.fieldConfig);
+    renderFieldConfigEditor(state.fieldConfig);
+  }
+
+  function openFieldConfigDialog() {
+    renderFieldConfigEditor(state.fieldConfig);
+    elements.fieldConfigDialog.showModal();
+  }
+
+  async function saveFieldConfig(event) {
+    event.preventDefault();
+
+    const store = formStore();
+    const helper = formDataHelper();
+    if (!store || !helper) return;
+
+    const config = helper.readFormFieldConfigFromEditor(elements.fieldConfigForm);
+    const submitButton = elements.fieldConfigForm.querySelector('button[type="submit"]');
+    if (submitButton) submitButton.disabled = true;
+
+    try {
+      await store.saveFormFieldConfig(config);
+      state.fieldConfig = helper.normalizeFormFieldConfig(config);
+      cacheFieldConfig(state.fieldConfig);
+      elements.fieldConfigDialog.close();
+    } catch (error) {
+      window.alert(error.message || "Unable to save form field settings.");
+    } finally {
+      if (submitButton) submitButton.disabled = false;
+    }
+  }
+
   function clearDashboard() {
     state.forms = [];
     state.selectedId = null;
     state.loading = false;
+    state.fieldConfig = null;
     renderForms();
     viewForm(null);
   }
@@ -296,6 +396,7 @@
 
       elements.authUser.textContent = user.email || user.displayName || "Signed in";
       setDashboardLocked(false);
+      loadFieldConfig();
       loadForms();
     });
   }
@@ -417,7 +518,8 @@
       "formList", "detailPanel", "detailContent", "detailTitle", "searchInput",
       "statusFilter", "editDialog", "editForm", "closeEditorButton", "cancelEditButton",
       "detailViewButton", "detailEditButton", "detailPrintButton", "detailDeleteButton",
-      "printArea"
+      "printArea", "fieldSettingsButton", "fieldConfigDialog", "fieldConfigForm",
+      "fieldConfigGroups", "closeFieldConfigButton", "cancelFieldConfigButton"
     ].forEach((id) => {
       elements[id] = document.getElementById(id);
     });
@@ -473,6 +575,19 @@
     elements.editForm.addEventListener("submit", saveEditedForm);
     elements.closeEditorButton.addEventListener("click", () => elements.editDialog.close());
     elements.cancelEditButton.addEventListener("click", () => elements.editDialog.close());
+
+    if (elements.fieldSettingsButton) {
+      elements.fieldSettingsButton.addEventListener("click", openFieldConfigDialog);
+    }
+    if (elements.fieldConfigForm) {
+      elements.fieldConfigForm.addEventListener("submit", saveFieldConfig);
+    }
+    if (elements.closeFieldConfigButton) {
+      elements.closeFieldConfigButton.addEventListener("click", () => elements.fieldConfigDialog.close());
+    }
+    if (elements.cancelFieldConfigButton) {
+      elements.cancelFieldConfigButton.addEventListener("click", () => elements.fieldConfigDialog.close());
+    }
 
     bindThemeToggle();
     bindAuthGate();

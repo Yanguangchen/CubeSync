@@ -58,6 +58,7 @@
             </div>
           </div>
           <a href="rpa-dashboard.html" class="rpa-link">RPA Bot Queue</a>
+          <button type="button" id="fieldSettingsButton">Field settings</button>
           <a href="index.html">New Original Form</a>
           <a href="glassmorphic.html">New Glassmorphic Form</a>
         </nav>
@@ -120,6 +121,24 @@
         </aside>
       </section>
     </main>
+
+    <dialog id="fieldConfigDialog" class="field-config-dialog glass-panel">
+      <form method="dialog" id="fieldConfigForm">
+        <header>
+          <div>
+            <p class="eyebrow">Form configuration</p>
+            <h2>Enabled fields</h2>
+          </div>
+          <button type="button" id="closeFieldConfigButton" aria-label="Close field settings">Close</button>
+        </header>
+        <p class="field-config-intro">Uncheck a field to hide it on both Original and Glassmorphic forms. Disabled required fields are skipped during validation.</p>
+        <div id="fieldConfigGroups" class="field-config-groups"></div>
+        <footer>
+          <button type="button" id="cancelFieldConfigButton">Cancel</button>
+          <button type="submit">Save field settings</button>
+        </footer>
+      </form>
+    </dialog>
 
     <dialog id="editDialog" class="edit-dialog glass-panel">
       <form method="dialog" id="editForm">

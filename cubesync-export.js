@@ -31,16 +31,17 @@
   ];
 
   const RESULT_FIELDS = [
-    { key: "testNumber", label: "Set No" },
+    { key: "setNo", label: "Set No" },
     { key: "size", label: "Size" },
-    { key: "clientCubeMarking", label: "Speciment Ref #" },
-    { key: "dateTested", label: "Date tested" },
-    { key: "ageDays", label: "Age (days)" },
-    { key: "weightKg", label: "Weight as received (kg)" },
-    { key: "loadKn", label: "Load (kN)" },
-    { key: "strength", label: "Compressive strength (N/mm2)" },
-    { key: "failureMode", label: "Mode of failure" },
-    { key: "barcode", label: "Barcode text" }
+    { key: "specimenRef", label: "Specimen Ref #" },
+    { key: "barcode", label: "Barcode text" },
+    { key: "specifiedSlump", label: "Specified slump" },
+    { key: "meanSlump", label: "Mean slump" },
+    { key: "resultGrade", label: "Concrete grade" },
+    { key: "resultDateOfCast", label: "Date of cast" },
+    { key: "age", label: "Age (days)" },
+    { key: "dateOfTest", label: "Date of test" },
+    { key: "invoiceNumber", label: "Invoice number" }
   ];
 
   const CRC_TABLE = buildCrcTable();

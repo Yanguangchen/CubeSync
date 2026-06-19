@@ -26,16 +26,17 @@ function sampleForm(overrides = {}) {
       locationRepresented: "Level 12",
       results: [
         {
-          testNumber: "T-001",
+          setNo: 1,
           size: "150 x 150 x 150",
-          clientCubeMarking: "CUBE-A",
-          dateTested: "2026-06-17",
-          ageDays: 7,
-          weightKg: 8.25,
-          loadKn: 620,
-          strength: 35.1,
-          failureMode: "Normal",
-          barcode: "RAK-CUBE-001-T-001"
+          specimenRef: "CUBE-A",
+          barcode: "RAK-CUBE-001-T-001",
+          specifiedSlump: "600-800",
+          meanSlump: 670,
+          resultGrade: "C35/45",
+          resultDateOfCast: "2026-05-24",
+          age: 7,
+          dateOfTest: "2026-06-17",
+          invoiceNumber: "INV-1"
         }
       ]
     },
@@ -95,7 +96,7 @@ test("CSV export keeps test result data on a fixed row", () => {
   assert.equal(rows[CSV_RESULT_HEADER_ROW - 1], resultHeader);
   assert.equal(
     rows[CSV_TEST_DATA_START_ROW - 1],
-    "T-001,150 x 150 x 150,CUBE-A,2026-06-17,7,8.25,620,35.1,Normal,RAK-CUBE-001-T-001"
+    "1,150 x 150 x 150,CUBE-A,RAK-CUBE-001-T-001,600-800,670,C35/45,2026-05-24,7,2026-06-17,INV-1"
   );
 });
 
@@ -123,8 +124,7 @@ test("CSV export escapes commas, quotes, and newlines", () => {
       project: "Tower, Phase 2",
       results: [
         {
-          testNumber: "T-001",
-          failureMode: "Shear, \"angled\"\nline",
+          specimenRef: "Shear, \"angled\"\nline",
           barcode: "ESCAPE-001"
         }
       ]
@@ -133,7 +133,7 @@ test("CSV export escapes commas, quotes, and newlines", () => {
 
   assert.match(csv, /Client,"Acme, ""North""\nDivision"/);
   assert.match(csv, /Project,"Tower, Phase 2"/);
-  assert.match(csv, /T-001,,,,,,,,"Shear, ""angled""\nline",ESCAPE-001/);
+  assert.match(csv, /,,"Shear, ""angled""\nline",ESCAPE-001,,,,,,,/);
 });
 
 test("export builds one sanitized CSV file per form", () => {

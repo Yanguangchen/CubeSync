@@ -40,22 +40,22 @@
 
   function resultRowHtml(rowCount) {
     return `
-      <td data-label="TEST NUMBER"><input type="text" name="testNumber${rowCount}" aria-label="Row ${rowCount} test number"></td>
-      <td data-label="CLIENT CUBE MARKING"><input type="text" name="clientCubeMarking${rowCount}" aria-label="Row ${rowCount} client cube marking"></td>
-      <td data-label="DATE TESTED"><input type="date" name="dateTested${rowCount}" aria-label="Row ${rowCount} date tested"></td>
-      <td data-label="AGE (days)"><input type="number" name="ageDays${rowCount}" min="0" step="1" aria-label="Row ${rowCount} age in days"></td>
-      <td data-label="WEIGHT AS RECEIVED (kg)"><input type="number" name="weightKg${rowCount}" min="0" step="0.01" aria-label="Row ${rowCount} weight as received in kg"></td>
-      <td data-label="LOAD (kN)"><input type="number" name="loadKn${rowCount}" min="0" step="0.01" aria-label="Row ${rowCount} load in kN"></td>
-      <td data-label="COMPRESSIVE STRENGTH (N/mm2)"><input type="number" name="strength${rowCount}" min="0" step="0.01" aria-label="Row ${rowCount} compressive strength"></td>
-      <td data-label="MODE OF FAILURE">
-        <input type="text" name="failureMode${rowCount}" aria-label="Row ${rowCount} mode of failure">
-        <button type="button" class="remove-row-btn">Remove</button>
-      </td>
-      <td class="barcode-cell" data-label="BARCODE">
+      <td data-result-field="setNo" data-label="Set No"><input type="number" name="setNo${rowCount}" min="1" step="1" value="1" aria-label="Row ${rowCount} set number"></td>
+      <td data-result-field="size" data-label="Size"><input type="text" name="size${rowCount}" aria-label="Row ${rowCount} size"></td>
+      <td data-result-field="specimenRef" data-label="Specimen Ref #"><input type="text" name="specimenRef${rowCount}" aria-label="Row ${rowCount} specimen reference"></td>
+      <td class="barcode-cell" data-result-field="barcode" data-label="Barcode">
         <input type="text" name="barcode${rowCount}" data-barcode-input placeholder="Enter barcode text" aria-label="Row ${rowCount} barcode text">
         <div class="barcode-preview" aria-live="polite"><span class="barcode-placeholder">Paste Barcode Here</span></div>
         <p class="barcode-message" role="alert"></p>
       </td>
+      <td data-result-field="specifiedSlump" data-label="Specified Slump"><input type="text" name="specifiedSlump${rowCount}" aria-label="Row ${rowCount} specified slump"></td>
+      <td data-result-field="meanSlump" data-label="Mean Slump"><input type="number" name="meanSlump${rowCount}" min="0" step="1" aria-label="Row ${rowCount} mean slump"></td>
+      <td data-result-field="resultGrade" data-label="Concrete Grade"><input type="text" name="resultGrade${rowCount}" aria-label="Row ${rowCount} concrete grade"></td>
+      <td data-result-field="resultDateOfCast" data-label="Date Of Cast"><input type="date" name="resultDateOfCast${rowCount}" aria-label="Row ${rowCount} date of cast"></td>
+      <td data-result-field="age" data-label="Age"><input type="number" name="age${rowCount}" min="0" step="1" aria-label="Row ${rowCount} age in days"></td>
+      <td data-result-field="dateOfTest" data-label="Date Of Test"><input type="date" name="dateOfTest${rowCount}" aria-label="Row ${rowCount} date of test"></td>
+      <td data-result-field="invoiceNumber" data-label="Invoice Number"><input type="text" name="invoiceNumber${rowCount}" aria-label="Row ${rowCount} invoice number"></td>
+      <td data-label="Action"><button type="button" class="remove-row-btn" aria-label="Remove row ${rowCount}">Remove</button></td>
     `;
   }
 
@@ -65,26 +65,35 @@
     element.classList.toggle("is-error", Boolean(isError));
   }
 
-  function focusFirstMissingRequestField(form, missingFieldKeys) {
+  function focusFirstMissingRequestField(form, missingFieldKeys, navigateToStep) {
     if (!form || !Array.isArray(missingFieldKeys)) return;
 
     for (const field of missingFieldKeys) {
       const control = form.elements[field];
-      if (control && typeof control.focus === "function") {
+      if (!control) continue;
+
+      if (typeof navigateToStep === "function") {
+        const step = control.closest(".form-step");
+        if (step && step.dataset.step) {
+          navigateToStep(parseInt(step.dataset.step, 10));
+        }
+      }
+
+      if (typeof control.focus === "function") {
         control.focus();
         break;
       }
     }
   }
 
-  function validateRequestDetails(form, formData, statusElement) {
-    const validation = formData.validateCubeRequestForm(form);
+  function validateRequestDetails(form, formData, statusElement, config, navigateToStep) {
+    const validation = formData.validateCubeRequestForm(form, config);
     if (validation.valid) {
       return true;
     }
 
     setSaveStatus(statusElement, validation.message, true);
-    focusFirstMissingRequestField(form, validation.missingFieldKeys);
+    focusFirstMissingRequestField(form, validation.missingFieldKeys, navigateToStep);
     return false;
   }
 
@@ -187,12 +196,14 @@
       
       let fileOptions = [];
       try {
-        const response = await fetchFn(fetchUrl);
+        const response = await fetchFn(encodeURI(fetchUrl));
         if (response.ok) {
           const text = await response.text();
           fileOptions = text.split('\n').map(l => l.trim()).filter(l => l);
         }
-      } catch (e) {}
+      } catch {
+        // Ignore missing autocomplete source files.
+      }
       
       let localOptions = [];
       try {
@@ -200,7 +211,9 @@
         if (stored) {
           localOptions = JSON.parse(stored);
         }
-      } catch (e) {}
+      } catch {
+        // Ignore missing autocomplete source files.
+      }
       
       const allOptions = Array.from(new Set([...fileOptions, ...localOptions]));
       
@@ -271,7 +284,7 @@
             li.addEventListener('mousedown', (e) => {
               e.preventDefault();
               input.value = match;
-              input.dispatchEvent(new Event('input', { bubbles: true }));
+              input.dispatchEvent(new window.Event('input', { bubbles: true }));
               closeDropdown();
             });
             
@@ -320,7 +333,7 @@
               if (focusedIndex >= 0 && focusedIndex < items.length) {
                 e.preventDefault();
                 input.value = items[focusedIndex].textContent;
-                input.dispatchEvent(new Event('input', { bubbles: true }));
+                input.dispatchEvent(new window.Event('input', { bubbles: true }));
                 closeDropdown();
               }
             } else if (e.key === 'Escape') {
@@ -349,12 +362,46 @@
     }
   }
 
+  async function loadAndApplyFormFieldConfig(form) {
+    const formData = window.CubeSyncFormData;
+    if (!form || !formData) {
+      return null;
+    }
+
+    let config = null;
+
+    try {
+      const cached = localStorage.getItem(formData.FORM_FIELD_CONFIG_STORAGE_KEY);
+      if (cached) {
+        config = JSON.parse(cached);
+      }
+    } catch {
+      config = null;
+    }
+
+    let activeConfig = formData.applyFormFieldConfig(form, config, { activeStep: 1 });
+    const store = window.CubeSyncFirestore;
+
+    if (store && typeof store.getFormFieldConfig === "function") {
+      try {
+        const remoteConfig = await store.getFormFieldConfig();
+        if (remoteConfig) {
+          activeConfig = formData.applyFormFieldConfig(form, remoteConfig, { activeStep: 1 });
+          localStorage.setItem(formData.FORM_FIELD_CONFIG_STORAGE_KEY, JSON.stringify(activeConfig));
+        }
+      } catch {
+        // Public form users may not have Firestore read access; keep cached config.
+      }
+    }
+
+    return activeConfig;
+  }
+
   window.addEventListener("DOMContentLoaded", function () {
     setupAutocomplete('projectErp', 'project erp.txt', 'savedProjectErps');
     setupAutocomplete('customerBilling', 'customer billing.txt', 'savedCustomerBillings');
     setupAutocomplete('supplier', 'supplier.txt', 'savedSuppliers');
     setupAutocomplete('concreteGrade', 'Grade.txt', 'savedGrades');
-    setupAutocomplete('reportGrade', 'Grade.txt', 'savedGrades');
     setupAutocomplete('personInCharge', 'person-in-charge', 'savedPersonsInCharge');
     setupAutocomplete('managerInCharge', 'manager-in-charge.txt', 'savedManagersInCharge');
     setupAutocomplete('testItem', 'testitem.txt', 'savedTestItems');
@@ -367,6 +414,7 @@
     const barcodeInputs = Array.from(document.querySelectorAll("[data-barcode-input]"));
     const urlParams = new URLSearchParams(window.location.search);
     let currentDocId = urlParams.get("id");
+    let activeFieldConfig = null;
 
     barcodeInputs.forEach(function (input) {
       input.addEventListener("input", function () {
@@ -399,7 +447,10 @@
           return;
         }
 
-        if (!validateRequestDetails(form, formData, saveStatus)) {
+        if (!validateRequestDetails(form, formData, saveStatus, activeFieldConfig, function (stepNumber) {
+          currentStep = stepNumber;
+          updateSteps();
+        })) {
           return;
         }
 
@@ -428,7 +479,9 @@
                 existing.push(value);
                 localStorage.setItem(key, JSON.stringify(existing));
               }
-            } catch (e) {}
+            } catch {
+        // Ignore missing autocomplete source files.
+      }
           };
           if (payload.projectErp) saveToLocal('savedProjectErps', payload.projectErp);
           if (payload.customerBilling) saveToLocal('savedCustomerBillings', payload.customerBilling);
@@ -448,6 +501,39 @@
             saveButton.disabled = false;
           }
         }
+      });
+    }
+
+    // Enable Manual Cube Job # toggles the Cube Job # field
+    const manualCubeJobToggle = form ? form.elements["enableManualCubeJobNumber"] : null;
+    const cubeJobNumberInput = form ? form.elements["cubeJobNumber"] : null;
+
+    function applyManualCubeJobState() {
+      if (!manualCubeJobToggle || !cubeJobNumberInput) return;
+      if (cubeJobNumberInput.dataset.configDisabled === "true") {
+        cubeJobNumberInput.disabled = true;
+        cubeJobNumberInput.classList.add("is-disabled");
+        return;
+      }
+      const enabled = manualCubeJobToggle.checked;
+      cubeJobNumberInput.disabled = !enabled;
+      cubeJobNumberInput.classList.toggle("is-disabled", !enabled);
+      if (enabled) {
+        cubeJobNumberInput.removeAttribute("readonly");
+      } else {
+        cubeJobNumberInput.value = "";
+      }
+    }
+
+    if (manualCubeJobToggle && cubeJobNumberInput) {
+      manualCubeJobToggle.addEventListener("change", applyManualCubeJobState);
+      applyManualCubeJobState();
+    }
+
+    if (form) {
+      loadAndApplyFormFieldConfig(form).then(function (config) {
+        activeFieldConfig = config;
+        applyManualCubeJobState();
       });
     }
 
@@ -472,6 +558,13 @@
           indicator.removeAttribute("disabled");
         }
       });
+
+      if (form && window.CubeSyncFormData) {
+        window.CubeSyncFormData.syncNativeFormConstraints(form, {
+          config: activeFieldConfig,
+          activeStep: currentStep
+        });
+      }
 
       // Update buttons
       if (currentStep === 1) {
@@ -540,6 +633,39 @@
       });
     }
 
+    function computeRowAge(row) {
+      const cast = row.querySelector('[name^="resultDateOfCast"]');
+      const test = row.querySelector('[name^="dateOfTest"]');
+      const age = row.querySelector('[name^="age"]');
+      if (!cast || !test || !age || !cast.value || !test.value) return;
+
+      const castDate = new Date(cast.value);
+      const testDate = new Date(test.value);
+      const diffDays = Math.round((testDate - castDate) / (1000 * 60 * 60 * 24));
+      if (Number.isFinite(diffDays) && diffDays >= 0) {
+        age.value = diffDays;
+      }
+    }
+
+    const REQUEST_TO_RESULT_PREFILL = {
+      size: "specimenSize",
+      specifiedSlump: "slumpSpecified",
+      meanSlump: "slumpMeasured",
+      resultGrade: "concreteGrade",
+      resultDateOfCast: "dateOfCast"
+    };
+
+    function prefillRowFromRequest(row) {
+      if (!form) return;
+      Object.keys(REQUEST_TO_RESULT_PREFILL).forEach(function (rowField) {
+        const target = row.querySelector('[name^="' + rowField + '"]');
+        const source = form.elements[REQUEST_TO_RESULT_PREFILL[rowField]];
+        if (target && source && !target.value) {
+          target.value = source.value || "";
+        }
+      });
+    }
+
     function attachRowListeners(row) {
       const newInput = row.querySelector("[data-barcode-input]");
       if (newInput) {
@@ -547,6 +673,15 @@
           renderBarcode(newInput);
         });
       }
+
+      ['[name^="resultDateOfCast"]', '[name^="dateOfTest"]'].forEach(function (selector) {
+        const dateInput = row.querySelector(selector);
+        if (dateInput) {
+          dateInput.addEventListener("change", function () {
+            computeRowAge(row);
+          });
+        }
+      });
 
       const removeBtn = row.querySelector(".remove-row-btn");
       if (removeBtn) {
@@ -563,7 +698,12 @@
       const newRow = document.createElement("tr");
       newRow.innerHTML = resultRowHtml(rowCount);
       tableBody.appendChild(newRow);
+      prefillRowFromRequest(newRow);
       attachRowListeners(newRow);
+      if (activeFieldConfig && window.CubeSyncFormData) {
+        window.CubeSyncFormData.applyFormFieldConfig(form, activeFieldConfig, { activeStep: currentStep });
+        applyManualCubeJobState();
+      }
     }
 
     if (addRowBtn && tableBody) {
@@ -588,6 +728,12 @@
             }
 
             populateForm(form, record, tableBody, addResultRow, renumberRows);
+            if (window.CubeSyncFormData) {
+              activeFieldConfig = window.CubeSyncFormData.applyFormFieldConfig(form, activeFieldConfig, {
+                activeStep: currentStep
+              });
+              applyManualCubeJobState();
+            }
             setSaveStatus(saveStatus, "Loaded", false);
 
             if (shouldPrint) {

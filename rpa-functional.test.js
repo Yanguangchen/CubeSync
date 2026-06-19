@@ -40,15 +40,11 @@ test("rpa-dashboard.js handles auth and loads queue", async () => {
         internalDate: new Date().toISOString(),
         results: [
           {
-            testNumber: "T-001",
-
-            dateTested: "2026-06-17",
-            ageDays: 7,
-            weightKg: 8.1,
-            loadKn: 600,
-            strength: 35,
-            failureMode: "Normal",
-            barcode: "BC-RPA-001"
+            setNo: 1,
+            specimenRef: "T-001",
+            barcode: "BC-RPA-001",
+            dateOfTest: "2026-06-17",
+            age: 7
           }
         ]
       },
@@ -60,7 +56,7 @@ test("rpa-dashboard.js handles auth and loads queue", async () => {
         internalDate: "2020-01-01T00:00:00+08:00",
         results: [
           {
-            testNumber: "T-OLD",
+            specimenRef: "T-OLD",
             barcode: "BC-OLD-001"
           }
         ]
@@ -74,7 +70,7 @@ test("rpa-dashboard.js handles auth and loads queue", async () => {
         rpaStatus: "Disabled",
         results: [
           {
-            testNumber: "T-DISABLED",
+            specimenRef: "T-DISABLED",
             barcode: "BC-DISABLED-001"
           }
         ]
@@ -121,9 +117,9 @@ test("rpa-dashboard.js handles auth and loads queue", async () => {
   ]);
   assert.match(
     exported.files[0].content,
-    /T-001,,,2026-06-17,7,8.1,600,35,Normal,BC-RPA-001/
+    /1,,T-001,BC-RPA-001,,,,,7,2026-06-17,/
   );
-  assert.match(exported.files[1].content, /T-OLD,,,,,,,,,BC-OLD-001/);
+  assert.match(exported.files[1].content, /,,T-OLD,BC-OLD-001,/);
   assert.doesNotMatch(JSON.stringify(exported.files), /RPA-DISABLED/);
   assert.doesNotMatch(JSON.stringify(exported.files), /BC-DISABLED-001/);
 });
@@ -139,10 +135,10 @@ test("rpa-view.js renders form data and barcodes", async () => {
     getCubeRequest: async (id) => ({
       id,
       reportNo: "VIEW-001",
-      clientReport: "View Client",
+      clientNameOnReport: "View Client",
       concreteGrade: "C50",
       results: [
-        { testNumber: "1", barcode: "BC-001" }
+        { specimenRef: "1", barcode: "BC-001" }
       ]
     })
   };

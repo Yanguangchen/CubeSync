@@ -43,7 +43,7 @@
     </div>
 
     <main class="sheet" aria-labelledby="formTitle">
-      <form id="cubeRequestForm" data-template="Original">
+      <form id="cubeRequestForm" data-template="Original" novalidate>
         <header class="form-header">
           <div class="brand">
             <img src="assets/logo.png" alt="R.A.K. Materials Consultants Pte. Ltd.">
@@ -148,184 +148,80 @@
         <section class="results-section" aria-labelledby="resultsTitle">
           <header class="results-header">
             <h2 id="resultsTitle">TEST RESULTS</h2>
-            <button type="button" id="addRowButton" class="add-row-btn">+ Add Row</button>
+            <button type="button" id="addRowButton" class="add-row-btn">+ Add New Set</button>
           </header>
           <div class="table-wrap">
             <table class="results-table">
-              <colgroup>
-                <col class="col-test-number">
-                <col class="col-marking">
-                <col class="col-date-tested">
-                <col class="col-age">
-                <col class="col-weight">
-                <col class="col-load">
-                <col class="col-strength">
-                <col class="col-failure">
-                <col class="col-barcode">
-              </colgroup>
               <thead>
                 <tr>
-                  <th scope="col">TEST NUMBER</th>
-                  <th scope="col">CLIENT CUBE MARKING</th>
-                  <th scope="col">DATE TESTED</th>
-                  <th scope="col">AGE (days)</th>
-                  <th scope="col">WEIGHT AS RECEIVED (kg)</th>
-                  <th scope="col">LOAD (kN)</th>
-                  <th scope="col">COMPRESSIVE STRENGTH (N/mm<sup>2</sup>)</th>
-                  <th scope="col">MODE OF FAILURE</th>
-                  <th scope="col">BARCODE</th>
+                  <th scope="col" data-result-field="setNo">Set No</th>
+                  <th scope="col" data-result-field="size">Size</th>
+                  <th scope="col" data-result-field="specimenRef">Specimen Ref #</th>
+                  <th scope="col" data-result-field="barcode">Barcode</th>
+                  <th scope="col" data-result-field="specifiedSlump">Specified Slump</th>
+                  <th scope="col" data-result-field="meanSlump">Mean Slump</th>
+                  <th scope="col" data-result-field="resultGrade">Concrete Grade</th>
+                  <th scope="col" data-result-field="resultDateOfCast">Date Of Cast</th>
+                  <th scope="col" data-result-field="age">Age</th>
+                  <th scope="col" data-result-field="dateOfTest">Date Of Test</th>
+                  <th scope="col" data-result-field="invoiceNumber">Invoice Number</th>
+                  <th scope="col">Action</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
-                  <td><input type="text" name="testNumber1" aria-label="Row 1 test number"></td>
-                  <td><input type="text" name="clientCubeMarking1" aria-label="Row 1 client cube marking"></td>
-                  <td><input type="date" name="dateTested1" aria-label="Row 1 date tested"></td>
-                  <td><input type="number" name="ageDays1" min="0" step="1" aria-label="Row 1 age in days"></td>
-                  <td><input type="number" name="weightKg1" min="0" step="0.01" aria-label="Row 1 weight as received in kg"></td>
-                  <td><input type="number" name="loadKn1" min="0" step="0.01" aria-label="Row 1 load in kN"></td>
-                  <td><input type="number" name="strength1" min="0" step="0.01" aria-label="Row 1 compressive strength"></td>
-                  <td><input type="text" name="failureMode1" aria-label="Row 1 mode of failure"></td>
-                  <td class="barcode-cell">
+                  <td data-result-field="setNo"><input type="number" name="setNo1" min="1" step="1" value="1" aria-label="Row 1 set number"></td>
+                  <td data-result-field="size"><input type="text" name="size1" aria-label="Row 1 size"></td>
+                  <td data-result-field="specimenRef"><input type="text" name="specimenRef1" aria-label="Row 1 specimen reference"></td>
+                  <td class="barcode-cell" data-result-field="barcode">
                     <input type="text" name="barcode1" data-barcode-input placeholder="Enter barcode text" aria-label="Row 1 barcode text">
                     <div class="barcode-preview" aria-live="polite"><span class="barcode-placeholder">Paste Barcode Here</span></div>
                     <p class="barcode-message" role="alert"></p>
                   </td>
+                  <td data-result-field="specifiedSlump"><input type="text" name="specifiedSlump1" aria-label="Row 1 specified slump"></td>
+                  <td data-result-field="meanSlump"><input type="number" name="meanSlump1" min="0" step="1" aria-label="Row 1 mean slump"></td>
+                  <td data-result-field="resultGrade"><input type="text" name="resultGrade1" aria-label="Row 1 concrete grade"></td>
+                  <td data-result-field="resultDateOfCast"><input type="date" name="resultDateOfCast1" aria-label="Row 1 date of cast"></td>
+                  <td data-result-field="age"><input type="number" name="age1" min="0" step="1" aria-label="Row 1 age in days"></td>
+                  <td data-result-field="dateOfTest"><input type="date" name="dateOfTest1" aria-label="Row 1 date of test"></td>
+                  <td data-result-field="invoiceNumber"><input type="text" name="invoiceNumber1" aria-label="Row 1 invoice number"></td>
+                  <td><button type="button" class="remove-row-btn" aria-label="Remove row 1">Remove</button></td>
                 </tr>
                 <tr>
-                  <td><input type="text" name="testNumber2" aria-label="Row 2 test number"></td>
-                  <td><input type="text" name="clientCubeMarking2" aria-label="Row 2 client cube marking"></td>
-                  <td><input type="date" name="dateTested2" aria-label="Row 2 date tested"></td>
-                  <td><input type="number" name="ageDays2" min="0" step="1" aria-label="Row 2 age in days"></td>
-                  <td><input type="number" name="weightKg2" min="0" step="0.01" aria-label="Row 2 weight as received in kg"></td>
-                  <td><input type="number" name="loadKn2" min="0" step="0.01" aria-label="Row 2 load in kN"></td>
-                  <td><input type="number" name="strength2" min="0" step="0.01" aria-label="Row 2 compressive strength"></td>
-                  <td><input type="text" name="failureMode2" aria-label="Row 2 mode of failure"></td>
-                  <td class="barcode-cell">
+                  <td data-result-field="setNo"><input type="number" name="setNo2" min="1" step="1" value="1" aria-label="Row 2 set number"></td>
+                  <td data-result-field="size"><input type="text" name="size2" aria-label="Row 2 size"></td>
+                  <td data-result-field="specimenRef"><input type="text" name="specimenRef2" aria-label="Row 2 specimen reference"></td>
+                  <td class="barcode-cell" data-result-field="barcode">
                     <input type="text" name="barcode2" data-barcode-input placeholder="Enter barcode text" aria-label="Row 2 barcode text">
                     <div class="barcode-preview" aria-live="polite"><span class="barcode-placeholder">Paste Barcode Here</span></div>
                     <p class="barcode-message" role="alert"></p>
                   </td>
+                  <td data-result-field="specifiedSlump"><input type="text" name="specifiedSlump2" aria-label="Row 2 specified slump"></td>
+                  <td data-result-field="meanSlump"><input type="number" name="meanSlump2" min="0" step="1" aria-label="Row 2 mean slump"></td>
+                  <td data-result-field="resultGrade"><input type="text" name="resultGrade2" aria-label="Row 2 concrete grade"></td>
+                  <td data-result-field="resultDateOfCast"><input type="date" name="resultDateOfCast2" aria-label="Row 2 date of cast"></td>
+                  <td data-result-field="age"><input type="number" name="age2" min="0" step="1" aria-label="Row 2 age in days"></td>
+                  <td data-result-field="dateOfTest"><input type="date" name="dateOfTest2" aria-label="Row 2 date of test"></td>
+                  <td data-result-field="invoiceNumber"><input type="text" name="invoiceNumber2" aria-label="Row 2 invoice number"></td>
+                  <td><button type="button" class="remove-row-btn" aria-label="Remove row 2">Remove</button></td>
                 </tr>
                 <tr>
-                  <td><input type="text" name="testNumber3" aria-label="Row 3 test number"></td>
-                  <td><input type="text" name="clientCubeMarking3" aria-label="Row 3 client cube marking"></td>
-                  <td><input type="date" name="dateTested3" aria-label="Row 3 date tested"></td>
-                  <td><input type="number" name="ageDays3" min="0" step="1" aria-label="Row 3 age in days"></td>
-                  <td><input type="number" name="weightKg3" min="0" step="0.01" aria-label="Row 3 weight as received in kg"></td>
-                  <td><input type="number" name="loadKn3" min="0" step="0.01" aria-label="Row 3 load in kN"></td>
-                  <td><input type="number" name="strength3" min="0" step="0.01" aria-label="Row 3 compressive strength"></td>
-                  <td><input type="text" name="failureMode3" aria-label="Row 3 mode of failure"></td>
-                  <td class="barcode-cell">
+                  <td data-result-field="setNo"><input type="number" name="setNo3" min="1" step="1" value="1" aria-label="Row 3 set number"></td>
+                  <td data-result-field="size"><input type="text" name="size3" aria-label="Row 3 size"></td>
+                  <td data-result-field="specimenRef"><input type="text" name="specimenRef3" aria-label="Row 3 specimen reference"></td>
+                  <td class="barcode-cell" data-result-field="barcode">
                     <input type="text" name="barcode3" data-barcode-input placeholder="Enter barcode text" aria-label="Row 3 barcode text">
                     <div class="barcode-preview" aria-live="polite"><span class="barcode-placeholder">Paste Barcode Here</span></div>
                     <p class="barcode-message" role="alert"></p>
                   </td>
-                </tr>
-                <tr>
-                  <td><input type="text" name="testNumber4" aria-label="Row 4 test number"></td>
-                  <td><input type="text" name="clientCubeMarking4" aria-label="Row 4 client cube marking"></td>
-                  <td><input type="date" name="dateTested4" aria-label="Row 4 date tested"></td>
-                  <td><input type="number" name="ageDays4" min="0" step="1" aria-label="Row 4 age in days"></td>
-                  <td><input type="number" name="weightKg4" min="0" step="0.01" aria-label="Row 4 weight as received in kg"></td>
-                  <td><input type="number" name="loadKn4" min="0" step="0.01" aria-label="Row 4 load in kN"></td>
-                  <td><input type="number" name="strength4" min="0" step="0.01" aria-label="Row 4 compressive strength"></td>
-                  <td><input type="text" name="failureMode4" aria-label="Row 4 mode of failure"></td>
-                  <td class="barcode-cell">
-                    <input type="text" name="barcode4" data-barcode-input placeholder="Enter barcode text" aria-label="Row 4 barcode text">
-                    <div class="barcode-preview" aria-live="polite"><span class="barcode-placeholder">Paste Barcode Here</span></div>
-                    <p class="barcode-message" role="alert"></p>
-                  </td>
-                </tr>
-                <tr>
-                  <td><input type="text" name="testNumber5" aria-label="Row 5 test number"></td>
-                  <td><input type="text" name="clientCubeMarking5" aria-label="Row 5 client cube marking"></td>
-                  <td><input type="date" name="dateTested5" aria-label="Row 5 date tested"></td>
-                  <td><input type="number" name="ageDays5" min="0" step="1" aria-label="Row 5 age in days"></td>
-                  <td><input type="number" name="weightKg5" min="0" step="0.01" aria-label="Row 5 weight as received in kg"></td>
-                  <td><input type="number" name="loadKn5" min="0" step="0.01" aria-label="Row 5 load in kN"></td>
-                  <td><input type="number" name="strength5" min="0" step="0.01" aria-label="Row 5 compressive strength"></td>
-                  <td><input type="text" name="failureMode5" aria-label="Row 5 mode of failure"></td>
-                  <td class="barcode-cell">
-                    <input type="text" name="barcode5" data-barcode-input placeholder="Enter barcode text" aria-label="Row 5 barcode text">
-                    <div class="barcode-preview" aria-live="polite"><span class="barcode-placeholder">Paste Barcode Here</span></div>
-                    <p class="barcode-message" role="alert"></p>
-                  </td>
-                </tr>
-                <tr>
-                  <td><input type="text" name="testNumber6" aria-label="Row 6 test number"></td>
-                  <td><input type="text" name="clientCubeMarking6" aria-label="Row 6 client cube marking"></td>
-                  <td><input type="date" name="dateTested6" aria-label="Row 6 date tested"></td>
-                  <td><input type="number" name="ageDays6" min="0" step="1" aria-label="Row 6 age in days"></td>
-                  <td><input type="number" name="weightKg6" min="0" step="0.01" aria-label="Row 6 weight as received in kg"></td>
-                  <td><input type="number" name="loadKn6" min="0" step="0.01" aria-label="Row 6 load in kN"></td>
-                  <td><input type="number" name="strength6" min="0" step="0.01" aria-label="Row 6 compressive strength"></td>
-                  <td><input type="text" name="failureMode6" aria-label="Row 6 mode of failure"></td>
-                  <td class="barcode-cell">
-                    <input type="text" name="barcode6" data-barcode-input placeholder="Enter barcode text" aria-label="Row 6 barcode text">
-                    <div class="barcode-preview" aria-live="polite"><span class="barcode-placeholder">Paste Barcode Here</span></div>
-                    <p class="barcode-message" role="alert"></p>
-                  </td>
-                </tr>
-                <tr>
-                  <td><input type="text" name="testNumber7" aria-label="Row 7 test number"></td>
-                  <td><input type="text" name="clientCubeMarking7" aria-label="Row 7 client cube marking"></td>
-                  <td><input type="date" name="dateTested7" aria-label="Row 7 date tested"></td>
-                  <td><input type="number" name="ageDays7" min="0" step="1" aria-label="Row 7 age in days"></td>
-                  <td><input type="number" name="weightKg7" min="0" step="0.01" aria-label="Row 7 weight as received in kg"></td>
-                  <td><input type="number" name="loadKn7" min="0" step="0.01" aria-label="Row 7 load in kN"></td>
-                  <td><input type="number" name="strength7" min="0" step="0.01" aria-label="Row 7 compressive strength"></td>
-                  <td><input type="text" name="failureMode7" aria-label="Row 7 mode of failure"></td>
-                  <td class="barcode-cell">
-                    <input type="text" name="barcode7" data-barcode-input placeholder="Enter barcode text" aria-label="Row 7 barcode text">
-                    <div class="barcode-preview" aria-live="polite"><span class="barcode-placeholder">Paste Barcode Here</span></div>
-                    <p class="barcode-message" role="alert"></p>
-                  </td>
-                </tr>
-                <tr>
-                  <td><input type="text" name="testNumber8" aria-label="Row 8 test number"></td>
-                  <td><input type="text" name="clientCubeMarking8" aria-label="Row 8 client cube marking"></td>
-                  <td><input type="date" name="dateTested8" aria-label="Row 8 date tested"></td>
-                  <td><input type="number" name="ageDays8" min="0" step="1" aria-label="Row 8 age in days"></td>
-                  <td><input type="number" name="weightKg8" min="0" step="0.01" aria-label="Row 8 weight as received in kg"></td>
-                  <td><input type="number" name="loadKn8" min="0" step="0.01" aria-label="Row 8 load in kN"></td>
-                  <td><input type="number" name="strength8" min="0" step="0.01" aria-label="Row 8 compressive strength"></td>
-                  <td><input type="text" name="failureMode8" aria-label="Row 8 mode of failure"></td>
-                  <td class="barcode-cell">
-                    <input type="text" name="barcode8" data-barcode-input placeholder="Enter barcode text" aria-label="Row 8 barcode text">
-                    <div class="barcode-preview" aria-live="polite"><span class="barcode-placeholder">Paste Barcode Here</span></div>
-                    <p class="barcode-message" role="alert"></p>
-                  </td>
-                </tr>
-                <tr>
-                  <td><input type="text" name="testNumber9" aria-label="Row 9 test number"></td>
-                  <td><input type="text" name="clientCubeMarking9" aria-label="Row 9 client cube marking"></td>
-                  <td><input type="date" name="dateTested9" aria-label="Row 9 date tested"></td>
-                  <td><input type="number" name="ageDays9" min="0" step="1" aria-label="Row 9 age in days"></td>
-                  <td><input type="number" name="weightKg9" min="0" step="0.01" aria-label="Row 9 weight as received in kg"></td>
-                  <td><input type="number" name="loadKn9" min="0" step="0.01" aria-label="Row 9 load in kN"></td>
-                  <td><input type="number" name="strength9" min="0" step="0.01" aria-label="Row 9 compressive strength"></td>
-                  <td><input type="text" name="failureMode9" aria-label="Row 9 mode of failure"></td>
-                  <td class="barcode-cell">
-                    <input type="text" name="barcode9" data-barcode-input placeholder="Enter barcode text" aria-label="Row 9 barcode text">
-                    <div class="barcode-preview" aria-live="polite"><span class="barcode-placeholder">Paste Barcode Here</span></div>
-                    <p class="barcode-message" role="alert"></p>
-                  </td>
-                </tr>
-                <tr>
-                  <td><input type="text" name="testNumber10" aria-label="Row 10 test number"></td>
-                  <td><input type="text" name="clientCubeMarking10" aria-label="Row 10 client cube marking"></td>
-                  <td><input type="date" name="dateTested10" aria-label="Row 10 date tested"></td>
-                  <td><input type="number" name="ageDays10" min="0" step="1" aria-label="Row 10 age in days"></td>
-                  <td><input type="number" name="weightKg10" min="0" step="0.01" aria-label="Row 10 weight as received in kg"></td>
-                  <td><input type="number" name="loadKn10" min="0" step="0.01" aria-label="Row 10 load in kN"></td>
-                  <td><input type="number" name="strength10" min="0" step="0.01" aria-label="Row 10 compressive strength"></td>
-                  <td><input type="text" name="failureMode10" aria-label="Row 10 mode of failure"></td>
-                  <td class="barcode-cell">
-                    <input type="text" name="barcode10" data-barcode-input placeholder="Enter barcode text" aria-label="Row 10 barcode text">
-                    <div class="barcode-preview" aria-live="polite"><span class="barcode-placeholder">Paste Barcode Here</span></div>
-                    <p class="barcode-message" role="alert"></p>
-                  </td>
+                  <td data-result-field="specifiedSlump"><input type="text" name="specifiedSlump3" aria-label="Row 3 specified slump"></td>
+                  <td data-result-field="meanSlump"><input type="number" name="meanSlump3" min="0" step="1" aria-label="Row 3 mean slump"></td>
+                  <td data-result-field="resultGrade"><input type="text" name="resultGrade3" aria-label="Row 3 concrete grade"></td>
+                  <td data-result-field="resultDateOfCast"><input type="date" name="resultDateOfCast3" aria-label="Row 3 date of cast"></td>
+                  <td data-result-field="age"><input type="number" name="age3" min="0" step="1" aria-label="Row 3 age in days"></td>
+                  <td data-result-field="dateOfTest"><input type="date" name="dateOfTest3" aria-label="Row 3 date of test"></td>
+                  <td data-result-field="invoiceNumber"><input type="text" name="invoiceNumber3" aria-label="Row 3 invoice number"></td>
+                  <td><button type="button" class="remove-row-btn" aria-label="Remove row 3">Remove</button></td>
                 </tr>
               </tbody>
             </table>

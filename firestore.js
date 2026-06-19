@@ -21,6 +21,8 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
 
 const COLLECTION_NAME = "cubeRequests";
+const SETTINGS_COLLECTION = "settings";
+const FORM_FIELD_CONFIG_DOC_ID = "formFieldConfig";
 const firebaseConfig = {
   apiKey: "AIzaSyDovmjClkov6q1qRQkkgCExH31rEbX0X2M",
   authDomain: "crewhub-43647.firebaseapp.com",
@@ -78,6 +80,10 @@ function cubeRequestsCollection() {
 
 function cubeRequestDocument(id) {
   return doc(db, COLLECTION_NAME, id);
+}
+
+function settingsDocument(id) {
+  return doc(db, SETTINGS_COLLECTION, id);
 }
 
 function onAuthChange(callback) {
@@ -209,15 +215,32 @@ async function deleteCubeRequest(id) {
   return id;
 }
 
+async function getFormFieldConfig() {
+  const snapshot = await getDoc(settingsDocument(FORM_FIELD_CONFIG_DOC_ID));
+  return snapshot.exists() ? snapshot.data() : null;
+}
+
+async function saveFormFieldConfig(config) {
+  await setDoc(settingsDocument(FORM_FIELD_CONFIG_DOC_ID), withoutUndefined({
+    ...config,
+    updatedAt: serverTimestamp()
+  }), { merge: true });
+  return FORM_FIELD_CONFIG_DOC_ID;
+}
+
 window.CubeSyncFirestore = {
   COLLECTION_NAME,
+  SETTINGS_COLLECTION,
+  FORM_FIELD_CONFIG_DOC_ID,
   firebaseConfig,
   listCubeRequests,
   getCubeRequest,
   savePublicCubeRequest,
   saveCubeRequest,
   updateCubeRequest,
-  deleteCubeRequest
+  deleteCubeRequest,
+  getFormFieldConfig,
+  saveFormFieldConfig
 };
 
 window.CubeSyncAuth = {

@@ -11,6 +11,7 @@ const STATIC_FILES = [
   "rpa-view.html",
   "app.js",
   "barcode.js",
+  "chime.js",
   "cubesync-form-data.js",
   "cubesync-export.js",
   "dashboard.js",
@@ -27,6 +28,10 @@ const STATIC_FILES = [
 ];
 const STATIC_DIRS = [
   "assets"
+];
+const AUTOCOMPLETE_FILES = [
+  "person-in-charge",
+  ...fs.readdirSync(process.cwd()).filter((file) => file.endsWith(".txt"))
 ];
 
 function jsString(value) {
@@ -56,6 +61,13 @@ function copyStaticFiles() {
     fs.cpSync(path.join(process.cwd(), directory), path.join(PUBLIC_DIR, directory), {
       recursive: true
     });
+  }
+
+  for (const file of AUTOCOMPLETE_FILES) {
+    const source = path.join(process.cwd(), file);
+    if (fs.existsSync(source)) {
+      fs.copyFileSync(source, path.join(PUBLIC_DIR, file));
+    }
   }
 }
 

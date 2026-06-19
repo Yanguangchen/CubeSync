@@ -4,7 +4,6 @@ const test = require("node:test");
 
 function assertConcreteForm(html) {
   assert.match(html, /CONCRETE CUBE TEST REQUEST FORM/);
-  assert.match(html, /FOR INTERNAL USE ONLY/);
   assert.match(html, /TEST RESULTS/);
   assert.match(html, /Size \*/);
   assert.match(html, /Mean Slump \*/);
@@ -12,7 +11,8 @@ function assertConcreteForm(html) {
   assert.match(html, /assets\/logo\.png/);
   assert.match(html, /barcode\.js/);
   assert.match(html, /app\.js/);
-  assert.equal((html.match(/data-barcode-input/g) || []).length, 10);
+  assert.match(html, /id="cubeRequestForm"[^>]*novalidate/);
+  assert.equal((html.match(/data-barcode-input/g) || []).length, 3);
 }
 
 test("original digital form keeps the PDF form sections and ten barcode inputs", () => {

@@ -37,9 +37,9 @@ All shared modules use UMD (browser `window.*` + CommonJS `module.exports`) exce
 | Global | Source | Purpose |
 |--------|--------|---------|
 | `window.CubeSyncBarcode` | `barcode.js` | `encodeCode128B`, `renderBarcodeSvg`, `sanitizeBarcodeText` |
-| `window.CubeSyncFormData` | `cubesync-form-data.js` | `buildCubeRequestFromForm`, `normalizeCubeRequestForDashboard`, `dashboardEditToCubeRequest`, `FORM_FIELDS`, `RESULT_FIELDS` |
+| `window.CubeSyncFormData` | `cubesync-form-data.js` | Schema, validation, `buildCubeRequestFromForm`, `applyFormFieldConfig`, `syncNativeFormConstraints`, `validateCubeRequestForm`, `normalizeCubeRequestForDashboard` |
 | `window.CubeSyncExport` | `cubesync-export.js` | `buildExportFiles`, `buildFormCsv`, `createZipBlob`, `downloadFilesAsZip` |
-| `window.CubeSyncFirestore` | `firestore.js` | `savePublicCubeRequest`, `listCubeRequests`, `getCubeRequest`, `saveCubeRequest`, `updateCubeRequest`, `deleteCubeRequest` |
+| `window.CubeSyncFirestore` | `firestore.js` | `savePublicCubeRequest`, `listCubeRequests`, `getCubeRequest`, `saveCubeRequest`, `updateCubeRequest`, `deleteCubeRequest`, `getFormFieldConfig`, `saveFormFieldConfig` |
 | `window.CubeSyncAuth` | `firestore.js` | `onAuthChange`, `currentUser`, `isAllowedEmail`, `isAllowedUser`, `signInWithGoogle`, `signOutUser` |
 
 ## reCAPTCHA v2 Integration
@@ -82,17 +82,87 @@ For local development, you have two options:
 
 ## Data schema
 
-All forms are stored in the `cubeRequests` Firestore collection.
+All forms are stored in the `cubeRequests` Firestore collection. Canonical field names live in `cubesync-form-data.js` (`FORM_FIELDS`, `RESULT_FIELDS`, `REQUIRED_FORM_FIELDS`).
 
-**Request fields** (23): `internalDate`, `projectCode`, `projectErp`, `customerBilling`, `projectNameReport`, `clientReport`, `contactPerson`, `enableManualCubeJob`, `cubeJob`, `quote`, `testItem`, `supplier`, `supplierDisplay`, `locationRepresented`, `additionalInformation`, `dateOfCast`, `concreteGrade`, `gradeFreeText`, `specimenSize`, `slumpMeasured`, `slumpSpecified`, `personInCharge`, `managerInCharge`
+### Request fields (`FORM_FIELDS`)
 
-**Result fields** (9 per row): `testNumber`, `dateTested`, `ageDays`, `weightKg`, `loadKn`, `strength`, `failureMode`, `barcode`
+| Field | Label (UI) | Required by default |
+|-------|------------|---------------------|
+| `projectErp` | Project (ERP) | No |
+| `customerBilling` | Customer (Billing) | Yes |
+| `projectNameOnReport` | Project Name on Report | No |
+| `clientNameOnReport` | Client Name on Report | No |
+| `contact` | Contact | Yes |
+| `enableManualCubeJobNumber` | Enable Manual Cube Job # | No (checkbox) |
+| `cubeJobNumber` | Cube Job # | No (enabled by checkbox) |
+| `quote` | Quote | No |
+| `testItem` | Test Item | No |
+| `concreteGrade` | Grade | Yes |
+| `reportGrade` | Grade (free text) | Yes |
+| `supplier` | Supplier Of Concrete | Yes |
+| `supplierDisplay` | Supplier Of Concrete Display | Yes |
+| `locationRepresented` | Location | Yes |
+| `additionalInformation` | Additional Info | No |
+| `dateOfCast` | Date of cast | Yes |
+| `slumpMeasured` | Mean Slump | Yes |
+| `specimenSize` | Size | Yes |
+| `slumpSpecified` | Specified Slump | Yes |
+| `personInCharge` | Person In Charge | Yes |
+| `managerInCharge` | Manager In Charge | Yes |
 
-**System fields**: `template`, `status`, `createdAt`, `updatedAt`, `rpaStatus`, `erpStatus`, `attemptCount`, `customFields`
+Legacy aliases (`reportNo`, `client`, `project`, `internalDate`, etc.) are normalized on read/write via `applyLegacyRequestAliases()` for dashboard and export compatibility.
+
+### Result fields (`RESULT_FIELDS`, one row per set)
+
+`setNo`, `size`, `specimenRef`, `barcode`, `specifiedSlump`, `meanSlump`, `resultGrade`, `resultDateOfCast`, `age`, `dateOfTest`, `invoiceNumber`
+
+Test-result table headers and cells use `data-result-field="{name}"` for column show/hide when field settings disable a column.
+
+### System fields
+
+`template`, `status`, `results`, `createdAt`, `updatedAt`, `rpaStatus`, `erpStatus`, `attemptCount`, `customFields`
 
 Barcodes are stored as **text only** — SVGs are rendered client-side via Code 128-B encoding. Never store generated barcode images in Firestore.
 
-## Custom Free Text Fields
+### Settings collection
+
+| Document | Path | Purpose |
+|----------|------|---------|
+| Form field config | `settings/formFieldConfig` | Which request fields and result columns are enabled on both forms (`requestFields`, `resultFields`, `updatedAt`) |
+
+Staff manage this from **Field settings** on `dashboard.html`. Forms cache the config in `localStorage` under `cubesync-form-field-config`.
+
+## Form validation
+
+Validation is **custom JavaScript**, not native HTML5 constraint validation:
+
+- Both forms use `novalidate` on `#cubeRequestForm` so hidden step-1 fields (e.g. empty `dateOfCast` on step 2) do not trigger browser “not focusable” errors.
+- `validateCubeRequestForm()` / `validateCubeRequestPayload()` in `cubesync-form-data.js` enforce `REQUIRED_FORM_FIELDS`, excluding fields disabled in dashboard field settings.
+- `syncNativeFormConstraints()` removes the `required` attribute from fields on inactive form steps when the user is on step 2.
+- On submit failure, `app.js` shows a message in `#saveStatus`, navigates back to the step containing the first missing field, and focuses it.
+
+Required fields must be filled before save; test-result rows are validated separately (at least one row with meaningful data when submitting).
+
+## Autocomplete suggestion dropdowns
+
+Several request fields show a typeahead dropdown as the user types (`setupAutocomplete()` in `app.js`):
+
+| Input `name` | Options file | `localStorage` key |
+|--------------|--------------|-------------------|
+| `projectErp` | `project erp.txt` | `savedProjectErps` |
+| `customerBilling` | `customer billing.txt` | `savedCustomerBillings` |
+| `supplier` | `supplier.txt` | `savedSuppliers` |
+| `concreteGrade` | `Grade.txt` | `savedGrades` |
+| `personInCharge` | `person-in-charge` | `savedPersonsInCharge` |
+| `managerInCharge` | `manager-in-charge.txt` | `savedManagersInCharge` |
+| `testItem` | `testitem.txt` | `savedTestItems` |
+| `specimenSize` | `size.txt` | `savedSizes` |
+
+Options are merged from the static file (via `fetch`) and prior user entries in `localStorage`. **`reportGrade` is free text only** — no autocomplete.
+
+For production (Vercel), `npm run build` copies all root `*.txt` files and `person-in-charge` into `public/` alongside HTML/JS. If dropdowns are empty in production, confirm those files exist under the deployed site root (e.g. `/supplier.txt`).
+
+## Custom free text fields
 
 Fields with dropdown menus (`specimenSize`, `managerInCharge`, `testItem`, etc.) support free-text entries dynamically wired through `app.js`. If a user enters a value not found in the baseline `.txt` options, it is recorded in the `customFields` array. 
 
@@ -102,7 +172,15 @@ The `dashboard.html` human dashboard reads the `customFields` array and applies 
 
 Enter text in any barcode field and a Code 128-B barcode is generated automatically. The encoder validates printable ASCII (chars 32–126), computes a weighted checksum, and renders an accessible `<svg>` with `role="img"` and `aria-label`.
 
-Static files are served directly. The build script only writes `env.js` from deployment environment variables.
+## Build and static assets
+
+`npm run build` runs `scripts/write-env.js`, which:
+
+1. Writes `env.js` (and `public/env.js`) with `RECAPTCHA_SITE_KEY` from environment variables.
+2. Copies static app files into `public/` for Vercel (`index.html`, `glassmorphic.html`, JS, CSS, `assets/`, etc.).
+3. Copies **autocomplete option files** — every root `*.txt` plus `person-in-charge`.
+
+Vercel uses `outputDirectory: "public"` (`vercel.json`). Do not deploy without running the build step, or autocomplete files will be missing from production.
 
 ```sh
 # Install dev dependencies (testing + linting only)
@@ -137,15 +215,21 @@ The project uses `node:test` + `node:assert/strict` with `jsdom` for DOM simulat
 
 | Tier | Pattern | Example |
 |------|---------|---------|
-| Unit tests | Pure function → assert output | `barcode.test.js`, `export.test.js` |
+| Unit tests | Pure function → assert output | `barcode.test.js`, `export.test.js`, `form-field-config.test.js` |
 | Functional tests | JSDOM + mocked Firebase → simulate clicks → assert DOM | `app-functional.test.js`, `dashboard-functional.test.js` |
-| Contract tests | Read source as string → regex assertions on structure | `form.test.js`, `firestore.test.js` |
+| Contract tests | Read source as string → regex assertions on structure | `form.test.js`, `firestore.test.js`, `deployment-config.test.js` |
+
+Notable regression coverage:
+
+- `form-field-config.test.js` — field enable/disable, validation with config, `syncNativeFormConstraints`
+- `app-functional.test.js` — multi-step submit, autocomplete wiring, hidden-step validation (`dateOfCast` / `novalidate`)
+- `deployment-config.test.js` — build output includes autocomplete `.txt` files in `public/`
 
 ## Firestore rules safety
 
 `firestore.rules` also contains WorkGrid rules from another sensitive app. **Do not edit the WorkGrid rule blocks** for CubeSync work.
 
-CubeSync-specific access must stay in the clearly marked `CUBESYNC-ONLY RULES` block for `cubeRequests`. Direct client Firestore access remains authenticated-only. Public customer forms submit through `/api/cube-request-submit`, which verifies reCAPTCHA v2 and writes with Firebase Admin.
+CubeSync-specific access must stay in the clearly marked `CUBESYNC-ONLY RULES` block for `cubeRequests` and `settings/formFieldConfig`. Direct client Firestore access remains authenticated-only. Public customer forms submit through `/api/cube-request-submit`, which verifies reCAPTCHA v2 and writes with Firebase Admin.
 
 The allowlist is maintained in `firestore.js` as `CUBESYNC_ALLOWED_EMAILS`. It mirrors the WorkGrid-listed emails plus CubeSync additions such as `ernestngcy@gmail.com`; do not add CubeSync-only users by editing WorkGrid rule code.
 
@@ -160,4 +244,11 @@ The allowlist is maintained in `firestore.js` as `CUBESYNC_ALLOWED_EMAILS`. It m
 
 ## Deployment
 
-Hosted on Vercel as a static site plus `/api/cube-request-submit`. Set `CUBESYNC_RECAPTCHA_SITE_KEY`, `CUBESYNC_RECAPTCHA_SECRET_KEY`, and `FIREBASE_SERVICE_ACCOUNT_JSON` in Vercel, keep the output directory as the repository root, and push to `main` to deploy.
+Hosted on Vercel as a static site (`public/` output) plus `/api/cube-request-submit`.
+
+1. Set `CUBESYNC_RECAPTCHA_SITE_KEY`, `CUBESYNC_RECAPTCHA_SECRET_KEY`, and `FIREBASE_SERVICE_ACCOUNT_JSON` (or `_BASE64`) in Vercel.
+2. Ensure the build command is `npm run build` and output directory is `public` (`vercel.json`).
+3. Deploy Firestore rules when changing `settings/formFieldConfig` access (`firestore.rules`).
+4. Push to `main` to deploy.
+
+After deploy, verify autocomplete files are reachable (e.g. `https://your-site/supplier.txt`) and form field settings save from the dashboard.

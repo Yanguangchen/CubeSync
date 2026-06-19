@@ -49,7 +49,7 @@ test("dashboard.js handles auth and loads forms", async () => {
         updatedAt: "2026-06-17",
         results: [
           {
-            testNumber: "T-001",
+            specimenRef: "T-001",
             barcode: "REPORT-001-T-001"
           }
         ]
@@ -236,4 +236,70 @@ test("dashboard.js edit form handles all request fields", async () => {
 
   assert.equal(updatedData.internalDate, "2026-06-20");
   assert.equal(updatedData.slumpMeasured, 15);
+});
+
+test("dashboard.js saves form field settings from field config dialog", async () => {
+  const dom = new JSDOM(html, {
+    runScripts: "dangerously",
+    url: "http://localhost/"
+  });
+  const { window } = dom;
+
+  window.alert = () => {};
+
+  let savedConfig = null;
+  const mockAuth = {
+    onAuthChange: (cb) => cb({ email: "test@rakmat.com.sg" }),
+    isAllowedUser: () => true
+  };
+  const mockFirestore = {
+    listCubeRequests: async () => [],
+    getFormFieldConfig: async () => ({
+      requestFields: { quote: true, contact: true },
+      resultFields: { invoiceNumber: true }
+    }),
+    saveFormFieldConfig: async (config) => {
+      savedConfig = config;
+    }
+  };
+
+  window.CubeSyncAuth = mockAuth;
+  window.CubeSyncFirestore = mockFirestore;
+
+  [barcodeJs, formDataJs, dashboardJs].forEach((js) => {
+    const script = window.document.createElement("script");
+    script.textContent = js;
+    window.document.head.appendChild(script);
+  });
+
+  window.HTMLDialogElement.prototype.showModal = function () {
+    this.open = true;
+  };
+  window.HTMLDialogElement.prototype.close = function () {
+    this.open = false;
+  };
+
+  const event = window.document.createEvent("Event");
+  event.initEvent("DOMContentLoaded", true, true);
+  window.document.dispatchEvent(event);
+
+  await new Promise((resolve) => setTimeout(resolve, 50));
+
+  window.document.getElementById("fieldSettingsButton").click();
+  const fieldConfigForm = window.document.getElementById("fieldConfigForm");
+  assert.ok(fieldConfigForm.querySelector('[name="request-quote"]'));
+  assert.ok(fieldConfigForm.querySelector('[name="result-invoiceNumber"]'));
+
+  fieldConfigForm.elements["request-quote"].checked = false;
+  fieldConfigForm.elements["result-invoiceNumber"].checked = false;
+  fieldConfigForm.dispatchEvent(new window.Event("submit", { cancelable: true }));
+
+  await new Promise((resolve) => setTimeout(resolve, 50));
+
+  assert.equal(savedConfig.requestFields.quote, false);
+  assert.equal(savedConfig.resultFields.invoiceNumber, false);
+  assert.equal(
+    window.localStorage.getItem("cubesync-form-field-config"),
+    JSON.stringify(window.CubeSyncFormData.normalizeFormFieldConfig(savedConfig))
+  );
 });

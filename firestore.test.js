@@ -29,7 +29,9 @@ test("Firestore module initializes Firebase and exposes cube request CRUD", () =
     "savePublicCubeRequest",
     "saveCubeRequest",
     "updateCubeRequest",
-    "deleteCubeRequest"
+    "deleteCubeRequest",
+    "getFormFieldConfig",
+    "saveFormFieldConfig"
   ]) {
     assert.match(js, new RegExp(`function ${operation}\\b`));
     assert.match(js, new RegExp(`CubeSyncFirestore[\\s\\S]*${operation}`));
@@ -58,6 +60,8 @@ test("Firestore rules enforce CubeSync staff allowlist for direct client access"
   assert.match(rules, /function isCubeSyncStaff\(\)/);
   assert.match(rules, /allow read: if isCubeSyncStaff\(\)/);
   assert.match(rules, /jlee\.j\.m9382@gmail\.com/);
+  assert.match(rules, /match \/settings\/formFieldConfig/);
+  assert.match(rules, /isValidFormFieldConfig/);
   assert.doesNotMatch(rules, /allow read, write: if isSignedIn\(\);/);
   assert.match(rules, /match \/bookings\/\{bookingId\}/);
   assert.match(rules, /match \/collisions\/\{collisionId\}/);

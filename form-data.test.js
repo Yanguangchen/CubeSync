@@ -98,15 +98,17 @@ test("shared schema maps Firestore cube requests into dashboard records", () => 
     "managerInCharge"
   ]);
   assert.deepEqual(RESULT_FIELDS, [
-    "testNumber",
-    "clientCubeMarking",
-    "dateTested",
-    "ageDays",
-    "weightKg",
-    "loadKn",
-    "strength",
-    "failureMode",
-    "barcode"
+    "setNo",
+    "size",
+    "specimenRef",
+    "barcode",
+    "specifiedSlump",
+    "meanSlump",
+    "resultGrade",
+    "resultDateOfCast",
+    "age",
+    "dateOfTest",
+    "invoiceNumber"
   ]);
 
   const dashboardRecord = normalizeCubeRequestForDashboard({
@@ -140,6 +142,20 @@ test("shared schema maps Firestore cube requests into dashboard records", () => 
     slumpMeasured: undefined,
     specimenSize: "",
     slumpSpecified: undefined,
+    projectErp: "",
+    customerBilling: "Acme",
+    projectNameReport: "Tower",
+    clientReport: "Acme",
+    contactPerson: "",
+    enableManualCubeJob: false,
+    cubeJob: "RAK-CUBE-1",
+    quote: "",
+    testItem: "",
+    supplierDisplay: "",
+    dateOfCast: "",
+    gradeFreeText: "",
+    personInCharge: "",
+    managerInCharge: "",
     raw: {
       reportNo: "RAK-CUBE-1",
       client: "Acme",
@@ -227,9 +243,8 @@ test("form serialization stores barcode text, not generated barcode images", () 
     specimenSize: "150 x 150 x 150"
   }, [
     {
-      testNumber: "T-001",
-      clientCubeMarking: "CUBE-A",
-      ageDays: "7",
+      specimenRef: "CUBE-A",
+      age: "7",
       barcode: "RAK-CUBE-42-T-001",
       barcodeSvg: "<svg></svg>",
       barcodeImage: "data:image/png;base64,abc"
@@ -238,7 +253,7 @@ test("form serialization stores barcode text, not generated barcode images", () 
 
   assert.equal(payload.results.length, 1);
   assert.equal(payload.results[0].barcode, "RAK-CUBE-42-T-001");
-  assert.equal(payload.results[0].ageDays, 7);
+  assert.equal(payload.results[0].age, 7);
   assert.equal(payload.reportNo, "RAK-CUBE-42");
   assert.equal(payload.client, "Acme");
   assert.equal(payload.project, "Tower");
