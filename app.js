@@ -65,6 +65,29 @@
     element.classList.toggle("is-error", Boolean(isError));
   }
 
+  function focusFirstMissingRequestField(form, missingFieldKeys) {
+    if (!form || !Array.isArray(missingFieldKeys)) return;
+
+    for (const field of missingFieldKeys) {
+      const control = form.elements[field];
+      if (control && typeof control.focus === "function") {
+        control.focus();
+        break;
+      }
+    }
+  }
+
+  function validateRequestDetails(form, formData, statusElement) {
+    const validation = formData.validateCubeRequestForm(form);
+    if (validation.valid) {
+      return true;
+    }
+
+    setSaveStatus(statusElement, validation.message, true);
+    focusFirstMissingRequestField(form, validation.missingFieldKeys);
+    return false;
+  }
+
   function recaptchaSiteKey() {
     const env = window.CubeSyncEnv || {};
     return String(env.RECAPTCHA_SITE_KEY || "").trim();
@@ -200,6 +223,10 @@
           return;
         }
 
+        if (!validateRequestDetails(form, formData, saveStatus)) {
+          return;
+        }
+
         let token = "";
         try {
           token = recaptchaToken(recaptchaContainer);
@@ -273,6 +300,9 @@
     if (nextBtn && prevBtn) {
       nextBtn.addEventListener("click", function () {
         if (currentStep < steps.length) {
+          if (currentStep === 1 && !validateRequestDetails(form, window.CubeSyncFormData, saveStatus)) {
+            return;
+          }
           currentStep++;
           updateSteps();
         } else {
@@ -289,7 +319,13 @@
 
       indicators.forEach(function (indicator) {
         indicator.addEventListener("click", function () {
-          currentStep = parseInt(this.dataset.step);
+          const targetStep = parseInt(this.dataset.step, 10);
+          if (targetStep > currentStep && currentStep === 1 && targetStep > 1) {
+            if (!validateRequestDetails(form, window.CubeSyncFormData, saveStatus)) {
+              return;
+            }
+          }
+          currentStep = targetStep;
           updateSteps();
         });
       });

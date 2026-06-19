@@ -43,6 +43,22 @@
     "loadKn",
     "strength"
   ]);
+  const REQUEST_FIELD_LABELS = {
+    internalDate: "Date",
+    projectCode: "Project code",
+    reportNo: "Report no.",
+    client: "Client",
+    method: "Method",
+    project: "Project",
+    concreteGrade: "Concrete grade",
+    supplier: "Supplier",
+    locationRepresented: "Location represented",
+    additionalInformation: "Additional information",
+    dateTimeSampled: "Date & time sampled",
+    slumpMeasured: "Slump measured (mm)",
+    specimenSize: "Specimen size (mm)",
+    slumpSpecified: "Slump specified (mm)"
+  };
 
   function normalizeText(value) {
     return String(value == null ? "" : value).trim();
@@ -83,6 +99,37 @@
         return result;
       }, {}))
       .filter(hasRowValue);
+  }
+
+  function isRequestFieldFilled(field, value) {
+    if (NUMBER_FIELDS.has(field)) {
+      return typeof value === "number" && Number.isFinite(value);
+    }
+
+    return normalizeText(value) !== "";
+  }
+
+  function validateCubeRequestPayload(payload) {
+    const missingFieldKeys = FORM_FIELDS.filter((field) => !isRequestFieldFilled(field, payload[field]));
+    const missingFields = missingFieldKeys.map((field) => REQUEST_FIELD_LABELS[field] || field);
+
+    return {
+      valid: missingFieldKeys.length === 0,
+      missingFieldKeys,
+      missingFields,
+      message: missingFieldKeys.length
+        ? `Please fill in all request details before submitting: ${missingFields.join(", ")}`
+        : ""
+    };
+  }
+
+  function validateCubeRequestForm(form) {
+    const payload = FORM_FIELDS.reduce((request, field) => {
+      request[field] = readFormValue(form, field);
+      return request;
+    }, {});
+
+    return validateCubeRequestPayload(payload);
   }
 
   function buildCubeRequestFromForm(form) {
@@ -151,6 +198,10 @@
     COLLECTION_NAME,
     FORM_FIELDS,
     RESULT_FIELDS,
+    REQUEST_FIELD_LABELS,
+    isRequestFieldFilled,
+    validateCubeRequestForm,
+    validateCubeRequestPayload,
     buildCubeRequestFromForm,
     dashboardEditToCubeRequest,
     normalizeCubeRequestForDashboard

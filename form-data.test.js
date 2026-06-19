@@ -7,6 +7,8 @@ const {
   COLLECTION_NAME,
   FORM_FIELDS,
   RESULT_FIELDS,
+  validateCubeRequestForm,
+  validateCubeRequestPayload,
   normalizeCubeRequestForDashboard
 } = require("./cubesync-form-data");
 
@@ -119,6 +121,63 @@ test("shared schema maps Firestore cube requests into dashboard records", () => 
       updatedAt: "2026-06-17"
     }
   });
+});
+
+test("validateCubeRequestForm requires every request field except test results", () => {
+  const completeFields = {
+    internalDate: "2026-06-18",
+    projectCode: "PRJ-001",
+    reportNo: "RAK-CUBE-1",
+    client: "Acme",
+    method: "BS EN 12390-3 : 2019",
+    project: "Tower",
+    concreteGrade: "C35/45",
+    supplier: "Supplier A",
+    locationRepresented: "Level 12",
+    additionalInformation: "Rush job",
+    dateTimeSampled: "2026-06-18T10:30",
+    slumpMeasured: "120",
+    specimenSize: "150 x 150 x 150",
+    slumpSpecified: "100"
+  };
+
+  const validForm = fakeForm(completeFields, []);
+  const validResult = validateCubeRequestForm(validForm);
+
+  assert.equal(validResult.valid, true);
+  assert.equal(validResult.message, "");
+
+  const invalidForm = fakeForm({ ...completeFields, client: "", internalDate: "" }, []);
+  const invalidResult = validateCubeRequestForm(invalidForm);
+
+  assert.equal(invalidResult.valid, false);
+  assert.deepEqual(invalidResult.missingFieldKeys, ["internalDate", "client"]);
+  assert.match(invalidResult.message, /Date/);
+  assert.match(invalidResult.message, /Client/);
+});
+
+test("validateCubeRequestPayload rejects empty numeric request fields", () => {
+  const payload = {
+    internalDate: "2026-06-18",
+    projectCode: "PRJ-001",
+    reportNo: "RAK-CUBE-1",
+    client: "Acme",
+    method: "BS EN 12390-3 : 2019",
+    project: "Tower",
+    concreteGrade: "C35/45",
+    supplier: "Supplier A",
+    locationRepresented: "Level 12",
+    additionalInformation: "Rush job",
+    dateTimeSampled: "2026-06-18T10:30",
+    slumpMeasured: null,
+    specimenSize: "150 x 150 x 150",
+    slumpSpecified: ""
+  };
+
+  const result = validateCubeRequestPayload(payload);
+
+  assert.equal(result.valid, false);
+  assert.deepEqual(result.missingFieldKeys, ["slumpMeasured", "slumpSpecified"]);
 });
 
 test("form serialization stores barcode text, not generated barcode images", () => {

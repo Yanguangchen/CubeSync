@@ -1,4 +1,5 @@
 const { loadDotEnv } = require("../scripts/load-env");
+const { validateCubeRequestPayload } = require("../cubesync-form-data");
 
 const COLLECTION_NAME = "cubeRequests";
 const ALLOWED_TEMPLATES = new Set(["Original", "Glassmorphic"]);
@@ -202,6 +203,12 @@ module.exports = async function handler(request, response) {
       ...cleanPayload(payload),
       updatedAt: now
     };
+    const validation = validateCubeRequestPayload(clean);
+
+    if (!validation.valid) {
+      json(response, 400, { error: validation.message });
+      return;
+    }
 
     if (id) {
       await db.collection(COLLECTION_NAME).doc(id).set(clean, { merge: true });

@@ -5,6 +5,30 @@ const fs = require("node:fs");
 
 const glassHtml = fs.readFileSync("glassmorphic.html", "utf8");
 
+function fillRequiredRequestFields(document) {
+  const values = {
+    internalDate: "2026-06-18",
+    projectCode: "PRJ-001",
+    reportNo: "GLASS-001",
+    client: "Glass Client",
+    method: "BS EN 12390-3 : 2019",
+    project: "Glass Project",
+    concreteGrade: "C35/45",
+    supplier: "Glass Supplier",
+    locationRepresented: "Level 12",
+    additionalInformation: "Rush job",
+    dateTimeSampled: "2026-06-18T10:30",
+    slumpMeasured: "120",
+    specimenSize: "150 x 150 x 150",
+    slumpSpecified: "100"
+  };
+
+  Object.entries(values).forEach(([name, value]) => {
+    const control = document.querySelector(`[name="${name}"]`);
+    if (control) control.value = value;
+  });
+}
+
 test("app.js handles multi-step navigation in glassmorphic form", async () => {
   const dom = new JSDOM(glassHtml, { url: "http://localhost/" });
   global.window = dom.window;
@@ -87,8 +111,7 @@ test("glassmorphic final step saves to Firestore instead of printing", async () 
   const event = new global.Event("DOMContentLoaded");
   global.window.dispatchEvent(event);
 
-  global.document.querySelector('[name="reportNo"]').value = "GLASS-001";
-  global.document.querySelector('[name="client"]').value = "Glass Client";
+  fillRequiredRequestFields(global.document);
   global.document.querySelector('[name="testNumber1"]').value = "T-001";
   global.document.querySelector('[name="barcode1"]').value = "BC-GLASS-001";
 
