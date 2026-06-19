@@ -21,6 +21,7 @@ test("Firestore module initializes Firebase and exposes cube request CRUD", () =
   assert.match(js, /desmond@rakmat\.com\.sg/);
   assert.match(js, /nck@rakmat\.com\.sg/);
   assert.match(js, /ernestngcy@gmail\.com/);
+  assert.match(js, /jlee\.j\.m9382@gmail\.com/);
 
   for (const operation of [
     "listCubeRequests",
@@ -47,15 +48,17 @@ test("Firestore module initializes Firebase and exposes cube request CRUD", () =
   }
 });
 
-test("Firestore rules keep direct CubeSync client access signed-in only", () => {
+test("Firestore rules enforce CubeSync staff allowlist for direct client access", () => {
   const rules = fs.readFileSync("firestore.rules", "utf8");
 
   assert.match(rules, /CUBESYNC-ONLY RULES/);
   assert.match(rules, /NEVER edit the WorkGrid rules/);
   assert.match(rules, /match \/cubeRequests\/\{requestId\}/);
   assert.match(rules, /reCAPTCHA v2 server-side/);
-  assert.match(rules, /allow read, write: if isSignedIn\(\);/);
-  assert.doesNotMatch(rules, /ernestngcy@gmail\.com/);
+  assert.match(rules, /function isCubeSyncStaff\(\)/);
+  assert.match(rules, /allow read: if isCubeSyncStaff\(\)/);
+  assert.match(rules, /jlee\.j\.m9382@gmail\.com/);
+  assert.doesNotMatch(rules, /allow read, write: if isSignedIn\(\);/);
   assert.match(rules, /match \/bookings\/\{bookingId\}/);
   assert.match(rules, /match \/collisions\/\{collisionId\}/);
   assert.match(rules, /match \/\{document=\*\*\}/);

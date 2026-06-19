@@ -300,9 +300,6 @@
     if (nextBtn && prevBtn) {
       nextBtn.addEventListener("click", function () {
         if (currentStep < steps.length) {
-          if (currentStep === 1 && !validateRequestDetails(form, window.CubeSyncFormData, saveStatus)) {
-            return;
-          }
           currentStep++;
           updateSteps();
         } else {
@@ -320,11 +317,6 @@
       indicators.forEach(function (indicator) {
         indicator.addEventListener("click", function () {
           const targetStep = parseInt(this.dataset.step, 10);
-          if (targetStep > currentStep && currentStep === 1 && targetStep > 1) {
-            if (!validateRequestDetails(form, window.CubeSyncFormData, saveStatus)) {
-              return;
-            }
-          }
           currentStep = targetStep;
           updateSteps();
         });

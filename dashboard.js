@@ -282,9 +282,18 @@
   function openEditor(id) {
     const form = state.forms.find((item) => item.id === id);
     if (!form) return;
+    const raw = form.raw || {};
 
     elements.editForm.elements.id.value = form.id;
     elements.editForm.elements.reportNo.value = form.reportNo;
+    elements.editForm.elements.internalDate.value = raw.internalDate || "";
+    elements.editForm.elements.projectCode.value = raw.projectCode || "";
+    elements.editForm.elements.method.value = raw.method || "";
+    elements.editForm.elements.supplier.value = raw.supplier || "";
+    elements.editForm.elements.dateTimeSampled.value = raw.dateTimeSampled || "";
+    elements.editForm.elements.slumpMeasured.value = raw.slumpMeasured == null ? "" : raw.slumpMeasured;
+    elements.editForm.elements.specimenSize.value = raw.specimenSize || "";
+    elements.editForm.elements.slumpSpecified.value = raw.slumpSpecified == null ? "" : raw.slumpSpecified;
     elements.editForm.elements.status.value = form.status;
     elements.editForm.elements.client.value = form.client;
     elements.editForm.elements.project.value = form.project;

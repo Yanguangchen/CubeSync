@@ -156,3 +156,82 @@ test("dashboard.js filters forms by search query", async () => {
   assert.match(list.innerHTML, /APPLE/);
   assert.doesNotMatch(list.innerHTML, /BANANA/);
 });
+
+test("dashboard.js edit form handles all request fields", async () => {
+  const dom = new JSDOM(html, {
+    runScripts: "dangerously",
+    url: "http://localhost/"
+  });
+  const { window } = dom;
+
+  const mockAuth = {
+    onAuthChange: (cb) => cb({ email: "test@rakmat.com.sg" }),
+    isAllowedUser: () => true
+  };
+
+  let updatedData = null;
+  const mockFirestore = {
+    listCubeRequests: async () => [
+      { 
+        id: "1", reportNo: "APPLE", client: "A", project: "P", status: "Draft",
+        internalDate: "2026-06-19", projectCode: "PC1", method: "M1",
+        supplier: "S1", dateTimeSampled: "2026-06-19T10:00", slumpMeasured: 10,
+        specimenSize: "150x150", slumpSpecified: 20
+      }
+    ],
+    updateCubeRequest: async (id, data) => { updatedData = data; }
+  };
+
+  window.CubeSyncAuth = mockAuth;
+  window.CubeSyncFirestore = mockFirestore;
+
+  const scripts = [barcodeJs, formDataJs, dashboardJs];
+  scripts.forEach(js => {
+    const s = window.document.createElement("script");
+    s.textContent = js;
+    window.document.head.appendChild(s);
+  });
+
+  const event = window.document.createEvent("Event");
+  event.initEvent("DOMContentLoaded", true, true);
+  window.document.dispatchEvent(event);
+
+  await new Promise(resolve => setTimeout(resolve, 50));
+
+  const list = window.document.getElementById("formList");
+  
+  // Mock dialog methods
+  window.HTMLDialogElement.prototype.showModal = function() {
+    this.open = true;
+  };
+  window.HTMLDialogElement.prototype.close = function() {
+    this.open = false;
+  };
+
+  // Click edit button
+  const editBtn = list.querySelector("button[data-action='edit']");
+  editBtn.click();
+
+  const editForm = window.document.getElementById("editForm");
+  
+  // Assert all fields are populated
+  assert.equal(editForm.elements.internalDate.value, "2026-06-19");
+  assert.equal(editForm.elements.projectCode.value, "PC1");
+  assert.equal(editForm.elements.method.value, "M1");
+  assert.equal(editForm.elements.supplier.value, "S1");
+  assert.equal(editForm.elements.dateTimeSampled.value, "2026-06-19T10:00");
+  assert.equal(editForm.elements.slumpMeasured.value, "10");
+  assert.equal(editForm.elements.specimenSize.value, "150x150");
+  assert.equal(editForm.elements.slumpSpecified.value, "20");
+
+  // Modify some fields
+  editForm.elements.internalDate.value = "2026-06-20";
+  editForm.elements.slumpMeasured.value = "15";
+
+  // Submit form
+  editForm.dispatchEvent(new window.Event("submit", { cancelable: true }));
+  await new Promise(resolve => setTimeout(resolve, 50));
+
+  assert.equal(updatedData.internalDate, "2026-06-20");
+  assert.equal(updatedData.slumpMeasured, 15);
+});

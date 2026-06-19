@@ -56,7 +56,8 @@ const CUBESYNC_ALLOWED_EMAILS = [
   "santofokir605@gmail.com",
   "nckeyong@gmail.com",
   "nck@rakmat.com.sg",
-  "ernestngcy@gmail.com"
+  "ernestngcy@gmail.com",
+  "jlee.j.m9382@gmail.com"
 ];
 
 googleProvider.setCustomParameters({

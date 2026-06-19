@@ -821,9 +821,218 @@ service cloud.firestore {
     // CubeSync stores concrete cube request form documents here. Customer-facing
     // form submissions go through /api/cube-request-submit, which verifies
     // reCAPTCHA v2 server-side and writes with the Admin SDK.
+    //
+    // Staff direct client access requires verified Firebase Auth email on the
+    // CubeSync allowlist (keep in sync with CUBESYNC_ALLOWED_EMAILS in
+    // firestore.js). CubeSync-only users belong here only — not WorkGrid.
     // ---------------------------------------------------------------
+    function isCubeSyncAllowedEmail() {
+      return request.auth.token.email in [
+        'yanguangchensp@gmail.com',
+        'yanguangchen@outlook.com',
+        'mushfiqsiddqiue@gmail.com',
+        'desmond@rakmat.com.sg',
+        'theresaongpohkuan@gmail.com',
+        'theresa@rakmat.com.sg',
+        'ken@rakmat.com.sg',
+        'fondlekc@gmail.com',
+        'account@rakmat.com.sg',
+        'account1@rakmat.com.sg',
+        'feichin@rakmat.com.sg',
+        'taiheng@rakmat.com.sg',
+        'oakkar@rakmat.com.sg',
+        'agga@rakmat.com.sg',
+        'ma@rakmat.com.sg',
+        'khun@rakmat.com.sg',
+        'yanguangchen@webwizardsg.com',
+        'santofokir605@gmail.com',
+        'nckeyong@gmail.com',
+        'nck@rakmat.com.sg',
+        'ernestngcy@gmail.com',
+        'jlee.j.m9382@gmail.com'
+      ];
+    }
+
+    function isCubeSyncStaff() {
+      return isVerifiedEmail() && isCubeSyncAllowedEmail();
+    }
+
+    function isCubeSyncTimestamp(value) {
+      return value == request.time || value is timestamp;
+    }
+
+    function optCubeSyncTimestamp(data, field) {
+      return !(field in data) || isCubeSyncTimestamp(data[field]);
+    }
+
+    function optCubeStrOrNum(data, field, maxLen) {
+      return !(field in data) ||
+        data[field] == null ||
+        (data[field] is string && data[field].size() <= maxLen) ||
+        (data[field] is number &&
+          data[field] >= -1000000000 &&
+          data[field] <= 1000000000);
+    }
+
+    function isValidCubeResult(row) {
+      return row is map &&
+        row.keys().hasOnly([
+          'testNumber',
+          'clientCubeMarking',
+          'dateTested',
+          'ageDays',
+          'weightKg',
+          'loadKn',
+          'strength',
+          'failureMode',
+          'barcode'
+        ]) &&
+        optCubeStrOrNum(row, 'testNumber', 64) &&
+        optCubeStrOrNum(row, 'clientCubeMarking', 200) &&
+        optCubeStrOrNum(row, 'dateTested', 64) &&
+        optCubeStrOrNum(row, 'ageDays', 16) &&
+        optCubeStrOrNum(row, 'weightKg', 32) &&
+        optCubeStrOrNum(row, 'loadKn', 32) &&
+        optCubeStrOrNum(row, 'strength', 32) &&
+        optCubeStrOrNum(row, 'failureMode', 200) &&
+        optCubeStrOrNum(row, 'barcode', 128);
+    }
+
+    function isValidCubeResults(value) {
+      return value is list &&
+        value.size() <= 50 &&
+        (value.size() > 0 ? isValidCubeResult(value[0]) : true) &&
+        (value.size() > 1 ? isValidCubeResult(value[1]) : true) &&
+        (value.size() > 2 ? isValidCubeResult(value[2]) : true) &&
+        (value.size() > 3 ? isValidCubeResult(value[3]) : true) &&
+        (value.size() > 4 ? isValidCubeResult(value[4]) : true) &&
+        (value.size() > 5 ? isValidCubeResult(value[5]) : true) &&
+        (value.size() > 6 ? isValidCubeResult(value[6]) : true) &&
+        (value.size() > 7 ? isValidCubeResult(value[7]) : true) &&
+        (value.size() > 8 ? isValidCubeResult(value[8]) : true) &&
+        (value.size() > 9 ? isValidCubeResult(value[9]) : true);
+    }
+
+    function cubeRequestDataKeys() {
+      return [
+        'internalDate',
+        'projectCode',
+        'reportNo',
+        'client',
+        'method',
+        'project',
+        'concreteGrade',
+        'supplier',
+        'locationRepresented',
+        'additionalInformation',
+        'dateTimeSampled',
+        'slumpMeasured',
+        'specimenSize',
+        'slumpSpecified',
+        'template',
+        'status',
+        'results',
+        'createdAt',
+        'updatedAt'
+      ];
+    }
+
+    function isValidCubeRequest(data) {
+      return data.keys().hasOnly(cubeRequestDataKeys()) &&
+        optStrWithin(data, 'internalDate', 64) &&
+        optStrWithin(data, 'projectCode', 128) &&
+        optStrWithin(data, 'reportNo', 128) &&
+        optStrWithin(data, 'client', 200) &&
+        optStrWithin(data, 'method', 200) &&
+        optStrWithin(data, 'project', 200) &&
+        optStrWithin(data, 'concreteGrade', 120) &&
+        optStrWithin(data, 'supplier', 200) &&
+        optStrWithin(data, 'locationRepresented', 500) &&
+        optStrWithin(data, 'additionalInformation', 4000) &&
+        optStrWithin(data, 'dateTimeSampled', 64) &&
+        optCubeStrOrNum(data, 'slumpMeasured', 32) &&
+        optStrWithin(data, 'specimenSize', 64) &&
+        optCubeStrOrNum(data, 'slumpSpecified', 32) &&
+        (!('template' in data) ||
+          data.template in ['Original', 'Glassmorphic']) &&
+        (!('status' in data) ||
+          data.status in ['Draft', 'Ready', 'Archived']) &&
+        (!('results' in data) || isValidCubeResults(data.results)) &&
+        optCubeSyncTimestamp(data, 'createdAt') &&
+        optCubeSyncTimestamp(data, 'updatedAt');
+    }
+
+    function cubeRequestChanged(field) {
+      return request.resource.data.diff(resource.data)
+        .affectedKeys().hasAny([field]);
+    }
+
+    function isValidCubeRequestUpdate() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'internalDate',
+          'projectCode',
+          'reportNo',
+          'client',
+          'method',
+          'project',
+          'concreteGrade',
+          'supplier',
+          'locationRepresented',
+          'additionalInformation',
+          'dateTimeSampled',
+          'slumpMeasured',
+          'specimenSize',
+          'slumpSpecified',
+          'template',
+          'status',
+          'results',
+          'updatedAt'
+        ]) &&
+        (!cubeRequestChanged('template') ||
+          request.resource.data.template in ['Original', 'Glassmorphic']) &&
+        (!cubeRequestChanged('status') ||
+          request.resource.data.status in ['Draft', 'Ready', 'Archived']) &&
+        (!cubeRequestChanged('results') ||
+          isValidCubeResults(request.resource.data.results)) &&
+        (!cubeRequestChanged('updatedAt') ||
+          isCubeSyncTimestamp(request.resource.data.updatedAt)) &&
+        (!cubeRequestChanged('internalDate') ||
+          optStrWithin(request.resource.data, 'internalDate', 64)) &&
+        (!cubeRequestChanged('projectCode') ||
+          optStrWithin(request.resource.data, 'projectCode', 128)) &&
+        (!cubeRequestChanged('reportNo') ||
+          optStrWithin(request.resource.data, 'reportNo', 128)) &&
+        (!cubeRequestChanged('client') ||
+          optStrWithin(request.resource.data, 'client', 200)) &&
+        (!cubeRequestChanged('method') ||
+          optStrWithin(request.resource.data, 'method', 200)) &&
+        (!cubeRequestChanged('project') ||
+          optStrWithin(request.resource.data, 'project', 200)) &&
+        (!cubeRequestChanged('concreteGrade') ||
+          optStrWithin(request.resource.data, 'concreteGrade', 120)) &&
+        (!cubeRequestChanged('supplier') ||
+          optStrWithin(request.resource.data, 'supplier', 200)) &&
+        (!cubeRequestChanged('locationRepresented') ||
+          optStrWithin(request.resource.data, 'locationRepresented', 500)) &&
+        (!cubeRequestChanged('additionalInformation') ||
+          optStrWithin(request.resource.data, 'additionalInformation', 4000)) &&
+        (!cubeRequestChanged('dateTimeSampled') ||
+          optStrWithin(request.resource.data, 'dateTimeSampled', 64)) &&
+        (!cubeRequestChanged('slumpMeasured') ||
+          optCubeStrOrNum(request.resource.data, 'slumpMeasured', 32)) &&
+        (!cubeRequestChanged('specimenSize') ||
+          optStrWithin(request.resource.data, 'specimenSize', 64)) &&
+        (!cubeRequestChanged('slumpSpecified') ||
+          optCubeStrOrNum(request.resource.data, 'slumpSpecified', 32));
+    }
+
     match /cubeRequests/{requestId} {
-      allow read, write: if isSignedIn();
+      allow read: if isCubeSyncStaff();
+      allow create: if isCubeSyncStaff() &&
+        isValidCubeRequest(request.resource.data);
+      allow update: if isCubeSyncStaff() &&
+        isValidCubeRequestUpdate();
+      allow delete: if isCubeSyncStaff();
     }
 
     // Default deny everything else.

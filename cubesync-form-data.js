@@ -177,6 +177,14 @@
       grade: normalizeText(data.concreteGrade || data.grade),
       location: normalizeText(data.locationRepresented || data.location),
       notes: normalizeText(data.additionalInformation || data.notes),
+      internalDate: formatDate(data.internalDate),
+      projectCode: normalizeText(data.projectCode),
+      method: normalizeText(data.method),
+      supplier: normalizeText(data.supplier),
+      dateTimeSampled: normalizeText(data.dateTimeSampled),
+      slumpMeasured: data.slumpMeasured,
+      specimenSize: normalizeText(data.specimenSize),
+      slumpSpecified: data.slumpSpecified,
       raw: data
     };
   }
@@ -190,7 +198,15 @@
       concreteGrade: normalizeText(formData.get("grade")),
       template: normalizeText(formData.get("template")) || "Original",
       locationRepresented: normalizeText(formData.get("location")),
-      additionalInformation: normalizeText(formData.get("notes"))
+      additionalInformation: normalizeText(formData.get("notes")),
+      internalDate: normalizeText(formData.get("internalDate")),
+      projectCode: normalizeText(formData.get("projectCode")),
+      method: normalizeText(formData.get("method")),
+      supplier: normalizeText(formData.get("supplier")),
+      dateTimeSampled: normalizeText(formData.get("dateTimeSampled")),
+      slumpMeasured: normalizeValue("slumpMeasured", formData.get("slumpMeasured")),
+      specimenSize: normalizeText(formData.get("specimenSize")),
+      slumpSpecified: normalizeValue("slumpSpecified", formData.get("slumpSpecified"))
     };
   }
 
