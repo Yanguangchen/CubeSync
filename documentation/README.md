@@ -37,7 +37,7 @@ All shared modules use UMD (browser `window.*` + CommonJS `module.exports`) exce
 | Path | Contents |
 |------|----------|
 | `css/` | All stylesheets — entry files (`styles.css`, `glassmorphic.css`, `dashboard.css`, …) plus `shared/`, `dashboard/`, and `rpa/` partials |
-| `documentation/` | Project docs (`README.md`, `design.md`, `architecture.md`, `overview.md`, `RPA_SELECTOR_REFERENCE.md`) |
+| `documentation/` | Project docs (`README.md`, `design.md`, `architecture.md`, `project-uml.md`, `overview.md`, `RPA_SELECTOR_REFERENCE.md`) |
 | `scripts/` | Build and env helpers (`write-env.js`, `load-env.js`) |
 | `api/` | Vercel serverless handlers |
 | `assets/` | Logos, icons, XP theme images |
@@ -162,7 +162,9 @@ Barcodes are stored as **text only** — SVGs are rendered client-side via Code 
 | `customRequestFields` | array (optional) | Staff-defined custom field definitions (`id`, `label`, `type`, `required`, `enabled`, `formLabel`) |
 | `updatedAt` | timestamp | Last save from dashboard field settings |
 
-Staff manage this from **Field settings** on `dashboard.html`. Forms cache the config in `localStorage` under `cubesync-form-field-config`. The dashboard always shows canonical field names; rename boxes only affect labels on `index.html` and `glassmorphic.html`.
+Staff manage this from **Field settings** on `dashboard.html`. Forms cache the config in `localStorage` under `cubesync-form-field-config`.
+
+**Label override boundary:** `requestLabels` and `resultLabels` are customer-facing presentation only. They apply only to the public request forms (`index.html`, `glassmorphic.html`) so customer labels can be clearer than internal field names. The dashboard, RPA queue, RPA view, exports, selectors, Firestore document keys, and bot logic must continue to use canonical/internal field names. Do not build RPA logic against renamed visible labels.
 
 ## Form validation
 
@@ -310,13 +312,20 @@ The suite currently runs **145** tests (`npm test`).
 
 ## Firestore rules safety
 
-`firestore.rules` also contains WorkGrid rules from another sensitive app. **Do not edit the WorkGrid rule blocks** for CubeSync work.
+`firestore.rules` also contains WorkGrid rules from another sensitive app. **Do not edit the WorkGrid rule blocks** for CubeSync-only work.
 
 CubeSync-specific access must stay in the clearly marked `CUBESYNC-ONLY RULES` block for `cubeRequests` and `settings/formFieldConfig`. Direct client Firestore access requires **verified Google Auth email** on the CubeSync allowlist (`isCubeSyncStaff()`). Public customer forms submit through `/api/cube-request-submit`, which verifies reCAPTCHA v2 and writes with Firebase Admin (bypasses rules).
 
-The allowlist is maintained in `firestore.js` as `CUBESYNC_ALLOWED_EMAILS` and mirrored in `firestore.rules` (`isCubeSyncAllowedEmail()`). Keep both lists in sync when adding staff. Do not add CubeSync-only users by editing WorkGrid rule code.
+The allowlist is maintained in `firestore.js` as `CUBESYNC_ALLOWED_EMAILS` and mirrored in `firestore.rules` (`isCubeSyncAllowedEmail()`). Keep both lists in sync when adding staff.
+
+Some CubeSync staff intentionally overlap with WorkGrid hard-coded master/admin accounts because both apps are operated by the same organization. That overlap is approved by design. For a future CubeSync-only user, add them only to `CUBESYNC_ALLOWED_EMAILS` and `isCubeSyncAllowedEmail()` unless they also need WorkGrid admin authority.
 
 Updates to `cubeRequests` are validated by `isValidCubeRequestUpdate()` — only whitelisted keys may change, and changed fields must pass type/length checks. A rules rejection surfaces in the client as `permission-denied: Missing or insufficient permissions`.
+
+Known WorkGrid permission-policy watch items:
+
+- Inactive WorkGrid users can still update their own profile name/phone because the self-update rule uses `isSignedIn()` while locking role/status/team/email. Tighten this to `isActiveUser()` if inactive users should have no writes.
+- Booking and collision operations are intentionally shared across active operational users. Because of that design, audit-like fields such as `updatedBy`, `cancelledBy`, and collision `loggedBy` are client-controlled on updates; move those writes server-side or bind them to `request.auth.uid` if they become audit evidence.
 
 ## Documentation
 
@@ -326,6 +335,7 @@ Updates to `cubeRequests` are validated by `isValidCubeRequestUpdate()` — only
 | `overview.md` | High-level architecture summary |
 | `design.md` | Design system: palette, tokens, typography, components |
 | `architecture.md` | UML diagrams: class, sequence, component, state, and data model |
+| `project-uml.md` | Comprehensive project-wide UML diagrams for current modules, data, flows, and security boundaries |
 | `free-text-dropdown-highlighting.md` | Free-text review flags, capture vs review semantics, regression tests |
 | `RPA_SELECTOR_REFERENCE.md` | Stable CSS selectors and field names for RPA automation |
 

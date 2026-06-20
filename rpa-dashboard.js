@@ -88,14 +88,19 @@
     return Number.isFinite(Number(value)) ? Number(value) : 0;
   }
 
+  function isRpaEligible(form) {
+    const status = form.status || form.raw && form.raw.status;
+    return status === "Ready";
+  }
+
   function getFilteredQueue() {
     return state.forms
-      .filter((form) => getSGTDate(queueDate(form)) === state.viewDate)
+      .filter((form) => isRpaEligible(form) && getSGTDate(queueDate(form)) === state.viewDate)
       .sort((left, right) => queueDate(left) - queueDate(right));
   }
 
   function getExportableForms() {
-    return state.forms.filter((form) => rpaStatus(form) !== "Disabled");
+    return state.forms.filter((form) => isRpaEligible(form) && rpaStatus(form) !== "Disabled");
   }
 
   function getStatusClass(status) {
@@ -159,7 +164,7 @@
       `;
     }).join("");
 
-    elements.queueList.innerHTML = rows || `<tr><td colspan="7">No Firestore forms submitted for this date.</td></tr>`;
+    elements.queueList.innerHTML = rows || `<tr><td colspan="7">No forms marked Ready for this day so far. Maybe check the previous days by clicking the Previous Day Button?</td></tr>`;
 
     const options = { weekday: "long", year: "numeric", month: "long", day: "numeric" };
     const dateObj = new Date(`${state.viewDate}T00:00:00+08:00`);
@@ -338,7 +343,7 @@
     [
       "authGate", "dashboardShell", "signInButton", "signOutButton", "authUser",
       "queueList", "prevDay", "todayBtn", "datePicker", "currentDateDisplay",
-      "exportAllButton"
+      "exportAllButton", "infoButton", "infoDialog"
     ].forEach((id) => {
       elements[id] = document.getElementById(id);
     });
@@ -379,6 +384,11 @@
 
     elements.prevDay.addEventListener("click", () => changeDate(-1));
     elements.exportAllButton.addEventListener("click", exportAllForms);
+    if (elements.infoButton && elements.infoDialog) {
+      elements.infoButton.addEventListener("click", () => {
+        elements.infoDialog.showModal();
+      });
+    }
     elements.todayBtn.addEventListener("click", () => {
       state.viewDate = todaySGT;
       elements.datePicker.value = todaySGT;

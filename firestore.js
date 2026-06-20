@@ -220,10 +220,16 @@ async function savePublicCubeRequest(payload, id, recaptchaToken) {
 }
 
 async function updateCubeRequest(id, updates) {
-  await updateDoc(cubeRequestDocument(id), withoutUndefined({
+  const payload = {
     ...updates,
     updatedAt: serverTimestamp()
-  }));
+  };
+
+  if (updates.status === "Ready" && !updates.submittedAt) {
+    payload.submittedAt = serverTimestamp();
+  }
+
+  await updateDoc(cubeRequestDocument(id), withoutUndefined(payload));
   return id;
 }
 

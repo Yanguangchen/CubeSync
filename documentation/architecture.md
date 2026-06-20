@@ -265,8 +265,9 @@ Customers submitting cube requests do not need to sign in. Security is maintaine
 Dashboard and RPA operations require Google Authentication:
 1.  **Firestore Rules:** CubeSync staff access uses `isCubeSyncStaff()` — verified email plus allowlist match in the `CUBESYNC-ONLY RULES` block (`cubeRequests`, `settings/formFieldConfig`).
 2.  **Application Allowlist:** `firestore.js` maintains `CUBESYNC_ALLOWED_EMAILS`. The UI stays locked unless the signed-in email is on the list.
-3.  **Update validation:** `isValidCubeRequestUpdate()` restricts which keys may change and validates field types. Rejections appear as `permission-denied` in the client SDK.
-4.  **Patch writes:** The human dashboard sends only changed fields via `buildCubeRequestUpdatePatch()` to minimize validation surface area.
+3.  **Organization overlap:** Some CubeSync staff are intentionally also WorkGrid hard-coded master/admin users because both apps are administered by the same organization. Add future CubeSync-only users only to the CubeSync allowlists unless they also need WorkGrid admin authority.
+4.  **Update validation:** `isValidCubeRequestUpdate()` restricts which keys may change and validates field types. Rejections appear as `permission-denied` in the client SDK.
+5.  **Patch writes:** The human dashboard sends only changed fields via `buildCubeRequestUpdatePatch()` to minimize validation surface area.
 
 ---
 

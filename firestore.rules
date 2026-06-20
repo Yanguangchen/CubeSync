@@ -109,7 +109,7 @@ service cloud.firestore {
       return isVerifiedEmail() &&
         hasAccessConfig() &&
         accessConfig().masterEmails is list &&
-        request.auth.token.email in accessConfig().masterEmails;
+        request.auth.token.email.lower() in accessConfig().masterEmails;
     }
 
     // Optional server-side onboarding allowlist. Client-side allowlists are UI
@@ -120,10 +120,10 @@ service cloud.firestore {
           (hasAccessConfig() &&
             (
               (accessConfig().masterEmails is list &&
-                request.auth.token.email in accessConfig().masterEmails) ||
+                request.auth.token.email.lower() in accessConfig().masterEmails) ||
               ('allowedEmails' in accessConfig() &&
                 accessConfig().allowedEmails is list &&
-                request.auth.token.email in accessConfig().allowedEmails)
+                request.auth.token.email.lower() in accessConfig().allowedEmails)
             )
           )
         );
@@ -132,7 +132,9 @@ service cloud.firestore {
     // Hard-coded bootstrap master(s). Lets the initial owner become admin and
     // create their profile + the appConfig/access doc on first Google sign-in,
     // before any masterEmails list exists. Keep in sync with
-    // src/lib/firebase/auth.ts (BOOTSTRAP_ADMIN_EMAILS).
+    // src/lib/firebase/auth.ts (BOOTSTRAP_ADMIN_EMAILS). Some of these users
+    // intentionally overlap with CubeSync staff because both apps are operated
+    // by the same organization.
     function isHardcodedMaster() {
       return isVerifiedEmail() &&
         request.auth.token.email in [
@@ -342,7 +344,11 @@ service cloud.firestore {
     match /notificationSubscriptions/{subscriptionId} {
       allow read: if isSignedIn() &&
         (resource.data.userId == request.auth.uid || isAdmin());
-      allow create, update: if isActiveUser() &&
+      allow create: if isActiveUser() &&
+        isValidNotificationSubscription(request.resource.data) &&
+        request.resource.data.userId == request.auth.uid;
+      allow update: if isActiveUser() &&
+        resource.data.userId == request.auth.uid &&
         isValidNotificationSubscription(request.resource.data) &&
         request.resource.data.userId == request.auth.uid;
       allow delete: if isSignedIn() &&
@@ -832,7 +838,8 @@ service cloud.firestore {
     //
     // Staff direct client access requires verified Firebase Auth email on the
     // CubeSync allowlist (keep in sync with CUBESYNC_ALLOWED_EMAILS in
-    // firestore.js). CubeSync-only users belong here only — not WorkGrid.
+    // firestore.js). Some organization admins intentionally overlap with
+    // WorkGrid masters; CubeSync-only users belong here only — not WorkGrid.
     // ---------------------------------------------------------------
     function isCubeSyncAllowedEmail() {
       return request.auth.token.email.lower() in [

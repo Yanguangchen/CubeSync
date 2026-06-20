@@ -689,90 +689,16 @@
     inputs.forEach(renderEditorBarcode);
   }
 
-  const REQUEST_TO_RESULT_PREFILL = {
-    size: "specimenSize",
-    specifiedSlump: "slumpSpecified",
-    meanSlump: "slumpMeasured",
-    resultGrade: "concreteGrade",
-    resultDateOfCast: "dateOfCast"
-  };
-
-  function prefillEditorRowFromRequest(row) {
-    Object.keys(REQUEST_TO_RESULT_PREFILL).forEach(function (rowField) {
-      const target = row.querySelector('[name^="' + rowField + '"]');
-      const source = elements.editForm.elements[REQUEST_TO_RESULT_PREFILL[rowField]];
-      if (target && source && !target.value) {
-        target.value = source.value || "";
-      }
-    });
-  }
-
-  function computeEditorRowAge(row) {
-    const cast = row.querySelector('[name^="resultDateOfCast"]');
-    const test = row.querySelector('[name^="dateOfTest"]');
-    const age = row.querySelector('[name^="age"]');
-    if (!cast || !test || !age || !cast.value || !test.value) return;
-
-    const castDate = new Date(cast.value);
-    const testDate = new Date(test.value);
-    const diffDays = Math.round((testDate - castDate) / (1000 * 60 * 60 * 24));
-    if (Number.isFinite(diffDays) && diffDays >= 0) {
-      age.value = diffDays;
-    }
-  }
-
-  function attachEditorRowListeners(row) {
-    const newInput = row.querySelector("[data-barcode-input]");
-    if (newInput) {
-      newInput.addEventListener("input", function () {
-        renderEditorBarcode(newInput);
-      });
-    }
-
-    ['[name^="resultDateOfCast"]', '[name^="dateOfTest"]'].forEach(function (selector) {
-      const dateInput = row.querySelector(selector);
-      if (dateInput) {
-        dateInput.addEventListener("change", function () {
-          computeEditorRowAge(row);
-        });
-      }
-    });
-
-    const removeBtn = row.querySelector(".remove-row-btn");
-    if (removeBtn) {
-      removeBtn.addEventListener("click", function () {
-        row.remove();
-        renumberEditRows();
-      });
-    }
-  }
-
   function addEditResultRow() {
-    const rowCount = elements.editResultsBody.querySelectorAll("tr").length + 1;
-    const newRow = document.createElement("tr");
-    const markup = window.CubeSyncFormMarkup;
-    if (!markup) return;
-    newRow.innerHTML = markup.resultRowHtml(rowCount);
-    elements.editResultsBody.appendChild(newRow);
-    prefillEditorRowFromRequest(newRow);
-    attachEditorRowListeners(newRow);
+    if (window.CubeSyncTableManager) {
+      window.CubeSyncTableManager.addResultRow(elements.editResultsBody, elements.editForm, renderEditorBarcode);
+    }
   }
 
   function renumberEditRows() {
-    const rows = elements.editResultsBody.querySelectorAll("tr");
-    rows.forEach((row, index) => {
-      const num = index + 1;
-      const inputs = row.querySelectorAll("input, select");
-      inputs.forEach(input => {
-        const baseName = input.name.replace(/\d+$/, "");
-        input.name = baseName + num;
-        
-        if (input.hasAttribute("aria-label")) {
-          const baseAria = input.getAttribute("aria-label").replace(/Row \d+/, `Row ${num}`);
-          input.setAttribute("aria-label", baseAria);
-        }
-      });
-    });
+    if (window.CubeSyncTableManager) {
+      window.CubeSyncTableManager.renumberRows(elements.editResultsBody);
+    }
   }
 
   function applyEditorManualCubeJobState() {
@@ -790,215 +716,7 @@
     }
   }
 
-  async function setupAutocomplete(inputName, fetchUrl, storageKey) {
-    try {
-      const fetchFn = typeof window !== "undefined" && window.fetch ? window.fetch : (typeof fetch !== "undefined" ? fetch : null);
-      
-      let fileOptions = [];
-      if (fetchFn) {
-        try {
-          const response = await fetchFn(encodeURI(fetchUrl));
-          if (response.ok) {
-            const text = await response.text();
-            fileOptions = text.split('\n').map(l => l.trim()).filter(l => l);
-          }
-        } catch {
-          // Ignore missing autocomplete source files.
-        }
-      }
-      
-      let localOptions = [];
-      try {
-        const stored = localStorage.getItem(storageKey);
-        if (stored) {
-          localOptions = JSON.parse(stored);
-        }
-      } catch {
-        // Ignore missing autocomplete source files.
-      }
-      
-      const allOptions = Array.from(new Set([...fileOptions, ...localOptions]));
-      
-      document.querySelectorAll(`input[name="${inputName}"]`).forEach(input => {
-        input.setAttribute('autocomplete', 'off');
-        input.removeAttribute('list');
-        input.dataset.dropdownOptionField = inputName;
-        
-        let wrapper = input.parentElement;
-        if (!wrapper.classList.contains('erp-autocomplete-wrapper')) {
-          wrapper = document.createElement('div');
-          wrapper.className = 'erp-autocomplete-wrapper';
-          input.parentNode.insertBefore(wrapper, input);
-          wrapper.appendChild(input);
-        }
-        
-        let dropdown = wrapper.querySelector('.erp-dropdown');
-        if (!dropdown) {
-          dropdown = document.createElement('ul');
-          dropdown.className = 'erp-dropdown';
-          wrapper.appendChild(dropdown);
-        }
-        
-        let focusedIndex = -1;
 
-        const setFreeTextState = (isFreeText) => {
-          if (isFreeText) {
-            input.dataset.freeTextEntry = "true";
-          } else {
-            delete input.dataset.freeTextEntry;
-          }
-        };
-
-        const chooseOption = (value) => {
-          input.dataset.autocompleteSelecting = "true";
-          input.dataset.selectedFromDropdown = "true";
-          input.value = value;
-          setFreeTextState(false);
-          input.dispatchEvent(new window.Event('input', { bubbles: true }));
-          delete input.dataset.autocompleteSelecting;
-          closeDropdown();
-        };
-        
-        const renderDropdown = (query) => {
-          dropdown.innerHTML = '';
-          const lowerQuery = query.toLowerCase();
-          
-          let matches = allOptions.filter(opt => opt.toLowerCase().includes(lowerQuery));
-          
-          if (matches.length === 0) {
-            dropdown.style.display = 'none';
-            return;
-          }
-          
-          matches.sort((a, b) => {
-            const aLower = a.toLowerCase();
-            const bLower = b.toLowerCase();
-            if (aLower === lowerQuery) return -1;
-            if (bLower === lowerQuery) return 1;
-            const aStarts = aLower.startsWith(lowerQuery);
-            const bStarts = bLower.startsWith(lowerQuery);
-            if (aStarts && !bStarts) return -1;
-            if (!aStarts && bStarts) return 1;
-            return 0;
-          });
-          
-          matches.forEach((match) => {
-            const li = document.createElement('li');
-            li.className = 'erp-dropdown-item';
-            
-            const queryLen = query.length;
-            const matchIndex = match.toLowerCase().indexOf(lowerQuery);
-            if (queryLen > 0 && matchIndex !== -1) {
-              const before = match.substring(0, matchIndex);
-              const matchedPart = match.substring(matchIndex, matchIndex + queryLen);
-              const after = match.substring(matchIndex + queryLen);
-              
-              let html = '';
-              if (before) html += `<strong>${before}</strong>`;
-              html += matchedPart;
-              if (after) html += `<strong>${after}</strong>`;
-              li.innerHTML = html;
-            } else {
-              li.innerHTML = `<strong>${match}</strong>`;
-            }
-            
-            li.addEventListener('mousedown', (e) => {
-              e.preventDefault();
-              chooseOption(match);
-            });
-            
-            dropdown.appendChild(li);
-          });
-          
-          dropdown.style.display = 'block';
-          focusedIndex = -1;
-        };
-        
-        const closeDropdown = () => {
-          dropdown.style.display = 'none';
-          focusedIndex = -1;
-        };
-        
-        const updateFocus = () => {
-          const items = dropdown.querySelectorAll('.erp-dropdown-item');
-          items.forEach((item, idx) => {
-            if (idx === focusedIndex) {
-              item.classList.add('selected');
-              if (typeof item.scrollIntoView === 'function') {
-                item.scrollIntoView({ block: 'nearest' });
-              }
-            } else {
-              item.classList.remove('selected');
-            }
-          });
-        };
-        
-        const checkFreeText = () => {
-          if (input.dataset.selectedFromDropdown === "true") {
-            setFreeTextState(false);
-            return;
-          }
-
-          setFreeTextState(Boolean(input.value.trim()));
-        };
-
-        input.addEventListener('focus', () => renderDropdown(input.value));
-        input.addEventListener('input', () => {
-          if (input.dataset.autocompleteSelecting === "true") {
-            renderDropdown(input.value);
-            return;
-          }
-
-          delete input.dataset.selectedFromDropdown;
-          renderDropdown(input.value);
-          checkFreeText();
-        });
-        input.addEventListener('blur', function () {
-          closeDropdown();
-          checkFreeText();
-        });
-        
-        input.addEventListener('keydown', (e) => {
-          const items = dropdown.querySelectorAll('.erp-dropdown-item');
-          if (dropdown.style.display === 'block' && items.length > 0) {
-            if (e.key === 'ArrowDown') {
-              e.preventDefault();
-              focusedIndex = (focusedIndex + 1) % items.length;
-              updateFocus();
-            } else if (e.key === 'ArrowUp') {
-              e.preventDefault();
-              focusedIndex = (focusedIndex - 1 + items.length) % items.length;
-              updateFocus();
-            } else if (e.key === 'Enter') {
-              if (focusedIndex >= 0 && focusedIndex < items.length) {
-                e.preventDefault();
-                chooseOption(items[focusedIndex].textContent);
-              }
-            } else if (e.key === 'Escape') {
-              closeDropdown();
-            }
-          }
-        });
-      });
-      
-      if (!document.getElementById('erp-dropdown-css')) {
-        const style = document.createElement('style');
-        style.id = 'erp-dropdown-css';
-        style.textContent = `
-          .erp-autocomplete-wrapper { position: relative; display: inline-block; width: 100%; }
-          .erp-autocomplete-wrapper input:focus { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
-          .erp-dropdown { position: absolute; top: 100%; left: 0; right: 0; background: #fff; border: 1px solid #dfe1e5; border-top: none; border-radius: 0 0 24px 24px; box-shadow: 0 4px 6px rgba(32, 33, 36, 0.28); z-index: 1000; list-style: none; padding: 10px 0 20px 0; margin: 0; display: none; max-height: 350px; overflow-y: auto; text-align: left; }
-          .erp-dropdown-item { padding: 4px 20px; cursor: pointer; display: flex; align-items: center; font-family: Arial, sans-serif; font-size: 16px; color: #212124; line-height: 24px; }
-          .erp-dropdown-item::before { content: "🔍"; margin-right: 14px; opacity: 0.4; font-size: 14px; }
-          .erp-dropdown-item:hover, .erp-dropdown-item.selected { background-color: #f1f3f4; }
-          .erp-dropdown-item strong { font-weight: 600; }
-        `;
-        document.head.appendChild(style);
-      }
-    } catch (e) {
-      console.error('Failed to setup autocomplete for', inputName, e);
-    }
-  }
 
   function openEditor(id) {
     const form = state.forms.find((item) => item.id === id);
@@ -1320,6 +1038,7 @@
       manualCubeJobToggle.addEventListener("change", applyEditorManualCubeJobState);
     }
 
+    const setupAutocomplete = window.CubeSyncAutocomplete ? window.CubeSyncAutocomplete.setupAutocomplete : function(){};
     setupAutocomplete('projectErp', 'dropdown-options/project erp.txt', 'savedProjectErps');
     setupAutocomplete('customerBilling', 'dropdown-options/customer billing.txt', 'savedCustomerBillings');
     setupAutocomplete('supplier', 'dropdown-options/supplier.txt', 'savedSuppliers');

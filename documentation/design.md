@@ -274,6 +274,7 @@ Staff configure which request fields and test-result columns appear on **both** 
 | Concern | Implementation |
 |---------|----------------|
 | Dashboard UI | **Field settings** button opens `#fieldConfigDialog`; each row has an enable checkbox plus a rename box for every `FORM_FIELDS` and `RESULT_FIELDS` entry. The dashboard always shows the canonical name; the rename box only changes what the public forms display |
+| Label boundary | Label overrides are customer-facing only. They apply to `index.html` and `glassmorphic.html`; dashboard, RPA queue/view, exports, selectors, and Firestore keys remain canonical/internal for stable operations and bot automation |
 | Reset | **Reset to default** button (`#resetFieldConfigButton`) re-renders the dialog with `defaultFormFieldConfig()` (all enabled, no renames); takes effect on save |
 | Persistence | Firestore document `settings/formFieldConfig` (`requestFields`, `resultFields`, `requestLabels`, `resultLabels`, `customRequestFields`, `updatedAt`) |
 | Custom fields | Staff define `customRequestFields[]` (`id`, `label`, `type`, `required`, `enabled`, `formLabel`). Per-request values live in `extraFields: { [id]: value }` on `cubeRequests` |

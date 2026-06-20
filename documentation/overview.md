@@ -1,6 +1,6 @@
 # CubeSync Architecture Overview
 
-High-level summary of the CubeSync system. For UML diagrams (component, class, sequence, state, ER), see [architecture.md](architecture.md).
+High-level summary of the CubeSync system. For comprehensive UML diagrams (component, class/module, sequence, state, ER, and security boundary), see [project-uml.md](project-uml.md).
 
 ## System overview
 
@@ -23,6 +23,8 @@ CubeSync digitizes the paper concrete cube request process. It includes public s
 | Module | Role |
 |--------|------|
 | `barcode.js` | Code 128-B encode + SVG render |
+| `cubesync-autocomplete.js` | Autocomplete dropdown functionality for ERP and other data fields |
+| `cubesync-table-manager.js` | Manages dynamic test results rows, age calculation, and field prefilling |
 | `cubesync-form-data.js` | Schema, validation, field config, serialization, dashboard normalization, free-text helpers, patch updates |
 | `cubesync-export.js` | CSV + ZIP export |
 | `cubesync-form-markup.js` | Shared result-row HTML for forms and dashboard editor |
@@ -58,6 +60,8 @@ Staff use **Field settings** on the dashboard to:
 - Enable/disable request fields and result columns on public forms.
 - Rename labels on public forms (`requestLabels`, `resultLabels`).
 - Add/edit/delete custom request fields (`customRequestFields` → `extraFields` on each request).
+
+Label overrides are intentionally public-form-only. Dashboard, RPA queue/view, exports, selectors, and Firestore keys stay on canonical field names so internal operations and bot automation remain stable.
 
 Config document: `settings/formFieldConfig`. Cached locally as `cubesync-form-field-config`.
 

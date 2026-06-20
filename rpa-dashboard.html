@@ -36,10 +36,44 @@
             <button type="button" id="prevDay">Previous Day</button>
             <button type="button" id="todayBtn" class="active">Today</button>
             <input type="date" id="datePicker" aria-label="Select date" style="width: auto;">
+            <button type="button" id="infoButton" class="info-button" aria-label="How this queue works" title="How this queue works">i</button>
             <div style="flex-grow: 1;"></div>
             <button type="button" id="exportAllButton" class="export-button" disabled>Export all CSV</button>
             <div id="currentDateDisplay" class="current-date-badge"></div>
           </div>
+
+          <dialog id="infoDialog" class="info-dialog">
+            <h2>How the RPA Bot Queue Works</h2>
+            <dl>
+              <dt>Which forms appear here?</dt>
+              <dd>Only forms with status <strong>Ready</strong> (set in the staff dashboard) appear in this queue. Draft and Archived forms are excluded.</dd>
+
+              <dt>How are forms sorted by date?</dt>
+              <dd>Forms are grouped by the date they were marked Ready (submittedAt), falling back to their creation date. All times are in <strong>Singapore timezone (SGT)</strong>.</dd>
+
+              <dt>What do the ERP statuses mean?</dt>
+              <dd>
+                <ul>
+                  <li><strong>Pending</strong> &mdash; Waiting for the bot to pick up.</li>
+                  <li><strong>Processing</strong> &mdash; Bot is entering data into ERP. RPA status changes to "In Progress".</li>
+                  <li><strong>Success</strong> &mdash; Data entered successfully. RPA status changes to "Submitted to ERP".</li>
+                  <li><strong>Error</strong> &mdash; Bot encountered an issue. RPA status changes to "Failed".</li>
+                </ul>
+              </dd>
+
+              <dt>What does Disable RPA do?</dt>
+              <dd>Disabling a form removes it from bot processing and CSV exports. The form remains in Firestore but the bot will skip it. Click "Enable RPA" to re-activate it.</dd>
+
+              <dt>Export all CSV</dt>
+              <dd>Exports all enabled (non-disabled) Ready forms as a ZIP of individual CSV files, one per form. Disabled forms are excluded from the export.</dd>
+
+              <dt>Navigating dates</dt>
+              <dd>Use "Previous Day" or the date picker to view past queues. The "Today" button returns to the current SGT date. Future dates are not selectable.</dd>
+            </dl>
+            <form method="dialog">
+              <button type="submit" class="close-info-btn">Got it</button>
+            </form>
+          </dialog>
 
           <section class="workspace">
             <section class="list-panel" style="grid-column: span 2;">

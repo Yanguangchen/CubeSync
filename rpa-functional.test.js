@@ -113,6 +113,7 @@ test("rpa-dashboard.js handles auth and loads queue", async () => {
         reportNo: "RPA-001",
         client: "Client RPA",
         project: "Project RPA",
+        status: "Ready",
         internalDate: new Date().toISOString(),
         results: [
           {
@@ -129,6 +130,7 @@ test("rpa-dashboard.js handles auth and loads queue", async () => {
         reportNo: "RPA-OLD",
         client: "Old Client",
         project: "Old Project",
+        status: "Ready",
         internalDate: "2020-01-01T00:00:00+08:00",
         results: [
           {
@@ -142,6 +144,7 @@ test("rpa-dashboard.js handles auth and loads queue", async () => {
         reportNo: "RPA-DISABLED",
         client: "Disabled Client",
         project: "Disabled Project",
+        status: "Ready",
         internalDate: new Date().toISOString(),
         rpaStatus: "Disabled",
         results: [
@@ -265,9 +268,9 @@ test("rpa-dashboard.js only shows forms from the selected date", async () => {
   const tomorrowSGT = getSGTDate(dTomorrow);
 
   firestore.listCubeRequests = async () => [
-    { id: "today-1", reportNo: "TODAY-001", internalDate: `${todaySGT}T10:00:00+08:00` },
-    { id: "yesterday-1", reportNo: "YESTERDAY-001", internalDate: `${yesterdaySGT}T10:00:00+08:00` },
-    { id: "tomorrow-1", reportNo: "TOMORROW-001", internalDate: `${tomorrowSGT}T10:00:00+08:00` }
+    { id: "today-1", reportNo: "TODAY-001", status: "Ready", internalDate: `${todaySGT}T10:00:00+08:00` },
+    { id: "yesterday-1", reportNo: "YESTERDAY-001", status: "Ready", internalDate: `${yesterdaySGT}T10:00:00+08:00` },
+    { id: "tomorrow-1", reportNo: "TOMORROW-001", status: "Ready", internalDate: `${tomorrowSGT}T10:00:00+08:00` }
   ];
 
   if (authCallback) authCallback({ email: "rpa@rakmat.com.sg" });
@@ -298,6 +301,7 @@ test("rpa-dashboard.js daily queue groups forms by submission/creation date, not
         reportNo: "TODAY-SUBMITTED",
         client: "Client SGT",
         project: "Project SGT",
+        status: "Ready",
         internalDate: fiveDaysAgoSGT, // Cast date was 5 days ago
         createdAt: new Date().toISOString(), // Created/submitted today
         results: []

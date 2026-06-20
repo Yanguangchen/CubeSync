@@ -351,5 +351,6 @@ barcode
 - Use `.results-table tbody tr` to iterate result rows.
 - Use `[data-barcode-input]` to read or write barcode text.
 - Use `form[data-template="Original"]` or `form[data-template="Glassmorphic"]` only when the RPA flow needs to distinguish the form version.
+- Treat Field Settings label overrides as customer-facing only. RPA dashboard/view labels, selectors, exports, and Firestore keys remain canonical/internal by design, so bots must use stable selectors and field names rather than visible labels.
 - Avoid relying on `.barcode-preview` for data extraction. It is a generated display area only.
 - Avoid relying on visual classes for critical automation unless no stable selector exists.

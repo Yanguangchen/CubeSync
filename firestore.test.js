@@ -71,6 +71,43 @@ test("Firestore rules enforce CubeSync staff allowlist for direct client access"
   assert.match(rules, /match \/\{document=\*\*\}/);
 });
 
+test("WorkGrid rules normalize configured access emails", () => {
+  const rules = fs.readFileSync("firestore.rules", "utf8");
+
+  assert.match(
+    rules,
+    /function isConfiguredMasterEmail\(\)[\s\S]*request\.auth\.token\.email\.lower\(\) in accessConfig\(\)\.masterEmails/
+  );
+  assert.match(
+    rules,
+    /function isConfiguredAllowedEmail\(\)[\s\S]*request\.auth\.token\.email\.lower\(\) in accessConfig\(\)\.masterEmails[\s\S]*request\.auth\.token\.email\.lower\(\) in accessConfig\(\)\.allowedEmails/
+  );
+  assert.doesNotMatch(
+    rules,
+    /request\.auth\.token\.email in accessConfig\(\)\.(masterEmails|allowedEmails)/
+  );
+});
+
+test("WorkGrid notification subscription updates preserve ownership", () => {
+  const rules = fs.readFileSync("firestore.rules", "utf8");
+  const subscriptionBlock = rules.match(/match \/notificationSubscriptions\/\{subscriptionId\} \{[\s\S]*?\s{4}\}/);
+
+  assert.ok(subscriptionBlock, "notificationSubscriptions rule block should exist");
+  assert.doesNotMatch(subscriptionBlock[0], /allow create, update: if isActiveUser\(\)/);
+
+  const createRule = subscriptionBlock[0].match(
+    /allow create: if isActiveUser\(\)[\s\S]*?request\.resource\.data\.userId == request\.auth\.uid;/
+  );
+  const updateRule = subscriptionBlock[0].match(
+    /allow\s+update:\s+if\s+isActiveUser\(\)[\s\S]*?request\.resource\.data\.userId == request\.auth\.uid;/
+  );
+
+  assert.ok(createRule, "create rule should bind the new row to the signed-in user");
+  assert.ok(updateRule, "update rule should bind the row to the signed-in user");
+  assert.match(updateRule[0], /resource\.data\.userId == request\.auth\.uid/);
+  assert.match(updateRule[0], /isValidNotificationSubscription\(request\.resource\.data\)/);
+});
+
 test("Firestore rules allow current CubeSync dashboard save payloads", () => {
   const rules = fs.readFileSync("firestore.rules", "utf8");
 

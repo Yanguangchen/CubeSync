@@ -2,42 +2,46 @@
   "name": "CubeSync - Concrete Cube Test Request",
   "short_name": "CubeSync",
   "description": "Digital submission and management for concrete cube test requests.",
+  "lang": "en",
+  "dir": "ltr",
+  "id": "/dashboard.html",
   "start_url": "./dashboard.html",
   "scope": "./",
-  "id": "/dashboard.html",
   "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
   "orientation": "any",
   "background_color": "#eef4f8",
   "theme_color": "#42d5bb",
+  "prefer_related_applications": false,
   "categories": ["business", "productivity"],
   "icons": [
     {
       "src": "assets/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any"
+      "purpose": "any maskable"
     },
     {
       "src": "assets/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "assets/icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "maskable"
-    },
-    {
-      "src": "assets/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "maskable"
+      "purpose": "any maskable"
     }
   ],
-  "screenshots": [],
   "shortcuts": [
+    {
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "url": "./dashboard.html",
+      "description": "Open the CubeSync staff dashboard",
+      "icons": [
+        {
+          "src": "assets/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
     {
       "name": "New Form",
       "short_name": "New Form",

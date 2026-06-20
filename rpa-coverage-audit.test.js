@@ -108,7 +108,7 @@ test("rpa-dashboard.js updates ERP status", async () => {
   let updatedData = null;
   window.CubeSyncFirestore = {
     listCubeRequests: async () => [
-      { id: "test-1", reportNo: "TEST-1", client: "Client", internalDate: new Date().toISOString() }
+      { id: "test-1", reportNo: "TEST-1", client: "Client", status: "Ready", internalDate: new Date().toISOString() }
     ],
     updateCubeRequest: async (id, data) => {
       updatedId = id;
