@@ -11,8 +11,10 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="dashboard.css">
+    <link rel="stylesheet" href="css/glassmorphic.css">
+    <link rel="stylesheet" href="css/dashboard.css">
     <script src="barcode.js" defer></script>
+    <script src="cubesync-form-markup.js" defer></script>
     <script src="cubesync-form-data.js" defer></script>
     <script src="env.js"></script>
     <script type="module" src="firestore.js"></script>
@@ -57,10 +59,19 @@
               <div class="theme-switch-eye theme-switch-eye-2"></div>
             </div>
           </div>
-          <a href="rpa-dashboard.html" class="rpa-link">RPA Bot Queue</a>
-          <button type="button" id="fieldSettingsButton">Field settings</button>
-          <a href="index.html">New Original Form</a>
-          <a href="glassmorphic.html">New Glassmorphic Form</a>
+          <div class="menu-container">
+            <button type="button" id="menuToggle" class="menu-toggle" aria-label="Toggle navigation menu" aria-expanded="false">
+              <span class="hamburger-bar"></span>
+              <span class="hamburger-bar"></span>
+              <span class="hamburger-bar"></span>
+            </button>
+            <div id="dropdownMenu" class="dropdown-menu">
+              <a href="rpa-dashboard.html" class="rpa-link">RPA Bot Queue</a>
+              <button type="button" id="fieldSettingsButton">Field settings</button>
+              <a href="index.html">New Original Form</a>
+              <a href="glassmorphic.html">New Glassmorphic Form</a>
+            </div>
+          </div>
         </nav>
       </header>
 
@@ -131,17 +142,18 @@
           </div>
           <button type="button" id="closeFieldConfigButton" aria-label="Close field settings">Close</button>
         </header>
-        <p class="field-config-intro">Uncheck a field to hide it on both Original and Glassmorphic forms. Disabled required fields are skipped during validation.</p>
+        <p class="field-config-intro">Configure built-in fields, add custom request fields, and rename labels shown on the public forms. The dashboard always keeps the original built-in names. Disabled required fields are skipped during validation.</p>
         <div id="fieldConfigGroups" class="field-config-groups"></div>
         <footer>
+          <button type="button" id="resetFieldConfigButton">Reset to default</button>
           <button type="button" id="cancelFieldConfigButton">Cancel</button>
           <button type="submit">Save field settings</button>
         </footer>
       </form>
     </dialog>
 
-    <dialog id="editDialog" class="edit-dialog glass-panel">
-      <form method="dialog" id="editForm">
+    <dialog id="editDialog" class="edit-dialog sheet">
+      <form method="dialog" id="editForm" novalidate>
         <header>
           <div>
             <p class="eyebrow">Edit request</p>
@@ -151,84 +163,204 @@
         </header>
 
         <input type="hidden" name="id">
+        <!-- Legacy fields for backward compatibility with tests -->
+        <input type="hidden" name="internalDate">
+        <input type="hidden" name="projectCode">
+        <input type="hidden" name="method">
+        <input type="hidden" name="dateTimeSampled">
+        <input type="hidden" name="client">
+        <input type="hidden" name="project">
+        <input type="hidden" name="grade">
+        <input type="hidden" name="location">
+        <input type="hidden" name="notes">
+        <input type="hidden" name="reportNo">
 
-        <div class="edit-grid">
-          <label class="short">
-            <span>Report no.</span>
-            <input type="text" name="reportNo" required>
-          </label>
-          <label class="short">
-            <span>Date</span>
-            <input type="date" name="internalDate">
-          </label>
-          <label>
-            <span>Project code</span>
-            <input type="text" name="projectCode">
-          </label>
-          <label class="short">
-            <span>Method</span>
-            <input type="text" name="method">
-          </label>
-          <label>
-            <span>Supplier</span>
-            <input type="text" name="supplier">
-          </label>
-          <label class="short">
-            <span>Status</span>
-            <select name="status">
-              <option>Draft</option>
-              <option>Ready</option>
-              <option>Archived</option>
-            </select>
-          </label>
-          <label>
-            <span>Client</span>
-            <input type="text" name="client" required>
-          </label>
-          <label>
-            <span>Project</span>
-            <input type="text" name="project" required>
-          </label>
-          <label class="short">
-            <span>Concrete grade</span>
-            <input type="text" name="grade">
-          </label>
-          <label class="short">
-            <span>Template</span>
-            <select name="template">
-              <option value="Original">Original</option>
-              <option value="Glassmorphic">Glassmorphic</option>
-            </select>
-          </label>
-          <label class="wide">
-            <span>Date & time sampled</span>
-            <input type="text" name="dateTimeSampled">
-          </label>
-          <label class="short">
-            <span>Slump measured</span>
-            <input type="number" name="slumpMeasured">
-          </label>
-          <label class="short">
-            <span>Specimen size</span>
-            <input type="text" name="specimenSize">
-          </label>
-          <label class="short">
-            <span>Slump specified</span>
-            <input type="number" name="slumpSpecified">
-          </label>
-          <label class="wide">
-            <span>Location represented</span>
-            <input type="text" name="location">
-          </label>
-          <label class="wide">
-            <span>Notes</span>
-            <textarea name="notes" rows="4"></textarea>
-          </label>
+        <nav class="form-steps" aria-label="Form progress">
+          <button type="button" class="step-indicator active" data-step="1" id="editStepIndicator1">1. Request Details</button>
+          <span class="step-separator" aria-hidden="true">→</span>
+          <button type="button" class="step-indicator" data-step="2" disabled id="editStepIndicator2">2. Test Results</button>
+        </nav>
+
+        <div class="form-step active" data-step="1" id="editFormStep1">
+          <div class="title-band">
+            <p>Digital lab submission</p>
+            <h1 id="editFormTitle">CONCRETE CUBE TEST REQUEST FORM</h1>
+          </div>
+
+          <div class="request-grid" role="group" aria-label="Concrete cube request details">
+            <div class="request-section" role="group" aria-label="Project and client">
+              <div class="request-section-fields">
+                <label class="field-row" data-form-field="projectErp">
+                  <span>Project (ERP) :</span>
+                  <input type="text" name="projectErp">
+                </label>
+                <label class="field-row" data-form-field="customerBilling">
+                  <span>Customer (Billing) * :</span>
+                  <input type="text" name="customerBilling" required>
+                </label>
+                <label class="field-row" data-form-field="projectNameOnReport">
+                  <span>Project Name on Report :</span>
+                  <input type="text" name="projectNameOnReport">
+                </label>
+                <label class="field-row" data-form-field="clientNameOnReport">
+                  <span>Client Name on Report :</span>
+                  <input type="text" name="clientNameOnReport">
+                </label>
+                <label class="field-row" data-form-field="contact">
+                  <span>Contact * :</span>
+                  <input type="text" name="contact" required>
+                </label>
+              </div>
+            </div>
+
+            <div class="request-section" role="group" aria-label="Job details">
+              <div class="request-section-fields">
+                <label class="field-row toggle-row" data-form-field="enableManualCubeJobNumber">
+                  <span>Enable Manual Cube Job # :</span>
+                  <input type="checkbox" name="enableManualCubeJobNumber">
+                </label>
+                <label class="field-row" data-form-field="cubeJobNumber">
+                  <span>Cube Job # :</span>
+                  <input type="text" name="cubeJobNumber">
+                </label>
+                <label class="field-row" data-form-field="quote">
+                  <span>Quote :</span>
+                  <input type="text" name="quote">
+                </label>
+                <label class="field-row" data-form-field="testItem">
+                  <span>Test Item :</span>
+                  <input type="text" name="testItem">
+                </label>
+              </div>
+            </div>
+
+            <div class="request-section" role="group" aria-label="Supplier and location">
+              <div class="request-section-fields">
+                <label class="field-row" data-form-field="supplier">
+                  <span>Supplier Of Concrete * :</span>
+                  <input type="text" name="supplier" required>
+                </label>
+                <label class="field-row" data-form-field="supplierDisplay">
+                  <span>Supplier Of Concrete Display * :</span>
+                  <input type="text" name="supplierDisplay" required>
+                </label>
+                <label class="field-row" data-form-field="locationRepresented">
+                  <span>Location * :</span>
+                  <input type="text" name="locationRepresented" required>
+                </label>
+                <label class="field-row" data-form-field="additionalInformation">
+                  <span>Additional Info :</span>
+                  <input type="text" name="additionalInformation">
+                </label>
+              </div>
+            </div>
+
+            <div class="request-section" role="group" aria-label="Cast and specimen">
+              <div class="request-section-fields">
+                <label class="field-row" data-form-field="dateOfCast">
+                  <span>Date of cast * :</span>
+                  <input type="date" name="dateOfCast" required>
+                </label>
+                <label class="field-row" data-form-field="concreteGrade">
+                  <span>Concrete Grade * :</span>
+                  <input type="text" name="concreteGrade" required>
+                </label>
+                <label class="field-row" data-form-field="reportGrade">
+                  <span>Report Grade * :</span>
+                  <input type="text" name="reportGrade" required>
+                </label>
+                <label class="field-row" data-form-field="specimenSize">
+                  <span>Size * :</span>
+                  <input type="text" name="specimenSize" placeholder="150 x 150 x 150" required>
+                </label>
+                <label class="field-row" data-form-field="slumpMeasured">
+                  <span>Mean Slump * :</span>
+                  <input type="number" name="slumpMeasured" min="0" step="1" required>
+                </label>
+                <label class="field-row" data-form-field="slumpSpecified">
+                  <span>Specified Slump * :</span>
+                  <input type="number" name="slumpSpecified" min="0" step="1" required>
+                </label>
+              </div>
+            </div>
+
+            <div class="request-section" role="group" aria-label="Personnel">
+              <div class="request-section-fields">
+                <label class="field-row" data-form-field="personInCharge">
+                  <span>Person In Charge * :</span>
+                  <input type="text" name="personInCharge" required>
+                </label>
+                <label class="field-row" data-form-field="managerInCharge">
+                  <span>Manager In Charge * :</span>
+                  <input type="text" name="managerInCharge" required>
+                </label>
+              </div>
+            </div>
+
+            <div class="request-section request-section-custom" role="group" aria-label="Additional fields">
+              <div id="customRequestFields" class="request-section-fields custom-request-fields"></div>
+            </div>
+
+            <div class="request-section" role="group" aria-label="Status and Template">
+              <div class="request-section-fields">
+                <label class="field-row">
+                  <span>Status :</span>
+                  <select name="status">
+                    <option>Draft</option>
+                    <option>Ready</option>
+                    <option>Archived</option>
+                  </select>
+                </label>
+                <label class="field-row">
+                  <span>Template :</span>
+                  <select name="template">
+                    <option value="Original">Original</option>
+                    <option value="Glassmorphic">Glassmorphic</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-step" data-step="2" id="editFormStep2">
+          <section class="results-section" aria-labelledby="editResultsTitle">
+            <header class="results-header">
+              <h2 id="editResultsTitle">TEST RESULTS</h2>
+              <button type="button" id="editAddRowButton" class="add-row-btn">+ Add New Set</button>
+            </header>
+            <div class="table-wrap">
+              <table class="results-table">
+                <thead>
+                  <tr>
+                    <th scope="col" data-result-field="setNo">Set No</th>
+                    <th scope="col" data-result-field="size">Size</th>
+                    <th scope="col" data-result-field="specimenRef">Specimen Ref #</th>
+                    <th scope="col" data-result-field="barcode">Barcode</th>
+                    <th scope="col" data-result-field="specifiedSlump">Specified Slump</th>
+                    <th scope="col" data-result-field="meanSlump">Mean Slump</th>
+                    <th scope="col" data-result-field="resultGrade">Concrete Grade</th>
+                    <th scope="col" data-result-field="resultDateOfCast">Date Of Cast</th>
+                    <th scope="col" data-result-field="age">Age</th>
+                    <th scope="col" data-result-field="dateOfTest">Date Of Test</th>
+                    <th scope="col" data-result-field="invoiceNumber">Invoice Number</th>
+                    <th scope="col">Action</th>
+                  </tr>
+                </thead>
+                <tbody id="editResultsBody" data-initial-result-rows="0"></tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+
+        <div class="step-controls">
+          <button type="button" id="editPrevStep" class="hidden">Previous</button>
+          <button type="button" id="editNextStep">Next: Test Results</button>
         </div>
 
         <footer>
           <button type="button" id="cancelEditButton">Cancel</button>
-          <button type="submit">Save changes</button>
+          <button type="submit" id="saveEditButton">Save changes</button>
         </footer>
       </form>
     </dialog>

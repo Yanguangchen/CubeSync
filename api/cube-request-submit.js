@@ -1,5 +1,9 @@
 const { loadDotEnv } = require("../scripts/load-env");
-const { FORM_FIELDS: REQUEST_FORM_FIELDS, validateCubeRequestPayload } = require("../cubesync-form-data");
+const {
+  FORM_FIELDS: REQUEST_FORM_FIELDS,
+  validateCubeRequestPayload,
+  isValidCustomFieldId
+} = require("../cubesync-form-data");
 
 const COLLECTION_NAME = "cubeRequests";
 const ALLOWED_TEMPLATES = new Set(["Original", "Glassmorphic"]);
@@ -25,7 +29,9 @@ const FORM_FIELDS = new Set([
   ...LEGACY_FORM_FIELDS,
   "template",
   "status",
-  "results"
+  "results",
+  "customFields",
+  "extraFields"
 ]);
 
 loadDotEnv();
@@ -106,6 +112,52 @@ function initializeFirebaseAdmin() {
   });
 }
 
+function cleanExtraFields(value) {
+  if (value == null) {
+    return undefined;
+  }
+
+  if (typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("Invalid extra fields");
+  }
+
+  const clean = {};
+  for (const [key, fieldValue] of Object.entries(value)) {
+    if (!isValidCustomFieldId(key)) {
+      throw new Error(`Unexpected extra field: ${key}`);
+    }
+
+    if (typeof fieldValue === "boolean") {
+      clean[key] = fieldValue;
+      continue;
+    }
+
+    if (typeof fieldValue === "number") {
+      if (!Number.isFinite(fieldValue)) {
+        throw new Error(`Invalid extra field value: ${key}`);
+      }
+      clean[key] = fieldValue;
+      continue;
+    }
+
+    if (typeof fieldValue !== "string") {
+      throw new Error(`Invalid extra field value: ${key}`);
+    }
+
+    if (fieldValue.length > 500) {
+      throw new Error(`Extra field value too long: ${key}`);
+    }
+
+    clean[key] = fieldValue;
+  }
+
+  if (Object.keys(clean).length > 25) {
+    throw new Error("Too many extra fields");
+  }
+
+  return clean;
+}
+
 function cleanPayload(payload) {
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
     throw new Error("Invalid form payload");
@@ -129,6 +181,13 @@ function cleanPayload(payload) {
 
   if (!Array.isArray(clean.results)) {
     throw new Error("Invalid test results");
+  }
+
+  if ("extraFields" in clean) {
+    clean.extraFields = cleanExtraFields(clean.extraFields);
+    if (!Object.keys(clean.extraFields).length) {
+      delete clean.extraFields;
+    }
   }
 
   return clean;

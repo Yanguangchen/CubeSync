@@ -7,6 +7,10 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Constants
+  // ─────────────────────────────────────────────────────────────────────────────
+
   const CSV_RESULT_HEADER_ROW = 21;
   const CSV_TEST_DATA_START_ROW = 22;
 
@@ -44,229 +48,192 @@
     { key: "invoiceNumber", label: "Invoice number" }
   ];
 
-  const CRC_TABLE = buildCrcTable();
-
-  function buildCrcTable() {
-    const table = new Uint32Array(256);
-
-    for (let index = 0; index < table.length; index += 1) {
-      let value = index;
-
-      for (let bit = 0; bit < 8; bit += 1) {
-        value = value & 1 ? 0xedb88320 ^ (value >>> 1) : value >>> 1;
-      }
-
-      table[index] = value >>> 0;
-    }
-
-    return table;
-  }
+  // ─────────────────────────────────────────────────────────────────────────────
+  // CSV Utilities
+  // ─────────────────────────────────────────────────────────────────────────────
 
   function normalizeText(value) {
     return String(value == null ? "" : value).trim();
   }
 
   function formatDate(value) {
-    if (!value) {
-      return "";
-    }
-
-    if (typeof value === "string") {
-      return value;
-    }
-
-    if (typeof value.toDate === "function") {
-      return value.toDate().toISOString();
-    }
-
-    if (value instanceof Date) {
-      return value.toISOString();
-    }
-
-    if (typeof value.seconds === "number") {
-      return new Date(value.seconds * 1000).toISOString();
-    }
-
+    if (!value) return "";
+    if (typeof value === "string") return value;
+    if (typeof value.toDate === "function") return value.toDate().toISOString();
+    if (value instanceof Date) return value.toISOString();
+    if (typeof value.seconds === "number") return new Date(value.seconds * 1000).toISOString();
     return "";
   }
 
   function formatCellValue(value) {
-    if (value == null) {
-      return "";
-    }
-
+    if (value == null) return "";
     if (value instanceof Date || (value && typeof value.toDate === "function")) {
       return formatDate(value);
     }
-
     if (typeof value === "object") {
-      const dateValue = formatDate(value);
-      return dateValue || JSON.stringify(value);
+      return formatDate(value) || JSON.stringify(value);
     }
-
     return String(value);
-  }
-
-  function rawValue(form, key) {
-    const raw = form.raw || {};
-
-    if (key === "documentId") return form.id;
-    if (key === "reportNo") return raw.reportNo || raw.reportNumber || form.reportNo;
-    if (key === "status") return raw.status || form.status;
-    if (key === "template") return raw.template || form.template;
-    if (key === "concreteGrade") return raw.concreteGrade || raw.grade || form.grade;
-    if (key === "locationRepresented") return raw.locationRepresented || raw.location || form.location;
-    if (key === "additionalInformation") return raw.additionalInformation || raw.notes || form.notes;
-
-    return raw[key];
   }
 
   function csvCell(value) {
     const text = formatCellValue(value);
-
-    if (/[",\n\r]/.test(text)) {
-      return `"${text.replace(/"/g, "\"\"")}"`;
-    }
-
-    return text;
+    return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
   }
 
   function csvRow(values) {
     return values.map(csvCell).join(",");
   }
 
-  function buildFormCsv(form) {
-    const rows = [
-      ["CubeSync Concrete Cube Request"],
-      ["Request field", "Value"],
-      ...REQUEST_FIELDS.map((field) => [field.label, rawValue(form, field.key)]),
-      [],
-      RESULT_FIELDS.map((field) => field.label)
-    ];
-    const results = form.raw && Array.isArray(form.raw.results) ? form.raw.results : [];
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Form Data Extraction
+  // ─────────────────────────────────────────────────────────────────────────────
 
-    results.forEach((result) => {
-      rows.push(RESULT_FIELDS.map((field) => result[field.key]));
-    });
+  const FIELD_ALIASES = {
+    documentId: (form) => form.id,
+    reportNo: (form) => form.raw?.reportNo || form.raw?.reportNumber || form.reportNo,
+    status: (form) => form.raw?.status || form.status,
+    template: (form) => form.raw?.template || form.template,
+    concreteGrade: (form) => form.raw?.concreteGrade || form.raw?.grade || form.grade,
+    locationRepresented: (form) => form.raw?.locationRepresented || form.raw?.location || form.location,
+    additionalInformation: (form) => form.raw?.additionalInformation || form.raw?.notes || form.notes
+  };
+
+  function rawValue(form, key) {
+    return FIELD_ALIASES[key] ? FIELD_ALIASES[key](form) : form.raw?.[key];
+  }
+
+  function buildFormCsv(form) {
+    const headerRow = ["CubeSync Concrete Cube Request"];
+    const labelRow = ["Request field", "Value"];
+    const requestRows = REQUEST_FIELDS.map((field) => [field.label, rawValue(form, field.key)]);
+    const resultHeader = RESULT_FIELDS.map((field) => field.label);
+    const results = form.raw?.results || [];
+
+    const rows = [
+      headerRow,
+      labelRow,
+      ...requestRows,
+      [],
+      resultHeader,
+      ...results.map((result) => RESULT_FIELDS.map((field) => result[field.key]))
+    ];
 
     return `${rows.map(csvRow).join("\r\n")}\r\n`;
   }
 
   function normalizeFilenamePart(value) {
-    return Array.from(normalizeText(value), (character) => {
-      const code = character.charCodeAt(0);
-      return code < 32 || '<>:"/\\|?*'.includes(character) ? "-" : character;
+    const normalized = Array.from(normalizeText(value), (char) => {
+      const code = char.charCodeAt(0);
+      return code < 32 || '<>:"/\\|?*'.includes(char) ? "-" : char;
     }).join("")
       .replace(/\s+/g, "-")
       .replace(/^[.\-_]+|[.\-_]+$/g, "")
-      .slice(0, 80) || "form";
+      .slice(0, 80);
+
+    return normalized || "form";
   }
 
   function buildExportFiles(forms) {
     return forms.map((form, index) => {
       const sequence = String(index + 1).padStart(3, "0");
       const name = normalizeFilenamePart(form.reportNo || form.id || `form-${sequence}`);
-
-      return {
-        name: `${sequence}-${name}.csv`,
-        content: buildFormCsv(form)
-      };
+      return { name: `${sequence}-${name}.csv`, content: buildFormCsv(form) };
     });
   }
 
+  // ─────────────────────────────────────────────────────────────────────────────
+  // ZIP Implementation (CRC32 + deflate store)
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  const CRC_TABLE = (() => {
+    const table = new Uint32Array(256);
+    for (let i = 0; i < 256; i++) {
+      let value = i;
+      for (let bit = 0; bit < 8; bit++) {
+        value = value & 1 ? 0xedb88320 ^ (value >>> 1) : value >>> 1;
+      }
+      table[i] = value >>> 0;
+    }
+    return table;
+  })();
+
   function crc32(bytes) {
     let crc = 0xffffffff;
-
-    for (let index = 0; index < bytes.length; index += 1) {
-      crc = CRC_TABLE[(crc ^ bytes[index]) & 0xff] ^ (crc >>> 8);
+    for (const byte of bytes) {
+      crc = CRC_TABLE[(crc ^ byte) & 0xff] ^ (crc >>> 8);
     }
-
     return (crc ^ 0xffffffff) >>> 0;
   }
 
   function dosDateTime(date) {
     const year = Math.max(1980, Math.min(2107, date.getFullYear()));
-    const month = date.getMonth() + 1;
-    const day = date.getDate();
-    const hours = date.getHours();
-    const minutes = date.getMinutes();
-    const seconds = Math.floor(date.getSeconds() / 2);
-
     return {
-      date: ((year - 1980) << 9) | (month << 5) | day,
-      time: (hours << 11) | (minutes << 5) | seconds
+      date: ((year - 1980) << 9) | ((date.getMonth() + 1) << 5) | date.getDate(),
+      time: (date.getHours() << 11) | (date.getMinutes() << 5) | Math.floor(date.getSeconds() / 2)
     };
   }
 
-  function writeUint16(view, offset, value) {
-    view.setUint16(offset, value, true);
-  }
-
-  function writeUint32(view, offset, value) {
-    view.setUint32(offset, value >>> 0, true);
-  }
-
-  function headerBytes(length, writer) {
+  function writeHeader(length, writer) {
     const buffer = new ArrayBuffer(length);
-    const view = new DataView(buffer);
-    writer(view);
+    writer(new DataView(buffer));
     return new Uint8Array(buffer);
   }
 
   function localFileHeader(entry) {
-    return headerBytes(30, (view) => {
-      writeUint32(view, 0, 0x04034b50);
-      writeUint16(view, 4, 20);
-      writeUint16(view, 6, 0);
-      writeUint16(view, 8, 0);
-      writeUint16(view, 10, entry.time);
-      writeUint16(view, 12, entry.date);
-      writeUint32(view, 14, entry.crc);
-      writeUint32(view, 18, entry.data.length);
-      writeUint32(view, 22, entry.data.length);
-      writeUint16(view, 26, entry.name.length);
-      writeUint16(view, 28, 0);
+    return writeHeader(30, (view) => {
+      view.setUint32(0, 0x04034b50, true);
+      view.setUint16(4, 20, true);  // version
+      view.setUint16(6, 0, true);   // flags
+      view.setUint16(8, 0, true);   // compression (store)
+      view.setUint16(10, entry.time, true);
+      view.setUint16(12, entry.date, true);
+      view.setUint32(14, entry.crc, true);
+      view.setUint32(18, entry.data.length, true);
+      view.setUint32(22, entry.data.length, true);
+      view.setUint16(26, entry.name.length, true);
+      view.setUint16(28, 0, true);  // extra length
     });
   }
 
   function centralDirectoryHeader(entry) {
-    return headerBytes(46, (view) => {
-      writeUint32(view, 0, 0x02014b50);
-      writeUint16(view, 4, 20);
-      writeUint16(view, 6, 20);
-      writeUint16(view, 8, 0);
-      writeUint16(view, 10, 0);
-      writeUint16(view, 12, entry.time);
-      writeUint16(view, 14, entry.date);
-      writeUint32(view, 16, entry.crc);
-      writeUint32(view, 20, entry.data.length);
-      writeUint32(view, 24, entry.data.length);
-      writeUint16(view, 28, entry.name.length);
-      writeUint16(view, 30, 0);
-      writeUint16(view, 32, 0);
-      writeUint16(view, 34, 0);
-      writeUint16(view, 36, 0);
-      writeUint32(view, 38, 0);
-      writeUint32(view, 42, entry.offset);
+    return writeHeader(46, (view) => {
+      view.setUint32(0, 0x02014b50, true);
+      view.setUint16(4, 20, true);  // version made by
+      view.setUint16(6, 20, true);  // version needed
+      view.setUint16(8, 0, true);   // flags
+      view.setUint16(10, 0, true);  // compression
+      view.setUint16(12, entry.time, true);
+      view.setUint16(14, entry.date, true);
+      view.setUint32(16, entry.crc, true);
+      view.setUint32(20, entry.data.length, true);
+      view.setUint32(24, entry.data.length, true);
+      view.setUint16(28, entry.name.length, true);
+      view.setUint16(30, 0, true);  // extra length
+      view.setUint16(32, 0, true);  // comment length
+      view.setUint16(34, 0, true);  // disk number
+      view.setUint16(36, 0, true);  // internal attrs
+      view.setUint32(38, 0, true);  // external attrs
+      view.setUint32(42, entry.offset, true);
     });
   }
 
-  function endOfCentralDirectory(entryCount, centralDirectorySize, centralDirectoryOffset) {
-    return headerBytes(22, (view) => {
-      writeUint32(view, 0, 0x06054b50);
-      writeUint16(view, 4, 0);
-      writeUint16(view, 6, 0);
-      writeUint16(view, 8, entryCount);
-      writeUint16(view, 10, entryCount);
-      writeUint32(view, 12, centralDirectorySize);
-      writeUint32(view, 16, centralDirectoryOffset);
-      writeUint16(view, 20, 0);
+  function endOfCentralDirectory(count, size, offset) {
+    return writeHeader(22, (view) => {
+      view.setUint32(0, 0x06054b50, true);
+      view.setUint16(4, 0, true);   // disk number
+      view.setUint16(6, 0, true);   // disk with central dir
+      view.setUint16(8, count, true);
+      view.setUint16(10, count, true);
+      view.setUint32(12, size, true);
+      view.setUint32(16, offset, true);
+      view.setUint16(20, 0, true);  // comment length
     });
   }
 
-  function createZipBlob(files, modifiedAt) {
+  function createZipBlob(files, modifiedAt = new Date()) {
     const encoder = new TextEncoder();
-    const dateTime = dosDateTime(modifiedAt || new Date());
+    const { date, time } = dosDateTime(modifiedAt);
     const fileParts = [];
     const centralParts = [];
     let offset = 0;
@@ -274,37 +241,30 @@
     const entries = files.map((file) => {
       const name = encoder.encode(file.name);
       const data = encoder.encode(file.content);
-      return {
-        name,
-        data,
-        crc: crc32(data),
-        date: dateTime.date,
-        time: dateTime.time,
-        offset: 0
-      };
+      return { name, data, crc: crc32(data), date, time, offset: 0 };
     });
 
-    entries.forEach((entry) => {
+    // Local file headers + data
+    for (const entry of entries) {
       entry.offset = offset;
       const header = localFileHeader(entry);
       fileParts.push(header, entry.name, entry.data);
       offset += header.length + entry.name.length + entry.data.length;
-    });
+    }
 
-    const centralDirectoryOffset = offset;
+    const centralDirOffset = offset;
 
-    entries.forEach((entry) => {
+    // Central directory headers
+    for (const entry of entries) {
       const header = centralDirectoryHeader(entry);
       centralParts.push(header, entry.name);
       offset += header.length + entry.name.length;
-    });
+    }
 
-    const centralDirectorySize = offset - centralDirectoryOffset;
-    const endRecord = endOfCentralDirectory(entries.length, centralDirectorySize, centralDirectoryOffset);
+    const centralDirSize = offset - centralDirOffset;
+    const endRecord = endOfCentralDirectory(entries.length, centralDirSize, centralDirOffset);
 
-    return new Blob([...fileParts, ...centralParts, endRecord], {
-      type: "application/zip"
-    });
+    return new Blob([...fileParts, ...centralParts, endRecord], { type: "application/zip" });
   }
 
   function downloadFilesAsZip(files, filename) {
@@ -322,6 +282,10 @@
 
     return blob;
   }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Public API
+  // ─────────────────────────────────────────────────────────────────────────────
 
   return {
     CSV_RESULT_HEADER_ROW,

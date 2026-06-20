@@ -1,0 +1,50 @@
+/**
+ * Dashboard design tokens (light + dark).
+ */
+:root {
+  --brand-mint: #42d5bb;
+  --brand-blue: #52a0fc;
+  --brand-sky: #8bcffb;
+  --brand-mint-strong: #2bb8a0;
+  --brand-blue-strong: #3a8ae8;
+  --brand-sky-soft: #d4edfd;
+
+  --accent: var(--brand-mint);
+  --accent-strong: var(--brand-mint-strong);
+  --accent-soft: rgba(66, 213, 187, 0.14);
+  --accent-secondary: var(--brand-blue);
+  --accent-secondary-soft: rgba(82, 160, 252, 0.14);
+  --highlight: var(--brand-sky);
+  --highlight-soft: var(--brand-sky-soft);
+
+  --ink: #1f2733;
+  --muted: #6b7480;
+  --line: #e3e7ec;
+  --line-strong: #cdd3da;
+  --surface: #ffffff;
+  --subtle: #f5f7f9;
+  --page-bg: #eef4f8;
+
+  --error: #b42318;
+  --error-soft: rgba(180, 35, 24, 0.10);
+
+  --shadow: 0 20px 60px rgba(28, 41, 61, 0.14);
+  --shadow-soft: 0 10px 30px rgba(28, 41, 61, 0.1);
+  --transition: 0.3s ease;
+}
+
+[data-theme="dark"] {
+  --ink: #f1f5f9;
+  --muted: #94a3b8;
+  --line: rgba(255, 255, 255, 0.08);
+  --line-strong: rgba(255, 255, 255, 0.14);
+  --surface: rgba(15, 23, 42, 0.65);
+  --surface-strong: rgba(30, 41, 59, 0.85);
+  --surface-soft: rgba(15, 23, 42, 0.35);
+  --accent: var(--brand-blue);
+  --accent-strong: var(--brand-blue-strong);
+  --accent-soft: rgba(82, 160, 252, 0.15);
+  --highlight: var(--brand-sky);
+  --shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+  --shadow-soft: 0 10px 30px rgba(0, 0, 0, 0.25);
+}

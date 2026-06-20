@@ -11,9 +11,10 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="glassmorphic.css">
+    <link rel="stylesheet" href="css/glassmorphic.css">
     <script src="barcode.js" defer></script>
     <script src="cubesync-form-data.js" defer></script>
+    <script src="cubesync-form-markup.js" defer></script>
     <script src="env.js"></script>
     <script type="module" src="firestore.js"></script>
     <script src="https://www.google.com/recaptcha/api.js?render=explicit" async defer></script>
@@ -68,95 +69,122 @@
         <div class="form-step active" data-step="1">
           <div class="title-band">
             <p>Digital lab submission</p>
-            <h1>CONCRETE CUBE TEST REQUEST FORM</h1>
+            <h1 id="formTitle">CONCRETE CUBE TEST REQUEST FORM</h1>
           </div>
 
-          <section class="request-grid" aria-label="Concrete cube request details">
-            <label class="field-row">
-              <span>Project (ERP) :</span>
-              <input type="text" name="projectErp">
-            </label>
-            <label class="field-row">
-              <span>Customer (Billing) * :</span>
-              <input type="text" name="customerBilling" required>
-            </label>
-            <label class="field-row">
-              <span>Project Name on Report :</span>
-              <input type="text" name="projectNameOnReport">
-            </label>
-            <label class="field-row">
-              <span>Client Name on Report :</span>
-              <input type="text" name="clientNameOnReport">
-            </label>
-            <label class="field-row">
-              <span>Contact * :</span>
-              <input type="text" name="contact" required>
-            </label>
-            <label class="field-row toggle-row">
-              <span>Enable Manual Cube Job # :</span>
-              <input type="checkbox" name="enableManualCubeJobNumber">
-            </label>
-            <label class="field-row">
-              <span>Cube Job # :</span>
-              <input type="text" name="cubeJobNumber">
-            </label>
-            <label class="field-row">
-              <span>Quote :</span>
-              <input type="text" name="quote">
-            </label>
-            <label class="field-row">
-              <span>Test Item :</span>
-              <input type="text" name="testItem">
-            </label>
-            <label class="field-row">
-              <span>Supplier Of Concrete * :</span>
-              <input type="text" name="supplier" required>
-            </label>
-            <label class="field-row">
-              <span>Supplier Of Concrete Display * :</span>
-              <input type="text" name="supplierDisplay" required>
-            </label>
-            <label class="field-row">
-              <span>Location * :</span>
-              <input type="text" name="locationRepresented" required>
-            </label>
-            <label class="field-row">
-              <span>Additional Info :</span>
-              <input type="text" name="additionalInformation">
-            </label>
-            <label class="field-row">
-              <span>Date of cast * :</span>
-              <input type="date" name="dateOfCast" required>
-            </label>
-            <label class="field-row">
-              <span>Grade * :</span>
-              <input type="text" name="concreteGrade" required>
-            </label>
-            <label class="field-row">
-              <span>Grade * :</span>
-              <input type="text" name="reportGrade" required>
-            </label>
-            <label class="field-row">
-              <span>Size * :</span>
-              <input type="text" name="specimenSize" placeholder="150 x 150 x 150" required>
-            </label>
-            <label class="field-row">
-              <span>Mean Slump * :</span>
-              <input type="number" name="slumpMeasured" min="0" step="1" required>
-            </label>
-            <label class="field-row">
-              <span>Specified Slump * :</span>
-              <input type="number" name="slumpSpecified" min="0" step="1" required>
-            </label>
-            <label class="field-row">
-              <span>Person In Charge * :</span>
-              <input type="text" name="personInCharge" required>
-            </label>
-            <label class="field-row">
-              <span>Manager In Charge * :</span>
-              <input type="text" name="managerInCharge" required>
-            </label>
-          </section>
+          <div class="request-grid" role="group" aria-label="Concrete cube request details">
+            <div class="request-section" role="group" aria-label="Project and client">
+              <div class="request-section-fields">
+                <label class="field-row" data-form-field="projectErp">
+                  <span>Project (ERP) :</span>
+                  <input type="text" name="projectErp">
+                </label>
+                <label class="field-row" data-form-field="customerBilling">
+                  <span>Customer (Billing) * :</span>
+                  <input type="text" name="customerBilling" required>
+                </label>
+                <label class="field-row" data-form-field="projectNameOnReport">
+                  <span>Project Name on Report :</span>
+                  <input type="text" name="projectNameOnReport">
+                </label>
+                <label class="field-row" data-form-field="clientNameOnReport">
+                  <span>Client Name on Report :</span>
+                  <input type="text" name="clientNameOnReport">
+                </label>
+                <label class="field-row" data-form-field="contact">
+                  <span>Contact * :</span>
+                  <input type="text" name="contact" required>
+                </label>
+              </div>
+            </div>
+
+            <div class="request-section" role="group" aria-label="Job details">
+              <div class="request-section-fields">
+                <label class="field-row toggle-row" data-form-field="enableManualCubeJobNumber">
+                  <span>Enable Manual Cube Job # :</span>
+                  <input type="checkbox" name="enableManualCubeJobNumber">
+                </label>
+                <label class="field-row" data-form-field="cubeJobNumber">
+                  <span>Cube Job # :</span>
+                  <input type="text" name="cubeJobNumber">
+                </label>
+                <label class="field-row" data-form-field="quote">
+                  <span>Quote :</span>
+                  <input type="text" name="quote">
+                </label>
+                <label class="field-row" data-form-field="testItem">
+                  <span>Test Item :</span>
+                  <input type="text" name="testItem">
+                </label>
+              </div>
+            </div>
+
+            <div class="request-section" role="group" aria-label="Supplier and location">
+              <div class="request-section-fields">
+                <label class="field-row" data-form-field="supplier">
+                  <span>Supplier Of Concrete * :</span>
+                  <input type="text" name="supplier" required>
+                </label>
+                <label class="field-row" data-form-field="supplierDisplay">
+                  <span>Supplier Of Concrete Display * :</span>
+                  <input type="text" name="supplierDisplay" required>
+                </label>
+                <label class="field-row" data-form-field="locationRepresented">
+                  <span>Location * :</span>
+                  <input type="text" name="locationRepresented" required>
+                </label>
+                <label class="field-row" data-form-field="additionalInformation">
+                  <span>Additional Info :</span>
+                  <input type="text" name="additionalInformation">
+                </label>
+              </div>
+            </div>
+
+            <div class="request-section" role="group" aria-label="Cast and specimen">
+              <div class="request-section-fields">
+                <label class="field-row" data-form-field="dateOfCast">
+                  <span>Date of cast * :</span>
+                  <input type="date" name="dateOfCast" required>
+                </label>
+                <label class="field-row" data-form-field="concreteGrade">
+                  <span>Concrete Grade * :</span>
+                  <input type="text" name="concreteGrade" required>
+                </label>
+                <label class="field-row" data-form-field="reportGrade">
+                  <span>Report Grade * :</span>
+                  <input type="text" name="reportGrade" required>
+                </label>
+                <label class="field-row" data-form-field="specimenSize">
+                  <span>Size * :</span>
+                  <input type="text" name="specimenSize" placeholder="150 x 150 x 150" required>
+                </label>
+                <label class="field-row" data-form-field="slumpMeasured">
+                  <span>Mean Slump * :</span>
+                  <input type="number" name="slumpMeasured" min="0" step="1" required>
+                </label>
+                <label class="field-row" data-form-field="slumpSpecified">
+                  <span>Specified Slump * :</span>
+                  <input type="number" name="slumpSpecified" min="0" step="1" required>
+                </label>
+              </div>
+            </div>
+
+            <div class="request-section" role="group" aria-label="Personnel">
+              <div class="request-section-fields">
+                <label class="field-row" data-form-field="personInCharge">
+                  <span>Person In Charge * :</span>
+                  <input type="text" name="personInCharge" required>
+                </label>
+                <label class="field-row" data-form-field="managerInCharge">
+                  <span>Manager In Charge * :</span>
+                  <input type="text" name="managerInCharge" required>
+                </label>
+              </div>
+            </div>
+            <div class="request-section request-section-custom" role="group" aria-label="Additional fields">
+              <div id="customRequestFields" class="request-section-fields custom-request-fields"></div>
+            </div>
+          </div>
         </div>
 
         <div class="form-step" data-step="2">
@@ -168,88 +196,33 @@
             <div class="table-wrap">
               <table class="results-table">
                 <thead>
-          <tr>
-            <th scope="col" data-result-field="setNo">Set No</th>
-            <th scope="col" data-result-field="size">Size</th>
-            <th scope="col" data-result-field="specimenRef">Specimen Ref #</th>
-            <th scope="col" data-result-field="barcode">Barcode</th>
-            <th scope="col" data-result-field="specifiedSlump">Specified Slump</th>
-            <th scope="col" data-result-field="meanSlump">Mean Slump</th>
-            <th scope="col" data-result-field="resultGrade">Concrete Grade</th>
-            <th scope="col" data-result-field="resultDateOfCast">Date Of Cast</th>
-            <th scope="col" data-result-field="age">Age</th>
-            <th scope="col" data-result-field="dateOfTest">Date Of Test</th>
-            <th scope="col" data-result-field="invoiceNumber">Invoice Number</th>
-            <th scope="col">Action</th>
-          </tr>
-        </thead>
-                <tbody>
                   <tr>
-            <td data-result-field="setNo" data-label="Set No"><input type="number" name="setNo1" min="1" step="1" value="1" aria-label="Row 1 set number"></td>
-            <td data-result-field="size" data-label="Size"><input type="text" name="size1" aria-label="Row 1 size"></td>
-            <td data-result-field="specimenRef" data-label="Specimen Ref #"><input type="text" name="specimenRef1" aria-label="Row 1 specimen reference"></td>
-            <td class="barcode-cell" data-result-field="barcode" data-label="Barcode">
-                      <input type="text" name="barcode1" data-barcode-input placeholder="Enter barcode text" aria-label="Row 1 barcode text">
-                      <div class="barcode-preview" aria-live="polite"><span class="barcode-placeholder">Paste Barcode Here</span></div>
-                      <p class="barcode-message" role="alert"></p>
-                    </td>
-            <td data-result-field="specifiedSlump" data-label="Specified Slump"><input type="text" name="specifiedSlump1" aria-label="Row 1 specified slump"></td>
-            <td data-result-field="meanSlump" data-label="Mean Slump"><input type="number" name="meanSlump1" min="0" step="1" aria-label="Row 1 mean slump"></td>
-            <td data-result-field="resultGrade" data-label="Concrete Grade"><input type="text" name="resultGrade1" aria-label="Row 1 concrete grade"></td>
-            <td data-result-field="resultDateOfCast" data-label="Date Of Cast"><input type="date" name="resultDateOfCast1" aria-label="Row 1 date of cast"></td>
-            <td data-result-field="age" data-label="Age"><input type="number" name="age1" min="0" step="1" aria-label="Row 1 age in days"></td>
-            <td data-result-field="dateOfTest" data-label="Date Of Test"><input type="date" name="dateOfTest1" aria-label="Row 1 date of test"></td>
-            <td data-result-field="invoiceNumber" data-label="Invoice Number"><input type="text" name="invoiceNumber1" aria-label="Row 1 invoice number"></td>
-                    <td data-label="Action"><button type="button" class="remove-row-btn" aria-label="Remove row 1">Remove</button></td>
+                    <th scope="col" data-result-field="setNo">Set No</th>
+                    <th scope="col" data-result-field="size">Size</th>
+                    <th scope="col" data-result-field="specimenRef">Specimen Ref #</th>
+                    <th scope="col" data-result-field="barcode">Barcode</th>
+                    <th scope="col" data-result-field="specifiedSlump">Specified Slump</th>
+                    <th scope="col" data-result-field="meanSlump">Mean Slump</th>
+                    <th scope="col" data-result-field="resultGrade">Concrete Grade</th>
+                    <th scope="col" data-result-field="resultDateOfCast">Date Of Cast</th>
+                    <th scope="col" data-result-field="age">Age</th>
+                    <th scope="col" data-result-field="dateOfTest">Date Of Test</th>
+                    <th scope="col" data-result-field="invoiceNumber">Invoice Number</th>
+                    <th scope="col">Action</th>
                   </tr>
-                  <tr>
-            <td data-result-field="setNo" data-label="Set No"><input type="number" name="setNo2" min="1" step="1" value="1" aria-label="Row 2 set number"></td>
-            <td data-result-field="size" data-label="Size"><input type="text" name="size2" aria-label="Row 2 size"></td>
-            <td data-result-field="specimenRef" data-label="Specimen Ref #"><input type="text" name="specimenRef2" aria-label="Row 2 specimen reference"></td>
-            <td class="barcode-cell" data-result-field="barcode" data-label="Barcode">
-                      <input type="text" name="barcode2" data-barcode-input placeholder="Enter barcode text" aria-label="Row 2 barcode text">
-                      <div class="barcode-preview" aria-live="polite"><span class="barcode-placeholder">Paste Barcode Here</span></div>
-                      <p class="barcode-message" role="alert"></p>
-                    </td>
-            <td data-result-field="specifiedSlump" data-label="Specified Slump"><input type="text" name="specifiedSlump2" aria-label="Row 2 specified slump"></td>
-            <td data-result-field="meanSlump" data-label="Mean Slump"><input type="number" name="meanSlump2" min="0" step="1" aria-label="Row 2 mean slump"></td>
-            <td data-result-field="resultGrade" data-label="Concrete Grade"><input type="text" name="resultGrade2" aria-label="Row 2 concrete grade"></td>
-            <td data-result-field="resultDateOfCast" data-label="Date Of Cast"><input type="date" name="resultDateOfCast2" aria-label="Row 2 date of cast"></td>
-            <td data-result-field="age" data-label="Age"><input type="number" name="age2" min="0" step="1" aria-label="Row 2 age in days"></td>
-            <td data-result-field="dateOfTest" data-label="Date Of Test"><input type="date" name="dateOfTest2" aria-label="Row 2 date of test"></td>
-            <td data-result-field="invoiceNumber" data-label="Invoice Number"><input type="text" name="invoiceNumber2" aria-label="Row 2 invoice number"></td>
-                    <td data-label="Action"><button type="button" class="remove-row-btn" aria-label="Remove row 2">Remove</button></td>
-                  </tr>
-                  <tr>
-            <td data-result-field="setNo" data-label="Set No"><input type="number" name="setNo3" min="1" step="1" value="1" aria-label="Row 3 set number"></td>
-            <td data-result-field="size" data-label="Size"><input type="text" name="size3" aria-label="Row 3 size"></td>
-            <td data-result-field="specimenRef" data-label="Specimen Ref #"><input type="text" name="specimenRef3" aria-label="Row 3 specimen reference"></td>
-            <td class="barcode-cell" data-result-field="barcode" data-label="Barcode">
-                      <input type="text" name="barcode3" data-barcode-input placeholder="Enter barcode text" aria-label="Row 3 barcode text">
-                      <div class="barcode-preview" aria-live="polite"><span class="barcode-placeholder">Paste Barcode Here</span></div>
-                      <p class="barcode-message" role="alert"></p>
-                    </td>
-            <td data-result-field="specifiedSlump" data-label="Specified Slump"><input type="text" name="specifiedSlump3" aria-label="Row 3 specified slump"></td>
-            <td data-result-field="meanSlump" data-label="Mean Slump"><input type="number" name="meanSlump3" min="0" step="1" aria-label="Row 3 mean slump"></td>
-            <td data-result-field="resultGrade" data-label="Concrete Grade"><input type="text" name="resultGrade3" aria-label="Row 3 concrete grade"></td>
-            <td data-result-field="resultDateOfCast" data-label="Date Of Cast"><input type="date" name="resultDateOfCast3" aria-label="Row 3 date of cast"></td>
-            <td data-result-field="age" data-label="Age"><input type="number" name="age3" min="0" step="1" aria-label="Row 3 age in days"></td>
-            <td data-result-field="dateOfTest" data-label="Date Of Test"><input type="date" name="dateOfTest3" aria-label="Row 3 date of test"></td>
-            <td data-result-field="invoiceNumber" data-label="Invoice Number"><input type="text" name="invoiceNumber3" aria-label="Row 3 invoice number"></td>
-                    <td data-label="Action"><button type="button" class="remove-row-btn" aria-label="Remove row 3">Remove</button></td>
-                  </tr>
-                </tbody>
-            </table>
-          </div>
-        </section>
-      </div>
+                </thead>
+                <tbody data-initial-result-rows="3"></tbody>
+              </table>
+            </div>
+          </section>
+        </div>
 
-      <div class="step-controls">
-        <button type="button" id="prevStep" class="hidden">Previous</button>
-        <button type="button" id="nextStep">Next: Test Results</button>
-      </div>
-    </form>
-  </main>
+        <div class="step-controls">
+          <button type="button" id="prevStep" class="hidden">Previous</button>
+          <button type="button" id="nextStep">Next: Test Results</button>
+        </div>
+      </form>
+    </main>
     <script>if("serviceWorker"in navigator){navigator.serviceWorker.register("./sw.js").catch(()=>{});}</script>
   </body>
 </html>

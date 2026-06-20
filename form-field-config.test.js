@@ -8,13 +8,23 @@ const {
   RESULT_FIELDS,
   defaultFormFieldConfig,
   normalizeFormFieldConfig,
+  normalizeCustomRequestFields,
   getActiveRequiredFormFields,
+  getRequestFieldLabel,
+  getResultFieldLabel,
+  applyFieldLabels,
+  applyCustomRequestFields,
+  collectExtraFields,
+  validateExtraFields,
+  isValidCustomFieldId,
+  formatCustomFieldDisplayValue,
   applyFormFieldConfig,
   syncNativeFormConstraints,
   getRequestFieldStep,
   readFormFieldConfigFromEditor,
   validateCubeRequestPayload,
   validateCubeRequestForm,
+  buildCubeRequestFromForm,
   FORM_FIELD_CONFIG_STORAGE_KEY
 } = require("./cubesync-form-data");
 
@@ -40,6 +50,86 @@ test("normalizeFormFieldConfig merges partial overrides and ignores unknown keys
   assert.equal(config.resultFields.invoiceNumber, false);
   assert.equal(config.resultFields.barcode, true);
   assert.equal(config.requestFields.unknownField, undefined);
+});
+
+test("defaultFormFieldConfig exposes empty label override maps", () => {
+  const config = defaultFormFieldConfig();
+  assert.deepEqual(config.requestLabels, {});
+  assert.deepEqual(config.resultLabels, {});
+  assert.deepEqual(config.customRequestFields, []);
+});
+
+test("normalizeFormFieldConfig keeps custom labels and drops empty/default ones", () => {
+  const config = normalizeFormFieldConfig({
+    requestLabels: {
+      projectErp: "  Job Number  ",
+      contact: "Contact",
+      quote: "   ",
+      unknownField: "Ignored"
+    },
+    resultLabels: {
+      setNo: "Cube No",
+      size: 42
+    }
+  });
+
+  assert.equal(config.requestLabels.projectErp, "Job Number");
+  assert.equal(config.requestLabels.contact, undefined, "label equal to default is dropped");
+  assert.equal(config.requestLabels.quote, undefined, "blank label is dropped");
+  assert.equal(config.requestLabels.unknownField, undefined, "unknown field is ignored");
+  assert.equal(config.resultLabels.setNo, "Cube No");
+  assert.equal(config.resultLabels.size, undefined, "non-string label is ignored");
+});
+
+test("getRequestFieldLabel and getResultFieldLabel fall back to defaults", () => {
+  const config = normalizeFormFieldConfig({
+    requestLabels: { projectErp: "Job Number" },
+    resultLabels: { setNo: "Cube No" }
+  });
+
+  assert.equal(getRequestFieldLabel(config, "projectErp"), "Job Number");
+  assert.equal(getRequestFieldLabel(config, "contact"), "Contact");
+  assert.equal(getResultFieldLabel(config, "setNo"), "Cube No");
+  assert.equal(getResultFieldLabel(config, "size"), "Size");
+});
+
+test("applyFieldLabels renames form labels and result headers while preserving decoration", () => {
+  const dom = new JSDOM(`
+    <form id="cubeRequestForm">
+      <label class="field-row"><span>Project (ERP) :</span><input type="text" name="projectErp"></label>
+      <label class="field-row"><span>Customer (Billing) * :</span><input type="text" name="customerBilling" required></label>
+      <label class="field-row"><span>Quote :</span><input type="text" name="quote"></label>
+      <table class="results-table">
+        <thead>
+          <tr>
+            <th data-result-field="setNo">Set No</th>
+            <th data-result-field="size">Size</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td data-result-field="setNo" data-label="Set No"><input type="number" name="setNo1"></td>
+            <td data-result-field="size" data-label="Size"><input type="text" name="size1"></td>
+          </tr>
+        </tbody>
+      </table>
+    </form>
+  `);
+  const form = dom.window.document.getElementById("cubeRequestForm");
+  const config = normalizeFormFieldConfig({
+    requestLabels: { projectErp: "Job Number", customerBilling: "Bill To" },
+    resultLabels: { setNo: "Cube No" }
+  });
+
+  applyFieldLabels(form, config);
+
+  assert.equal(form.querySelector('[name="projectErp"]').closest("label").querySelector("span").textContent, "Job Number :");
+  assert.equal(form.querySelector('[name="customerBilling"]').closest("label").querySelector("span").textContent, "Bill To * :");
+  assert.equal(form.querySelector('[name="quote"]').closest("label").querySelector("span").textContent, "Quote :", "untouched field keeps its label");
+
+  assert.equal(form.querySelector('th[data-result-field="setNo"]').textContent, "Cube No");
+  assert.equal(form.querySelector('td[data-result-field="setNo"]').getAttribute("data-label"), "Cube No");
+  assert.equal(form.querySelector('th[data-result-field="size"]').textContent, "Size", "untouched column keeps its header");
 });
 
 test("getActiveRequiredFormFields excludes disabled required request fields", () => {
@@ -161,6 +251,28 @@ test("readFormFieldConfigFromEditor reads dashboard checkbox state", () => {
   assert.equal(config.resultFields.setNo, false);
 });
 
+test("readFormFieldConfigFromEditor reads custom label overrides and ignores blanks", () => {
+  const dom = new JSDOM(`
+    <form id="fieldConfigForm">
+      <input type="checkbox" name="request-projectErp" checked>
+      <input type="text" name="request-label-projectErp" value="  Job Number ">
+      <input type="checkbox" name="request-contact" checked>
+      <input type="text" name="request-label-contact" value="   ">
+      <input type="checkbox" name="result-setNo" checked>
+      <input type="text" name="result-label-setNo" value="Cube No">
+      <input type="checkbox" name="result-size" checked>
+      <input type="text" name="result-label-size" value="Size">
+    </form>
+  `);
+  const form = dom.window.document.getElementById("fieldConfigForm");
+  const config = readFormFieldConfigFromEditor(form);
+
+  assert.equal(config.requestLabels.projectErp, "Job Number");
+  assert.equal(config.requestLabels.contact, undefined, "blank rename is ignored");
+  assert.equal(config.resultLabels.setNo, "Cube No");
+  assert.equal(config.resultLabels.size, undefined, "default-equal rename is ignored");
+});
+
 test("validateCubeRequestForm respects active field config", () => {
   const dom = new JSDOM(`
     <form id="cubeRequestForm">
@@ -232,4 +344,113 @@ test("getRequestFieldStep resolves the parent form step for request fields", () 
   const form = dom.window.document.getElementById("cubeRequestForm");
   assert.equal(getRequestFieldStep(form, "dateOfCast"), 1);
   assert.equal(getRequestFieldStep(form, "missingField"), null);
+});
+
+test("normalizeCustomRequestFields validates ids, deduplicates, and slugifies labels", () => {
+  const fields = normalizeCustomRequestFields([
+    { id: "siteRef", label: "Site Reference", type: "text", required: true },
+    { id: "siteRef", label: "Duplicate", type: "text" },
+    { label: "PO Number", type: "text" },
+    { id: "projectErp", label: "Conflicts with built-in" },
+    { id: "bad-id", label: "Bad id" }
+  ]);
+
+  assert.equal(fields.length, 2);
+  assert.equal(fields[0].id, "siteRef");
+  assert.equal(fields[0].required, true);
+  assert.equal(fields[1].id, "po_number");
+  assert.equal(fields[1].label, "PO Number");
+  assert.equal(isValidCustomFieldId("siteRef"), true);
+  assert.equal(isValidCustomFieldId("projectErp"), false);
+});
+
+test("applyCustomRequestFields renders enabled custom fields and collects values", () => {
+  const dom = new JSDOM(`
+    <form id="cubeRequestForm">
+      <div id="customRequestFields" class="custom-request-fields"></div>
+    </form>
+  `);
+  const form = dom.window.document.getElementById("cubeRequestForm");
+  const config = normalizeFormFieldConfig({
+    customRequestFields: [
+      { id: "siteRef", label: "Site Reference", type: "text", required: true, enabled: true },
+      { id: "approved", label: "Approved", type: "checkbox", enabled: true },
+      { id: "hiddenNote", label: "Hidden Note", type: "text", enabled: false }
+    ]
+  });
+
+  applyCustomRequestFields(form, config, { siteRef: "Block A", approved: true });
+
+  assert.match(form.querySelector("#customRequestFields").innerHTML, /Site Reference \* :/);
+  assert.equal(form.querySelector('[data-custom-field-id="siteRef"]').value, "Block A");
+  assert.equal(form.querySelector('[data-custom-field-id="approved"]').checked, true);
+  assert.equal(form.querySelector('[data-custom-field-row="hiddenNote"]').hidden, true);
+
+  form.querySelector('[data-custom-field-id="siteRef"]').value = "Block B";
+  form.querySelector('[data-custom-field-id="approved"]').checked = false;
+
+  assert.deepEqual(collectExtraFields(form), {
+    siteRef: "Block B",
+    approved: false,
+    hiddenNote: ""
+  });
+});
+
+test("validateExtraFields enforces required custom fields", () => {
+  const config = normalizeFormFieldConfig({
+    customRequestFields: [
+      { id: "siteRef", label: "Site Reference", type: "text", required: true },
+      { id: "approved", label: "Approved", type: "checkbox", required: true }
+    ]
+  });
+
+  const missing = validateExtraFields({ siteRef: "", approved: false }, config);
+  assert.equal(missing.valid, false);
+  assert.ok(missing.missingFields.includes("Site Reference"));
+  assert.ok(missing.missingFields.includes("Approved"));
+
+  const valid = validateExtraFields({ siteRef: "Block A", approved: true }, config);
+  assert.equal(valid.valid, true);
+});
+
+test("buildCubeRequestFromForm includes extraFields map", () => {
+  const dom = new JSDOM(`
+    <form id="cubeRequestForm" data-template="Glassmorphic">
+      ${FORM_FIELDS.map((field) => `<input type="text" name="${field}">`).join("")}
+      <div id="customRequestFields" class="custom-request-fields">
+        <label class="field-row custom-field-row" data-custom-field-row="siteRef">
+          <span>Site Reference :</span>
+          <input type="text" name="custom__siteRef" data-custom-field-id="siteRef" data-custom-field-type="text" value="Block A">
+        </label>
+      </div>
+      <table class="results-table"><tbody></tbody></table>
+    </form>
+  `);
+  const form = dom.window.document.getElementById("cubeRequestForm");
+  const payload = buildCubeRequestFromForm(form);
+
+  assert.deepEqual(payload.extraFields, { siteRef: "Block A" });
+});
+
+test("applyFormFieldConfig applies custom fields through shared config path", () => {
+  const dom = new JSDOM(`
+    <form id="cubeRequestForm">
+      <label class="field-row"><span>Quote :</span><input type="text" name="quote"></label>
+      <div id="customRequestFields" class="custom-request-fields"></div>
+    </form>
+  `);
+  const form = dom.window.document.getElementById("cubeRequestForm");
+  const config = normalizeFormFieldConfig({
+    customRequestFields: [{ id: "siteRef", label: "Site Reference", type: "text" }]
+  });
+
+  applyFormFieldConfig(form, config, { extraFieldValues: { siteRef: "Loaded" } });
+
+  assert.equal(form.querySelector('[data-custom-field-id="siteRef"]').value, "Loaded");
+});
+
+test("formatCustomFieldDisplayValue renders checkbox values for dashboard detail", () => {
+  const def = { id: "approved", label: "Approved", type: "checkbox" };
+  assert.equal(formatCustomFieldDisplayValue(def, true), "Yes");
+  assert.equal(formatCustomFieldDisplayValue(def, false), "No");
 });

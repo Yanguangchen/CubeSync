@@ -17,6 +17,21 @@ function formFieldNames(html) {
   return Array.from(html.matchAll(/\sname="([^"]+)"/g), (match) => match[1]);
 }
 
+function glassFormFieldNames(glassHtml) {
+  const names = formFieldNames(glassHtml);
+  const seedMatch = glassHtml.match(/data-initial-result-rows="(\d+)"/);
+  if (!seedMatch) {
+    return names;
+  }
+
+  const count = parseInt(seedMatch[1], 10);
+  const markup = require("./cubesync-form-markup");
+  for (let rowIndex = 1; rowIndex <= count; rowIndex += 1) {
+    names.push(...markup.resultRowFieldNames(rowIndex));
+  }
+  return names;
+}
+
 function fakeRow(values) {
   return {
     querySelector(selector) {
@@ -27,12 +42,26 @@ function fakeRow(values) {
   };
 }
 
+function fakeControl(value) {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    return {
+      value: value.value,
+      checked: Boolean("checked" in value ? value.checked : value.value),
+      dataset: value.dataset || {}
+    };
+  }
+
+  return {
+    value,
+    checked: Boolean(value),
+    dataset: {}
+  };
+}
+
 function fakeForm(fields, rows) {
   return {
     dataset: { template: "Original" },
-    elements: Object.fromEntries(
-      Object.entries(fields).map(([key, value]) => [key, { value, checked: Boolean(value) }])
-    ),
+    elements: Object.fromEntries(Object.entries(fields).map(([key, value]) => [key, fakeControl(value)])),
     querySelectorAll(selector) {
       return selector === ".results-table tbody tr" ? rows.map(fakeRow) : [];
     }
@@ -43,7 +72,7 @@ test("original and glassmorphic forms submit the same Firestore fields", () => {
   const originalHtml = fs.readFileSync("index.html", "utf8");
   const glassHtml = fs.readFileSync("glassmorphic.html", "utf8");
 
-  assert.deepEqual(formFieldNames(originalHtml), formFieldNames(glassHtml));
+  assert.deepEqual(formFieldNames(originalHtml), glassFormFieldNames(glassHtml));
 
   for (const html of [originalHtml, glassHtml]) {
     assert.match(html, /<form id="cubeRequestForm"[^>]*data-template="/);
@@ -156,6 +185,9 @@ test("shared schema maps Firestore cube requests into dashboard records", () => 
     gradeFreeText: "",
     personInCharge: "",
     managerInCharge: "",
+    customFields: [],
+    customFieldCount: 0,
+    extraFields: {},
     raw: {
       reportNo: "RAK-CUBE-1",
       client: "Acme",
@@ -168,6 +200,38 @@ test("shared schema maps Firestore cube requests into dashboard records", () => 
       updatedAt: "2026-06-17"
     }
   });
+});
+
+test("form serialization stores dropdown free text field metadata", () => {
+  const payload = buildCubeRequestFromForm(fakeForm({
+    projectErp: {
+      value: "Typed ERP Project",
+      dataset: { freeTextEntry: "true" }
+    },
+    supplier: {
+      value: "Typed Supplier",
+      dataset: { freeTextEntry: "true" }
+    },
+    contact: {
+      value: "Typed Contact",
+      dataset: { freeTextEntry: "true" }
+    },
+    customerBilling: "Selected Billing",
+    cubeJobNumber: "RAK-CUBE-42",
+    testItem: "Selected Test",
+    dateOfCast: "2026-06-18",
+    concreteGrade: "C35/45",
+    reportGrade: "C35/45",
+    supplierDisplay: "Typed Supplier",
+    locationRepresented: "Level 12",
+    slumpMeasured: "120",
+    specimenSize: "150 X 150 X 150",
+    slumpSpecified: "100",
+    personInCharge: "Selected Person",
+    managerInCharge: "Selected Manager"
+  }, []));
+
+  assert.deepEqual(payload.customFields, ["projectErp", "supplier"]);
 });
 
 test("validateCubeRequestForm requires every request field except test results", () => {

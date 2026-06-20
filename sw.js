@@ -2,7 +2,7 @@
 // Strategy: cache the app shell on install, serve cache-first for shell assets,
 // and go network-first for Firebase/API requests.
 
-const CACHE_NAME = "cubesync-v1";
+const CACHE_NAME = "cubesync-v2";
 
 const APP_SHELL = [
   "./",
@@ -18,10 +18,11 @@ const APP_SHELL = [
   "./dashboard.js",
   "./rpa-dashboard.js",
   "./rpa-view.js",
-  "./styles.css",
-  "./glassmorphic.css",
-  "./dashboard.css",
-  "./rpa-dashboard.css",
+  "./css/styles.css",
+  "./css/glassmorphic.css",
+  "./css/dashboard.css",
+  "./css/rpa-dashboard.css",
+  "./css/xp-taskbar.css",
   "./favicon.png",
   "./assets/logo.png",
   "./assets/logoBanner.png",
@@ -29,6 +30,16 @@ const APP_SHELL = [
   "./assets/icon-512.png",
   "./manifest.json"
 ];
+
+function shouldCacheResponse(request, response, url) {
+  return Boolean(
+    response &&
+    response.status === 200 &&
+    response.type !== "opaque" &&
+    url.origin === self.location.origin &&
+    request.method === "GET"
+  );
+}
 
 // Install — pre-cache the app shell.
 self.addEventListener("install", (event) => {
@@ -77,7 +88,7 @@ self.addEventListener("fetch", (event) => {
         // Stale-while-revalidate: return cached now, update in the background.
         fetch(event.request)
           .then((response) => {
-            if (response && response.ok) {
+            if (shouldCacheResponse(event.request, response, url)) {
               const clone = response.clone();
               caches.open(CACHE_NAME).then((cache) => {
                 cache.put(event.request, clone);
@@ -91,7 +102,7 @@ self.addEventListener("fetch", (event) => {
 
       // Not in cache — fetch from network and cache the response.
       return fetch(event.request).then((response) => {
-        if (response && response.ok && url.origin === self.location.origin) {
+        if (shouldCacheResponse(event.request, response, url)) {
           const clone = response.clone();
           caches.open(CACHE_NAME).then((cache) => {
             cache.put(event.request, clone);

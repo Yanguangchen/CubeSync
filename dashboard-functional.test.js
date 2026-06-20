@@ -159,6 +159,65 @@ test("dashboard.js filters forms by search query", async () => {
   assert.doesNotMatch(list.innerHTML, /BANANA/);
 });
 
+test("dashboard.js shows dropdown free text counter, legend, and highlighted fields", async () => {
+  const dom = new JSDOM(html, {
+    runScripts: "dangerously",
+    url: "http://localhost/"
+  });
+  const { window } = dom;
+
+  const mockAuth = {
+    onAuthChange: (cb) => cb({ email: "test@rakmat.com.sg" }),
+    isAllowedUser: () => true
+  };
+
+  const mockFirestore = {
+    listCubeRequests: async () => [
+      {
+        id: "custom-1",
+        reportNo: "CUSTOM-001",
+        client: "Client A",
+        project: "Typed ERP Project",
+        projectErp: "Typed ERP Project",
+        supplier: "Typed Supplier",
+        specimenSize: "Typed Size",
+        status: "Ready",
+        template: "Glassmorphic",
+        updatedAt: "2026-06-20",
+        customFields: ["projectErp", "supplier", "specimenSize"]
+      }
+    ]
+  };
+
+  window.CubeSyncAuth = mockAuth;
+  window.CubeSyncFirestore = mockFirestore;
+
+  [barcodeJs, formDataJs, dashboardJs].forEach((js) => {
+    const script = window.document.createElement("script");
+    script.textContent = js;
+    window.document.head.appendChild(script);
+  });
+
+  const event = window.document.createEvent("Event");
+  event.initEvent("DOMContentLoaded", true, true);
+  window.dispatchEvent(event);
+
+  await new Promise((resolve) => setTimeout(resolve, 50));
+
+  const list = window.document.getElementById("formList");
+  assert.match(list.innerHTML, /3 free-text fields/);
+  assert.match(list.innerHTML, /custom-field-count/);
+  assert.ok(list.querySelector("tr[data-id='custom-1']").classList.contains("has-custom-fields"));
+
+  list.querySelector("tr[data-id='custom-1']").click();
+
+  const detailContent = window.document.getElementById("detailContent");
+  assert.match(detailContent.innerHTML, /Orange tint indicates free text typed instead of selecting a dropdown option/);
+  assert.match(detailContent.innerHTML, /Free-text dropdown fields: 3/);
+  assert.equal(detailContent.querySelectorAll(".highlight-custom").length, 3);
+  assert.equal(detailContent.querySelectorAll(".detail-field.is-custom-field").length, 3);
+});
+
 test("dashboard.js edit form handles all request fields", async () => {
   const dom = new JSDOM(html, {
     runScripts: "dangerously",
@@ -178,7 +237,8 @@ test("dashboard.js edit form handles all request fields", async () => {
         id: "1", reportNo: "APPLE", client: "A", project: "P", status: "Draft",
         internalDate: "2026-06-19", projectCode: "PC1", method: "M1",
         supplier: "S1", dateTimeSampled: "2026-06-19T10:00", slumpMeasured: 10,
-        specimenSize: "150x150", slumpSpecified: 20
+        specimenSize: "150x150", slumpSpecified: 20,
+        customFields: ["projectErp", "supplier"]
       }
     ],
     updateCubeRequest: async (id, data) => { updatedData = data; }
@@ -217,17 +277,16 @@ test("dashboard.js edit form handles all request fields", async () => {
   const editForm = window.document.getElementById("editForm");
   
   // Assert all fields are populated
-  assert.equal(editForm.elements.internalDate.value, "2026-06-19");
-  assert.equal(editForm.elements.projectCode.value, "PC1");
-  assert.equal(editForm.elements.method.value, "M1");
+  assert.equal(editForm.elements.dateOfCast.value, "2026-06-19");
+  assert.equal(editForm.elements.projectErp.value, "PC1");
+  assert.equal(editForm.elements.testItem.value, "M1");
   assert.equal(editForm.elements.supplier.value, "S1");
-  assert.equal(editForm.elements.dateTimeSampled.value, "2026-06-19T10:00");
   assert.equal(editForm.elements.slumpMeasured.value, "10");
   assert.equal(editForm.elements.specimenSize.value, "150x150");
   assert.equal(editForm.elements.slumpSpecified.value, "20");
 
   // Modify some fields
-  editForm.elements.internalDate.value = "2026-06-20";
+  editForm.elements.dateOfCast.value = "2026-06-20";
   editForm.elements.slumpMeasured.value = "15";
 
   // Submit form
@@ -235,7 +294,13 @@ test("dashboard.js edit form handles all request fields", async () => {
   await new Promise(resolve => setTimeout(resolve, 50));
 
   assert.equal(updatedData.internalDate, "2026-06-20");
+  assert.equal(updatedData.dateOfCast, "2026-06-20");
+  assert.equal(updatedData.projectCode, "PC1");
+  assert.equal(updatedData.projectErp, "PC1");
+  assert.equal(updatedData.method, "M1");
+  assert.equal(updatedData.testItem, "M1");
   assert.equal(updatedData.slumpMeasured, 15);
+  assert.deepEqual(Array.from(updatedData.customFields), ["projectErp", "supplier"]);
 });
 
 test("dashboard.js saves form field settings from field config dialog", async () => {
@@ -281,7 +346,7 @@ test("dashboard.js saves form field settings from field config dialog", async ()
 
   const event = window.document.createEvent("Event");
   event.initEvent("DOMContentLoaded", true, true);
-  window.document.dispatchEvent(event);
+  window.dispatchEvent(event);
 
   await new Promise((resolve) => setTimeout(resolve, 50));
 
@@ -302,4 +367,305 @@ test("dashboard.js saves form field settings from field config dialog", async ()
     window.localStorage.getItem("cubesync-form-field-config"),
     JSON.stringify(window.CubeSyncFormData.normalizeFormFieldConfig(savedConfig))
   );
+});
+
+test("dashboard.js saves custom field labels and reset button restores defaults", async () => {
+  const dom = new JSDOM(html, {
+    runScripts: "dangerously",
+    url: "http://localhost/"
+  });
+  const { window } = dom;
+
+  window.alert = () => {};
+
+  let savedConfig = null;
+  const mockAuth = {
+    onAuthChange: (cb) => cb({ email: "test@rakmat.com.sg" }),
+    isAllowedUser: () => true
+  };
+  const mockFirestore = {
+    listCubeRequests: async () => [],
+    getFormFieldConfig: async () => ({
+      requestFields: { projectErp: true },
+      requestLabels: { projectErp: "Job Number" }
+    }),
+    saveFormFieldConfig: async (config) => {
+      savedConfig = config;
+    }
+  };
+
+  window.CubeSyncAuth = mockAuth;
+  window.CubeSyncFirestore = mockFirestore;
+
+  [barcodeJs, formDataJs, dashboardJs].forEach((js) => {
+    const script = window.document.createElement("script");
+    script.textContent = js;
+    window.document.head.appendChild(script);
+  });
+
+  window.HTMLDialogElement.prototype.showModal = function () {
+    this.open = true;
+  };
+  window.HTMLDialogElement.prototype.close = function () {
+    this.open = false;
+  };
+
+  const event = window.document.createEvent("Event");
+  event.initEvent("DOMContentLoaded", true, true);
+  window.dispatchEvent(event);
+
+  await new Promise((resolve) => setTimeout(resolve, 50));
+
+  window.document.getElementById("fieldSettingsButton").click();
+  const fieldConfigForm = window.document.getElementById("fieldConfigForm");
+
+  const projectRename = fieldConfigForm.elements["request-label-projectErp"];
+  assert.ok(projectRename, "rename input should render");
+  assert.equal(projectRename.value, "Job Number", "existing override prefills the rename box");
+
+  fieldConfigForm.elements["request-label-contact"].value = "Phone Contact";
+  fieldConfigForm.dispatchEvent(new window.Event("submit", { cancelable: true }));
+
+  await new Promise((resolve) => setTimeout(resolve, 50));
+
+  assert.equal(savedConfig.requestLabels.projectErp, "Job Number");
+  assert.equal(savedConfig.requestLabels.contact, "Phone Contact");
+
+  window.document.getElementById("fieldSettingsButton").click();
+  window.document.getElementById("resetFieldConfigButton").click();
+
+  assert.equal(
+    fieldConfigForm.elements["request-label-projectErp"].value,
+    "",
+    "reset clears custom labels"
+  );
+  assert.equal(
+    fieldConfigForm.elements["request-projectErp"].checked,
+    true,
+    "reset re-enables fields"
+  );
+
+  fieldConfigForm.dispatchEvent(new window.Event("submit", { cancelable: true }));
+  await new Promise((resolve) => setTimeout(resolve, 50));
+
+  assert.equal(
+    Object.keys(savedConfig.requestLabels).length,
+    0,
+    "saving after reset clears overrides"
+  );
+});
+
+test("dashboard.js saves custom request field definitions from field config dialog", async () => {
+  const dom = new JSDOM(html, {
+    runScripts: "dangerously",
+    url: "http://localhost/"
+  });
+  const { window } = dom;
+
+  window.alert = () => {};
+
+  let savedConfig = null;
+  window.CubeSyncAuth = {
+    onAuthChange: (cb) => cb({ email: "test@rakmat.com.sg" }),
+    isAllowedUser: () => true
+  };
+  window.CubeSyncFirestore = {
+    listCubeRequests: async () => [],
+    getFormFieldConfig: async () => null,
+    saveFormFieldConfig: async (config) => {
+      savedConfig = config;
+    }
+  };
+
+  [barcodeJs, formDataJs, dashboardJs].forEach((js) => {
+    const script = window.document.createElement("script");
+    script.textContent = js;
+    window.document.head.appendChild(script);
+  });
+
+  window.HTMLDialogElement.prototype.showModal = function () {
+    this.open = true;
+  };
+  window.HTMLDialogElement.prototype.close = function () {
+    this.open = false;
+  };
+
+  const event = window.document.createEvent("Event");
+  event.initEvent("DOMContentLoaded", true, true);
+  window.dispatchEvent(event);
+
+  await new Promise((resolve) => setTimeout(resolve, 50));
+
+  window.document.getElementById("fieldSettingsButton").click();
+  window.document.getElementById("addCustomFieldButton").click();
+
+  const fieldConfigForm = window.document.getElementById("fieldConfigForm");
+  const editors = fieldConfigForm.querySelectorAll(".custom-field-editor");
+  const row = editors[editors.length - 1];
+  row.querySelector('[name^="custom-field-id-"]').value = "siteRef";
+  row.querySelector('[name^="custom-field-label-"]').value = "Site Reference";
+  row.querySelector('[name^="custom-field-type-"]').value = "text";
+  row.querySelector('[name^="custom-field-required-"]').checked = true;
+
+  fieldConfigForm.dispatchEvent(new window.Event("submit", { cancelable: true }));
+  await new Promise((resolve) => setTimeout(resolve, 50));
+
+  assert.equal(savedConfig.customRequestFields.length, 1);
+  assert.equal(savedConfig.customRequestFields[0].id, "siteRef");
+  assert.equal(savedConfig.customRequestFields[0].label, "Site Reference");
+  assert.equal(savedConfig.customRequestFields[0].required, true);
+});
+
+test("dashboard.js theme toggle (dark/light mode logic and localStorage)", async () => {
+  const dom = new JSDOM(html, { runScripts: "dangerously", url: "http://localhost/" });
+  const { window } = dom;
+  window.localStorage.setItem("theme", "light");
+
+  const mockAuth = {
+    onAuthChange: (cb) => cb({ email: "test@rakmat.com.sg" }),
+    isAllowedUser: () => true
+  };
+  const mockFirestore = { listCubeRequests: async () => [] };
+  window.CubeSyncAuth = mockAuth;
+  window.CubeSyncFirestore = mockFirestore;
+
+  [barcodeJs, formDataJs, dashboardJs].forEach(js => {
+    const s = window.document.createElement("script");
+    s.textContent = js;
+    window.document.head.appendChild(s);
+  });
+
+  const event = window.document.createEvent("Event");
+  event.initEvent("DOMContentLoaded", true, true);
+  window.document.dispatchEvent(event);
+
+  await new Promise(resolve => setTimeout(resolve, 50));
+  const themeToggle = window.document.getElementById("themeToggle");
+
+  themeToggle.checked = false;
+  themeToggle.dispatchEvent(new window.Event("change"));
+  assert.equal(window.localStorage.getItem("theme"), "dark");
+  assert.equal(window.document.documentElement.getAttribute("data-theme"), "dark");
+
+  themeToggle.checked = true;
+  themeToggle.dispatchEvent(new window.Event("change"));
+  assert.equal(window.localStorage.getItem("theme"), "light");
+  assert.equal(window.document.documentElement.getAttribute("data-theme"), "light");
+});
+
+test("dashboard.js hamburger menu toggle (menu activation/deactivation)", async () => {
+  const dom = new JSDOM(html, { runScripts: "dangerously", url: "http://localhost/" });
+  const { window } = dom;
+
+  const mockAuth = {
+    onAuthChange: (cb) => cb({ email: "test@rakmat.com.sg" }),
+    isAllowedUser: () => true
+  };
+  const mockFirestore = { listCubeRequests: async () => [] };
+  window.CubeSyncAuth = mockAuth;
+  window.CubeSyncFirestore = mockFirestore;
+
+  [barcodeJs, formDataJs, dashboardJs].forEach(js => {
+    const s = window.document.createElement("script");
+    s.textContent = js;
+    window.document.head.appendChild(s);
+  });
+
+  const event = window.document.createEvent("Event");
+  event.initEvent("DOMContentLoaded", true, true);
+  window.dispatchEvent(event);
+
+  await new Promise(resolve => setTimeout(resolve, 50));
+  const menuToggle = window.document.getElementById("menuToggle");
+  const dropdownMenu = window.document.getElementById("dropdownMenu");
+
+  assert.equal(menuToggle.getAttribute("aria-expanded"), "false");
+  assert.equal(dropdownMenu.classList.contains("active"), false);
+
+  menuToggle.click();
+  assert.equal(menuToggle.getAttribute("aria-expanded"), "true");
+  assert.equal(dropdownMenu.classList.contains("active"), true);
+
+  menuToggle.click();
+  assert.equal(menuToggle.getAttribute("aria-expanded"), "false");
+  assert.equal(dropdownMenu.classList.contains("active"), false);
+});
+
+test("dashboard.js form actions (delete, print from both detail panel and list row)", async () => {
+  const dom = new JSDOM(html, { runScripts: "dangerously", url: "http://localhost/" });
+  const { window } = dom;
+
+  const mockAuth = {
+    onAuthChange: (cb) => cb({ email: "test@rakmat.com.sg" }),
+    isAllowedUser: () => true
+  };
+
+  let deletedId = null;
+  const mockFirestore = {
+    listCubeRequests: async () => [
+      { id: "1", reportNo: "APPLE", client: "A", project: "P", status: "Draft", template: "Original" }
+    ],
+    deleteCubeRequest: async (id) => { deletedId = id; }
+  };
+
+  window.CubeSyncAuth = mockAuth;
+  window.CubeSyncFirestore = mockFirestore;
+  window.confirm = () => true;
+
+  let openedUrl = null;
+  window.open = (url) => { openedUrl = url; };
+
+  [barcodeJs, formDataJs, dashboardJs].forEach(js => {
+    const s = window.document.createElement("script");
+    s.textContent = js;
+    window.document.head.appendChild(s);
+  });
+
+  const event = window.document.createEvent("Event");
+  event.initEvent("DOMContentLoaded", true, true);
+  window.dispatchEvent(event);
+
+  await new Promise(resolve => setTimeout(resolve, 50));
+  const list = window.document.getElementById("formList");
+
+  const rowPrintBtn = list.querySelector("button[data-action='print']");
+  rowPrintBtn.click();
+  assert.match(openedUrl, /index\.html\?id=1&print=true/);
+
+  const row = list.querySelector("tr[data-id='1']");
+  row.click();
+
+  openedUrl = null;
+  const detailPrintBtn = window.document.getElementById("detailPrintButton");
+  detailPrintBtn.click();
+  assert.match(openedUrl, /index\.html\?id=1&print=true/);
+
+  const detailDeleteBtn = window.document.getElementById("detailDeleteButton");
+  detailDeleteBtn.click();
+  await new Promise(resolve => setTimeout(resolve, 50));
+  assert.equal(deletedId, "1");
+
+  deletedId = null;
+  const rowDeleteBtn = list.querySelector("tr[data-id='1'] button[data-action='delete']");
+  rowDeleteBtn.click();
+  await new Promise(resolve => setTimeout(resolve, 50));
+  assert.equal(deletedId, "1");
+});
+
+test("UI regressions: Assert #dropdownMenu z-index/stacking, #themeToggle vs glassmorphic.css checkbox overrides, and stylesheet load order on dashboard.html", async () => {
+  const dom = new JSDOM(html);
+  const { window } = dom;
+  const document = window.document;
+
+  const links = Array.from(document.querySelectorAll("link[rel='stylesheet']"));
+  const localStylesheets = links.filter((link) => /css\//.test(link.getAttribute("href") || ""));
+  assert.equal(localStylesheets.length, 2);
+  assert.match(localStylesheets[0].href, /css\/glassmorphic\.css$/);
+  assert.match(localStylesheets[1].href, /css\/dashboard\.css$/);
+
+  const dropdownMenu = document.getElementById("dropdownMenu");
+  assert.ok(dropdownMenu);
+
+  const themeToggle = document.getElementById("themeToggle");
+  assert.ok(themeToggle);
 });

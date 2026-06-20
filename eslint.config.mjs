@@ -49,6 +49,7 @@ export default [
       "chime.js",
       "cubesync-export.js",
       "cubesync-form-data.js",
+      "cubesync-form-markup.js",
       "dashboard.js",
       "env.example.js",
       "rpa-dashboard.js",

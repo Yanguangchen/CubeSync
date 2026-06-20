@@ -8,9 +8,10 @@
     <link rel="apple-touch-icon" href="assets/icon-192.png">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#42d5bb">
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="css/styles.css">
     <script src="barcode.js" defer></script>
     <script src="cubesync-form-data.js" defer></script>
+    <script src="cubesync-form-markup.js" defer></script>
     <script src="env.js"></script>
     <script type="module" src="firestore.js"></script>
     <script src="https://www.google.com/recaptcha/api.js?render=explicit" async defer></script>
@@ -23,24 +24,24 @@
         if (window.CubeSyncChime) window.CubeSyncChime.attachButtonChimes();
       });
     </script>
-    <div class="page-tools" aria-label="Form actions">
-      <div class="tool-section left">
+    <header class="page-tools" aria-label="Form actions">
+      <nav class="tool-section left" aria-label="Back navigation">
         <a class="version-link" href="dashboard.html">← Dashboard</a>
-      </div>
-      <div class="tool-section center">
+      </nav>
+      <nav class="tool-section center" aria-label="Template switcher">
         <div class="mode-toggle">
           <a href="glassmorphic.html">Digital</a>
           <a href="index.html" class="active">Original</a>
         </div>
-      </div>
-      <div class="tool-section right">
+      </nav>
+      <div class="tool-section right" role="group" aria-label="Form commands">
         <div id="recaptchaContainer"></div>
         <span id="saveStatus" class="save-status" role="status" aria-live="polite"></span>
         <button type="submit" form="cubeRequestForm" id="saveFormButton">Save</button>
         <button type="button" id="printButton">Print</button>
         <button type="reset" form="cubeRequestForm">Clear</button>
       </div>
-    </div>
+    </header>
 
     <main class="sheet" aria-labelledby="formTitle">
       <form id="cubeRequestForm" data-template="Original" novalidate>
@@ -143,6 +144,7 @@
             <span>Manager In Charge * :</span>
             <input type="text" name="managerInCharge" required>
           </label>
+          <div id="customRequestFields" class="custom-request-fields"></div>
         </section>
 
         <section class="results-section" aria-labelledby="resultsTitle">
@@ -152,6 +154,12 @@
           </header>
           <div class="table-wrap">
             <table class="results-table">
+              <colgroup>
+                <col span="8">
+                <col class="col-age">
+                <col span="2">
+                <col>
+              </colgroup>
               <thead>
                 <tr>
                   <th scope="col" data-result-field="setNo">Set No</th>
@@ -168,60 +176,60 @@
                   <th scope="col">Action</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody id="resultsTableBody">
                 <tr>
-                  <td data-result-field="setNo"><input type="number" name="setNo1" min="1" step="1" value="1" aria-label="Row 1 set number"></td>
-                  <td data-result-field="size"><input type="text" name="size1" aria-label="Row 1 size"></td>
-                  <td data-result-field="specimenRef"><input type="text" name="specimenRef1" aria-label="Row 1 specimen reference"></td>
-                  <td class="barcode-cell" data-result-field="barcode">
+                  <td data-result-field="setNo" data-label="Set No"><input type="number" name="setNo1" min="1" step="1" value="1" aria-label="Row 1 set number"></td>
+                  <td data-result-field="size" data-label="Size"><input type="text" name="size1" aria-label="Row 1 size"></td>
+                  <td data-result-field="specimenRef" data-label="Specimen Ref #"><input type="text" name="specimenRef1" aria-label="Row 1 specimen reference"></td>
+                  <td class="barcode-cell" data-result-field="barcode" data-label="Barcode">
                     <input type="text" name="barcode1" data-barcode-input placeholder="Enter barcode text" aria-label="Row 1 barcode text">
                     <div class="barcode-preview" aria-live="polite"><span class="barcode-placeholder">Paste Barcode Here</span></div>
                     <p class="barcode-message" role="alert"></p>
                   </td>
-                  <td data-result-field="specifiedSlump"><input type="text" name="specifiedSlump1" aria-label="Row 1 specified slump"></td>
-                  <td data-result-field="meanSlump"><input type="number" name="meanSlump1" min="0" step="1" aria-label="Row 1 mean slump"></td>
-                  <td data-result-field="resultGrade"><input type="text" name="resultGrade1" aria-label="Row 1 concrete grade"></td>
-                  <td data-result-field="resultDateOfCast"><input type="date" name="resultDateOfCast1" aria-label="Row 1 date of cast"></td>
-                  <td data-result-field="age"><input type="number" name="age1" min="0" step="1" aria-label="Row 1 age in days"></td>
-                  <td data-result-field="dateOfTest"><input type="date" name="dateOfTest1" aria-label="Row 1 date of test"></td>
-                  <td data-result-field="invoiceNumber"><input type="text" name="invoiceNumber1" aria-label="Row 1 invoice number"></td>
-                  <td><button type="button" class="remove-row-btn" aria-label="Remove row 1">Remove</button></td>
+                  <td data-result-field="specifiedSlump" data-label="Specified Slump"><input type="text" name="specifiedSlump1" aria-label="Row 1 specified slump"></td>
+                  <td data-result-field="meanSlump" data-label="Mean Slump"><input type="number" name="meanSlump1" min="0" step="1" aria-label="Row 1 mean slump"></td>
+                  <td data-result-field="resultGrade" data-label="Concrete Grade"><input type="text" name="resultGrade1" aria-label="Row 1 concrete grade"></td>
+                  <td data-result-field="resultDateOfCast" data-label="Date Of Cast"><input type="date" name="resultDateOfCast1" aria-label="Row 1 date of cast"></td>
+                  <td data-result-field="age" data-label="Age"><input type="number" name="age1" min="0" step="1" aria-label="Row 1 age in days"></td>
+                  <td data-result-field="dateOfTest" data-label="Date Of Test"><input type="date" name="dateOfTest1" aria-label="Row 1 date of test"></td>
+                  <td data-result-field="invoiceNumber" data-label="Invoice Number"><input type="text" name="invoiceNumber1" aria-label="Row 1 invoice number"></td>
+                  <td data-label="Action"><button type="button" class="remove-row-btn" aria-label="Remove row 1">Remove</button></td>
                 </tr>
                 <tr>
-                  <td data-result-field="setNo"><input type="number" name="setNo2" min="1" step="1" value="1" aria-label="Row 2 set number"></td>
-                  <td data-result-field="size"><input type="text" name="size2" aria-label="Row 2 size"></td>
-                  <td data-result-field="specimenRef"><input type="text" name="specimenRef2" aria-label="Row 2 specimen reference"></td>
-                  <td class="barcode-cell" data-result-field="barcode">
+                  <td data-result-field="setNo" data-label="Set No"><input type="number" name="setNo2" min="1" step="1" value="1" aria-label="Row 2 set number"></td>
+                  <td data-result-field="size" data-label="Size"><input type="text" name="size2" aria-label="Row 2 size"></td>
+                  <td data-result-field="specimenRef" data-label="Specimen Ref #"><input type="text" name="specimenRef2" aria-label="Row 2 specimen reference"></td>
+                  <td class="barcode-cell" data-result-field="barcode" data-label="Barcode">
                     <input type="text" name="barcode2" data-barcode-input placeholder="Enter barcode text" aria-label="Row 2 barcode text">
                     <div class="barcode-preview" aria-live="polite"><span class="barcode-placeholder">Paste Barcode Here</span></div>
                     <p class="barcode-message" role="alert"></p>
                   </td>
-                  <td data-result-field="specifiedSlump"><input type="text" name="specifiedSlump2" aria-label="Row 2 specified slump"></td>
-                  <td data-result-field="meanSlump"><input type="number" name="meanSlump2" min="0" step="1" aria-label="Row 2 mean slump"></td>
-                  <td data-result-field="resultGrade"><input type="text" name="resultGrade2" aria-label="Row 2 concrete grade"></td>
-                  <td data-result-field="resultDateOfCast"><input type="date" name="resultDateOfCast2" aria-label="Row 2 date of cast"></td>
-                  <td data-result-field="age"><input type="number" name="age2" min="0" step="1" aria-label="Row 2 age in days"></td>
-                  <td data-result-field="dateOfTest"><input type="date" name="dateOfTest2" aria-label="Row 2 date of test"></td>
-                  <td data-result-field="invoiceNumber"><input type="text" name="invoiceNumber2" aria-label="Row 2 invoice number"></td>
-                  <td><button type="button" class="remove-row-btn" aria-label="Remove row 2">Remove</button></td>
+                  <td data-result-field="specifiedSlump" data-label="Specified Slump"><input type="text" name="specifiedSlump2" aria-label="Row 2 specified slump"></td>
+                  <td data-result-field="meanSlump" data-label="Mean Slump"><input type="number" name="meanSlump2" min="0" step="1" aria-label="Row 2 mean slump"></td>
+                  <td data-result-field="resultGrade" data-label="Concrete Grade"><input type="text" name="resultGrade2" aria-label="Row 2 concrete grade"></td>
+                  <td data-result-field="resultDateOfCast" data-label="Date Of Cast"><input type="date" name="resultDateOfCast2" aria-label="Row 2 date of cast"></td>
+                  <td data-result-field="age" data-label="Age"><input type="number" name="age2" min="0" step="1" aria-label="Row 2 age in days"></td>
+                  <td data-result-field="dateOfTest" data-label="Date Of Test"><input type="date" name="dateOfTest2" aria-label="Row 2 date of test"></td>
+                  <td data-result-field="invoiceNumber" data-label="Invoice Number"><input type="text" name="invoiceNumber2" aria-label="Row 2 invoice number"></td>
+                  <td data-label="Action"><button type="button" class="remove-row-btn" aria-label="Remove row 2">Remove</button></td>
                 </tr>
                 <tr>
-                  <td data-result-field="setNo"><input type="number" name="setNo3" min="1" step="1" value="1" aria-label="Row 3 set number"></td>
-                  <td data-result-field="size"><input type="text" name="size3" aria-label="Row 3 size"></td>
-                  <td data-result-field="specimenRef"><input type="text" name="specimenRef3" aria-label="Row 3 specimen reference"></td>
-                  <td class="barcode-cell" data-result-field="barcode">
+                  <td data-result-field="setNo" data-label="Set No"><input type="number" name="setNo3" min="1" step="1" value="1" aria-label="Row 3 set number"></td>
+                  <td data-result-field="size" data-label="Size"><input type="text" name="size3" aria-label="Row 3 size"></td>
+                  <td data-result-field="specimenRef" data-label="Specimen Ref #"><input type="text" name="specimenRef3" aria-label="Row 3 specimen reference"></td>
+                  <td class="barcode-cell" data-result-field="barcode" data-label="Barcode">
                     <input type="text" name="barcode3" data-barcode-input placeholder="Enter barcode text" aria-label="Row 3 barcode text">
                     <div class="barcode-preview" aria-live="polite"><span class="barcode-placeholder">Paste Barcode Here</span></div>
                     <p class="barcode-message" role="alert"></p>
                   </td>
-                  <td data-result-field="specifiedSlump"><input type="text" name="specifiedSlump3" aria-label="Row 3 specified slump"></td>
-                  <td data-result-field="meanSlump"><input type="number" name="meanSlump3" min="0" step="1" aria-label="Row 3 mean slump"></td>
-                  <td data-result-field="resultGrade"><input type="text" name="resultGrade3" aria-label="Row 3 concrete grade"></td>
-                  <td data-result-field="resultDateOfCast"><input type="date" name="resultDateOfCast3" aria-label="Row 3 date of cast"></td>
-                  <td data-result-field="age"><input type="number" name="age3" min="0" step="1" aria-label="Row 3 age in days"></td>
-                  <td data-result-field="dateOfTest"><input type="date" name="dateOfTest3" aria-label="Row 3 date of test"></td>
-                  <td data-result-field="invoiceNumber"><input type="text" name="invoiceNumber3" aria-label="Row 3 invoice number"></td>
-                  <td><button type="button" class="remove-row-btn" aria-label="Remove row 3">Remove</button></td>
+                  <td data-result-field="specifiedSlump" data-label="Specified Slump"><input type="text" name="specifiedSlump3" aria-label="Row 3 specified slump"></td>
+                  <td data-result-field="meanSlump" data-label="Mean Slump"><input type="number" name="meanSlump3" min="0" step="1" aria-label="Row 3 mean slump"></td>
+                  <td data-result-field="resultGrade" data-label="Concrete Grade"><input type="text" name="resultGrade3" aria-label="Row 3 concrete grade"></td>
+                  <td data-result-field="resultDateOfCast" data-label="Date Of Cast"><input type="date" name="resultDateOfCast3" aria-label="Row 3 date of cast"></td>
+                  <td data-result-field="age" data-label="Age"><input type="number" name="age3" min="0" step="1" aria-label="Row 3 age in days"></td>
+                  <td data-result-field="dateOfTest" data-label="Date Of Test"><input type="date" name="dateOfTest3" aria-label="Row 3 date of test"></td>
+                  <td data-result-field="invoiceNumber" data-label="Invoice Number"><input type="text" name="invoiceNumber3" aria-label="Row 3 invoice number"></td>
+                  <td data-label="Action"><button type="button" class="remove-row-btn" aria-label="Remove row 3">Remove</button></td>
                 </tr>
               </tbody>
             </table>

@@ -10,26 +10,102 @@ const rpaDashboardJs = fs.readFileSync("rpa-dashboard.js", "utf8");
 const rpaViewJs = fs.readFileSync("rpa-view.js", "utf8");
 const rpaDashboardHtml = fs.readFileSync("rpa-dashboard.html", "utf8");
 const rpaViewHtml = fs.readFileSync("rpa-view.html", "utf8");
+const DASHBOARD_SCRIPTS = [barcodeJs, formDataJs, exportJs, rpaDashboardJs];
+const VIEW_SCRIPTS = [barcodeJs, formDataJs, rpaViewJs];
 
 function stubAudio(window) {
   window.HTMLMediaElement.prototype.play = () => Promise.resolve();
 }
 
-test("rpa-dashboard.js handles auth and loads queue", async () => {
-  const dom = new JSDOM(rpaDashboardHtml, {
-    runScripts: "dangerously",
-    url: "http://localhost/"
-  });
-  const { window } = dom;
-  stubAudio(window);
-  window.alert = () => {};
+function waitForAsync(ms = 50) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
-  const mockAuth = {
-    onAuthChange: (cb) => cb({ email: "rpa@rakmat.com.sg" }),
+function loadScripts(window, scripts) {
+  scripts.forEach((js) => {
+    const script = window.document.createElement("script");
+    script.textContent = js;
+    window.document.head.appendChild(script);
+  });
+}
+
+function dispatchDomContentLoaded(window) {
+  const event = window.document.createEvent("Event");
+  event.initEvent("DOMContentLoaded", true, true);
+  window.document.dispatchEvent(event);
+}
+
+function createAllowedAuth(onAuthChange) {
+  return {
+    onAuthChange,
     isAllowedUser: () => true,
     currentUser: () => ({ email: "rpa@rakmat.com.sg" })
   };
+}
 
+async function bootDashboard({
+  url = "http://localhost/",
+  firestore,
+  auth = createAllowedAuth((cb) => cb({ email: "rpa@rakmat.com.sg" }))
+} = {}) {
+  const dom = new JSDOM(rpaDashboardHtml, {
+    runScripts: "dangerously",
+    url
+  });
+  const { window } = dom;
+
+  stubAudio(window);
+  window.alert = () => {};
+  window.CubeSyncAuth = auth;
+  window.CubeSyncFirestore = firestore;
+
+  loadScripts(window, DASHBOARD_SCRIPTS);
+  dispatchDomContentLoaded(window);
+  await waitForAsync();
+
+  return { dom, window };
+}
+
+async function bootView({ url = "http://localhost/?id=rpa-view-1", firestore } = {}) {
+  const dom = new JSDOM(rpaViewHtml, {
+    runScripts: "dangerously",
+    url
+  });
+  const { window } = dom;
+
+  window.CubeSyncFirestore = firestore;
+
+  loadScripts(window, VIEW_SCRIPTS);
+  dispatchDomContentLoaded(window);
+  await waitForAsync();
+
+  return { dom, window };
+}
+
+function getTodaySgt() {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Singapore",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).format(new Date());
+}
+
+function getSGTDate(date) {
+  const formatter = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Singapore",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  });
+  const parts = formatter.formatToParts(date);
+  const day = parts.find((part) => part.type === "day").value;
+  const month = parts.find((part) => part.type === "month").value;
+  const year = parts.find((part) => part.type === "year").value;
+  return `${year}-${month}-${day}`;
+}
+
+test("rpa-dashboard.js handles auth and loads queue", async () => {
   const mockFirestore = {
     listCubeRequests: async () => [
       {
@@ -78,21 +154,7 @@ test("rpa-dashboard.js handles auth and loads queue", async () => {
     ]
   };
 
-  window.CubeSyncAuth = mockAuth;
-  window.CubeSyncFirestore = mockFirestore;
-
-  const scripts = [barcodeJs, formDataJs, exportJs, rpaDashboardJs];
-  scripts.forEach(js => {
-    const s = window.document.createElement("script");
-    s.textContent = js;
-    window.document.head.appendChild(s);
-  });
-
-  const event = window.document.createEvent("Event");
-  event.initEvent("DOMContentLoaded", true, true);
-  window.document.dispatchEvent(event);
-
-  await new Promise(resolve => setTimeout(resolve, 50));
+  const { window } = await bootDashboard({ firestore: mockFirestore });
 
   const list = window.document.getElementById("queueList");
   assert.match(list.innerHTML, /RPA-001/);
@@ -125,12 +187,6 @@ test("rpa-dashboard.js handles auth and loads queue", async () => {
 });
 
 test("rpa-view.js renders form data and barcodes", async () => {
-  const dom = new JSDOM(rpaViewHtml, {
-    runScripts: "dangerously",
-    url: "http://localhost/?id=rpa-view-1"
-  });
-  const { window } = dom;
-
   const mockFirestore = {
     getCubeRequest: async (id) => ({
       id,
@@ -143,20 +199,7 @@ test("rpa-view.js renders form data and barcodes", async () => {
     })
   };
 
-  window.CubeSyncFirestore = mockFirestore;
-
-  const scripts = [barcodeJs, formDataJs, rpaViewJs];
-  scripts.forEach(js => {
-    const s = window.document.createElement("script");
-    s.textContent = js;
-    window.document.head.appendChild(s);
-  });
-
-  const event = window.document.createEvent("Event");
-  event.initEvent("DOMContentLoaded", true, true);
-  window.document.dispatchEvent(event);
-
-  await new Promise(resolve => setTimeout(resolve, 50));
+  const { window } = await bootView({ firestore: mockFirestore });
 
   const reportNo = window.document.getElementById("reportNoDisplay");
   assert.equal(reportNo.textContent, "VIEW-001");
@@ -171,110 +214,43 @@ test("rpa-view.js renders form data and barcodes", async () => {
 });
 
 test("rpa-dashboard.js date navigation defaults to today and handles button clicks", async () => {
-  const dom = new JSDOM(rpaDashboardHtml, {
-    runScripts: "dangerously",
-    url: "http://localhost/"
-  });
-  const { window } = dom;
-  stubAudio(window);
-
-  const mockAuth = {
-    onAuthChange: (cb) => cb({ email: "rpa@rakmat.com.sg" }),
-    isAllowedUser: () => true,
-    currentUser: () => ({ email: "rpa@rakmat.com.sg" })
-  };
-
   const mockFirestore = {
     listCubeRequests: async () => []
   };
 
-  window.CubeSyncAuth = mockAuth;
-  window.CubeSyncFirestore = mockFirestore;
-
-  const scripts = [barcodeJs, formDataJs, exportJs, rpaDashboardJs];
-  scripts.forEach(js => {
-    const s = window.document.createElement("script");
-    s.textContent = js;
-    window.document.head.appendChild(s);
-  });
-
-  const event = window.document.createEvent("Event");
-  event.initEvent("DOMContentLoaded", true, true);
-  window.document.dispatchEvent(event);
-
-  await new Promise(resolve => setTimeout(resolve, 50));
+  const { window } = await bootDashboard({ firestore: mockFirestore });
 
   const datePicker = window.document.getElementById("datePicker");
   const todayBtn = window.document.getElementById("todayBtn");
   const prevDay = window.document.getElementById("prevDay");
 
-  // Should default to today's date in SGT (YYYY-MM-DD)
-  const todaySGT = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Singapore",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit"
-  }).format(new Date());
+  const todaySGT = getTodaySgt();
 
   assert.equal(datePicker.value, todaySGT);
   assert.ok(todayBtn.classList.contains("active"));
 
-  // Go to previous day
   prevDay.click();
   assert.notEqual(datePicker.value, todaySGT);
   assert.ok(!todayBtn.classList.contains("active"));
 
-  // Return to today
   todayBtn.click();
   assert.equal(datePicker.value, todaySGT);
   assert.ok(todayBtn.classList.contains("active"));
 });
 
 test("rpa-dashboard.js only shows forms from the selected date", async () => {
-  const dom = new JSDOM(rpaDashboardHtml, {
-    runScripts: "dangerously",
-    url: "http://localhost/"
-  });
-  const { window } = dom;
-  stubAudio(window);
-
-  function getSGTDate(date) {
-    const formatter = new Intl.DateTimeFormat("en-GB", {
-      timeZone: "Asia/Singapore",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit"
-    });
-    const parts = formatter.formatToParts(date);
-    const d = parts.find((p) => p.type === "day").value;
-    const m = parts.find((p) => p.type === "month").value;
-    const y = parts.find((p) => p.type === "year").value;
-    return `${y}-${m}-${d}`;
-  }
-
   let authCallback = null;
-  window.CubeSyncAuth = {
-    onAuthChange: (cb) => { authCallback = cb; cb({ email: "rpa@rakmat.com.sg" }); },
-    isAllowedUser: () => true,
-    currentUser: () => ({ email: "rpa@rakmat.com.sg" })
-  };
-  
-  window.CubeSyncFirestore = {
-    listCubeRequests: async () => [] // Initial empty load
+  const firestore = {
+    listCubeRequests: async () => []
   };
 
-  const scripts = [barcodeJs, formDataJs, exportJs, rpaDashboardJs];
-  scripts.forEach(js => {
-    const s = window.document.createElement("script");
-    s.textContent = js;
-    window.document.head.appendChild(s);
+  const { window } = await bootDashboard({
+    firestore,
+    auth: createAllowedAuth((cb) => {
+      authCallback = cb;
+      cb({ email: "rpa@rakmat.com.sg" });
+    })
   });
-
-  const event = window.document.createEvent("Event");
-  event.initEvent("DOMContentLoaded", true, true);
-  window.document.dispatchEvent(event);
-
-  await new Promise(resolve => setTimeout(resolve, 50));
 
   const list = window.document.getElementById("queueList");
   const datePicker = window.document.getElementById("datePicker");
@@ -288,30 +264,50 @@ test("rpa-dashboard.js only shows forms from the selected date", async () => {
   dTomorrow.setDate(dTomorrow.getDate() + 1);
   const tomorrowSGT = getSGTDate(dTomorrow);
 
-  // Update mock to return forms with calculated dates
-  window.CubeSyncFirestore.listCubeRequests = async () => [
+  firestore.listCubeRequests = async () => [
     { id: "today-1", reportNo: "TODAY-001", internalDate: `${todaySGT}T10:00:00+08:00` },
     { id: "yesterday-1", reportNo: "YESTERDAY-001", internalDate: `${yesterdaySGT}T10:00:00+08:00` },
     { id: "tomorrow-1", reportNo: "TOMORROW-001", internalDate: `${tomorrowSGT}T10:00:00+08:00` }
   ];
 
-  // Trigger reload by simulating auth change
   if (authCallback) authCallback({ email: "rpa@rakmat.com.sg" });
-  
-  await new Promise(resolve => setTimeout(resolve, 100));
+  await waitForAsync(100);
 
-  // Initially should only show today
   assert.match(list.innerHTML, /TODAY-001/);
   assert.doesNotMatch(list.innerHTML, /YESTERDAY-001/);
   assert.doesNotMatch(list.innerHTML, /TOMORROW-001/);
 
-  // Switch to yesterday
   const prevDay = window.document.getElementById("prevDay");
   prevDay.click();
-  
-  await new Promise(resolve => setTimeout(resolve, 50));
+  await waitForAsync();
 
   assert.doesNotMatch(list.innerHTML, /TODAY-001/);
   assert.match(list.innerHTML, /YESTERDAY-001/);
   assert.doesNotMatch(list.innerHTML, /TOMORROW-001/);
+});
+
+test("rpa-dashboard.js daily queue groups forms by submission/creation date, not cast date (internalDate)", async () => {
+  const fiveDaysAgo = new Date();
+  fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
+  const fiveDaysAgoSGT = getSGTDate(fiveDaysAgo);
+
+  const firestore = {
+    listCubeRequests: async () => [
+      {
+        id: "past-cast-but-submitted-today",
+        reportNo: "TODAY-SUBMITTED",
+        client: "Client SGT",
+        project: "Project SGT",
+        internalDate: fiveDaysAgoSGT, // Cast date was 5 days ago
+        createdAt: new Date().toISOString(), // Created/submitted today
+        results: []
+      }
+    ]
+  };
+
+  const { window } = await bootDashboard({ firestore });
+  const list = window.document.getElementById("queueList");
+
+  // Since it was created/submitted today, it should show up in today's daily queue
+  assert.match(list.innerHTML, /TODAY-SUBMITTED/);
 });

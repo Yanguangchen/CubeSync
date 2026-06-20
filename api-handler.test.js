@@ -186,3 +186,242 @@ test("submission API writes new request fields to Firestore", async () => {
     handler._test.setFirebaseAdminForTest(null);
   }
 });
+
+test("submission API returns 400 for failed reCAPTCHA verification", async () => {
+  const previousFetch = global.fetch;
+  const previousSecret = process.env.CUBESYNC_RECAPTCHA_SECRET_KEY;
+  global.fetch = async () => ({
+    async json() {
+      return { success: false };
+    }
+  });
+  process.env.CUBESYNC_RECAPTCHA_SECRET_KEY = "test-secret";
+
+  try {
+    const response = mockResponse();
+    await handler({
+      method: "POST",
+      headers: {},
+      body: {
+        recaptchaToken: "bad-token",
+        payload: { template: "Original", status: "Draft", results: [] }
+      }
+    }, response);
+
+    assert.equal(response.statusCode, 400);
+    assert.match(JSON.parse(response.body).error, /reCAPTCHA verification failed/);
+  } finally {
+    global.fetch = previousFetch;
+    if (previousSecret === undefined) {
+      delete process.env.CUBESYNC_RECAPTCHA_SECRET_KEY;
+    } else {
+      process.env.CUBESYNC_RECAPTCHA_SECRET_KEY = previousSecret;
+    }
+  }
+});
+
+test("submission API returns 400 for malformed payload (unexpected field)", async () => {
+  const previousFetch = global.fetch;
+  const previousSecret = process.env.CUBESYNC_RECAPTCHA_SECRET_KEY;
+  global.fetch = async () => ({
+    async json() {
+      return { success: true };
+    }
+  });
+  process.env.CUBESYNC_RECAPTCHA_SECRET_KEY = "test-secret";
+
+  try {
+    const response = mockResponse();
+    await handler({
+      method: "POST",
+      headers: {},
+      body: {
+        recaptchaToken: "good-token",
+        payload: { badField: "123" }
+      }
+    }, response);
+
+    assert.equal(response.statusCode, 400);
+    assert.match(JSON.parse(response.body).error, /Unexpected field/);
+  } finally {
+    global.fetch = previousFetch;
+    if (previousSecret === undefined) {
+      delete process.env.CUBESYNC_RECAPTCHA_SECRET_KEY;
+    } else {
+      process.env.CUBESYNC_RECAPTCHA_SECRET_KEY = previousSecret;
+    }
+  }
+});
+
+test("submission API updates document when id is provided", async () => {
+  let updatedDocId = null;
+  let updatedData = null;
+  const serverTimestamp = { ".sv": "timestamp" };
+  
+  function firestore() {
+    return {
+      collection(name) {
+        assert.equal(name, "cubeRequests");
+        return {
+          doc(id) {
+            updatedDocId = id;
+            return {
+              set(data, options) {
+                assert.deepEqual(options, { merge: true });
+                updatedData = data;
+                return Promise.resolve();
+              }
+            };
+          }
+        };
+      }
+    };
+  }
+  firestore.FieldValue = {
+    serverTimestamp() {
+      return serverTimestamp;
+    }
+  };
+
+  const previousFetch = global.fetch;
+  const previousSecret = process.env.CUBESYNC_RECAPTCHA_SECRET_KEY;
+  global.fetch = async () => ({
+    async json() {
+      return { success: true };
+    }
+  });
+  process.env.CUBESYNC_RECAPTCHA_SECRET_KEY = "test-secret";
+  handler._test.setFirebaseAdminForTest({
+    apps: [{}],
+    firestore
+  });
+
+  try {
+    const response = mockResponse();
+    await handler({
+      method: "POST",
+      headers: {},
+      body: {
+        id: "existing-id",
+        recaptchaToken: "captcha-token",
+        payload: {
+          projectErp: "ERP-002",
+          customerBilling: "Acme Billing",
+          projectNameOnReport: "Tower",
+          clientNameOnReport: "Acme Client",
+          contact: "Jane",
+          enableManualCubeJobNumber: true,
+          cubeJobNumber: "CUBE-001",
+          quote: "Q-001",
+          testItem: "Concrete cube",
+          supplier: "Supplier A",
+          supplierDisplay: "Supplier A Display",
+          locationRepresented: "Level 12",
+          additionalInformation: "Rush job",
+          dateOfCast: "2026-06-20",
+          concreteGrade: "C35/45",
+          reportGrade: "C35/45",
+          specimenSize: "150x150",
+          slumpMeasured: 10,
+          slumpSpecified: 20,
+          personInCharge: "Jane",
+          managerInCharge: "John",
+          template: "Original",
+          status: "Ready",
+          results: []
+        }
+      }
+    }, response);
+
+    assert.equal(response.statusCode, 200);
+    assert.deepEqual(JSON.parse(response.body), { id: "existing-id" });
+    assert.equal(updatedDocId, "existing-id");
+    assert.equal(updatedData.status, "Ready");
+    assert.equal(updatedData.projectErp, "ERP-002");
+    assert.deepEqual(updatedData.updatedAt, serverTimestamp);
+    assert.equal(updatedData.createdAt, undefined); // Should not update createdAt
+  } finally {
+    global.fetch = previousFetch;
+    if (previousSecret === undefined) {
+      delete process.env.CUBESYNC_RECAPTCHA_SECRET_KEY;
+    } else {
+      process.env.CUBESYNC_RECAPTCHA_SECRET_KEY = previousSecret;
+    }
+    handler._test.setFirebaseAdminForTest(null);
+  }
+});
+
+test("submission API allows customFields and stores them", async () => {
+  const previousFetch = global.fetch;
+  const previousSecret = process.env.CUBESYNC_RECAPTCHA_SECRET_KEY;
+  process.env.CUBESYNC_RECAPTCHA_SECRET_KEY = "dummy-secret";
+
+  try {
+    global.fetch = async (url) => {
+      assert.ok(url.includes("siteverify"));
+      return { json: async () => ({ success: true }) };
+    };
+
+    let savedData = null;
+    const mockFirestore = () => ({
+      collection: (name) => {
+        assert.equal(name, "cubeRequests");
+        return {
+          add: async (data) => {
+            savedData = data;
+            return { id: "new-cube-request" };
+          }
+        };
+      }
+    });
+    mockFirestore.FieldValue = { serverTimestamp: () => "TIMESTAMP" };
+
+    const mockAdmin = {
+      apps: [{}],
+      firestore: mockFirestore
+    };
+    handler._test.setFirebaseAdminForTest(mockAdmin);
+
+    const response = mockResponse();
+    await handler({
+      method: "POST",
+      headers: { origin: "http://localhost:5500" },
+      body: {
+        recaptchaToken: "valid-token",
+        payload: {
+          client: "Client Custom",
+          project: "Project Custom",
+          reportNo: "REPORT-CUSTOM",
+          template: "Original",
+          status: "Draft",
+          results: [],
+          customFields: ["projectErp", "supplier"],
+          customerBilling: "Billing",
+          contact: "Contact",
+          supplier: "Supplier",
+          supplierDisplay: "Supplier Display",
+          locationRepresented: "Location",
+          dateOfCast: "2026-06-18",
+          concreteGrade: "C35",
+          reportGrade: "C35",
+          specimenSize: "150",
+          slumpMeasured: 100,
+          slumpSpecified: 100,
+          personInCharge: "Person",
+          managerInCharge: "Manager"
+        }
+      }
+    }, response);
+
+    assert.equal(response.statusCode, 200);
+    assert.deepEqual(savedData.customFields, ["projectErp", "supplier"]);
+  } finally {
+    global.fetch = previousFetch;
+    if (previousSecret === undefined) {
+      delete process.env.CUBESYNC_RECAPTCHA_SECRET_KEY;
+    } else {
+      process.env.CUBESYNC_RECAPTCHA_SECRET_KEY = previousSecret;
+    }
+    handler._test.setFirebaseAdminForTest(null);
+  }
+});

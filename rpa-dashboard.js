@@ -71,7 +71,7 @@
 
   function queueDate(form) {
     const raw = form.raw || {};
-    const date = toDate(raw.internalDate || raw.submittedAt || raw.createdAt || raw.updatedAt);
+    const date = toDate(raw.submittedAt || raw.createdAt || raw.updatedAt || raw.internalDate);
     return date || new Date();
   }
 
@@ -344,28 +344,6 @@
     });
   }
 
-  function bindThemeToggle() {
-    const themeToggle = document.getElementById("themeToggle");
-    const themeSwitchParts = document.querySelectorAll(
-      ".theme-switch-face, .theme-switch-mouth, .theme-switch-eye, .theme-switch-tongue"
-    );
-
-    function applyTheme(theme) {
-      const isLight = theme === "light";
-      document.documentElement.setAttribute("data-theme", isLight ? "light" : "dark");
-      localStorage.setItem("theme", isLight ? "light" : "dark");
-      if (themeToggle) themeToggle.checked = isLight;
-      themeSwitchParts.forEach(function (element) {
-        element.classList.toggle("happy", isLight);
-      });
-    }
-
-    applyTheme(localStorage.getItem("theme") || "light");
-    if (themeToggle) {
-      themeToggle.addEventListener("change", () => applyTheme(themeToggle.checked ? "light" : "dark"));
-    }
-  }
-
   window.addEventListener("DOMContentLoaded", function () {
     if (initialized) return;
     initialized = true;
@@ -411,7 +389,6 @@
       renderQueue();
     });
 
-    bindThemeToggle();
     bindAuthGate();
   });
 })();

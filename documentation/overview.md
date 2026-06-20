@@ -1,6 +1,6 @@
 # CubeSync Architecture Overview
 
-This document provides a high-level overview of the CubeSync architecture. For detailed UML diagrams (Component, Class, Sequence, State, and ER), please refer to the [Root Architecture Document](../architecture.md).
+This document provides a high-level overview of the CubeSync architecture. For detailed UML diagrams (Component, Class, Sequence, State, and ER), please refer to [architecture.md](architecture.md).
 
 ## System Overview
 
@@ -37,6 +37,6 @@ CubeSync uses a tiered security approach:
 3. **Automation:** RPA bot loads `rpa-dashboard.html` -> Exports CSV/ZIP -> Downloads files for ERP entry.
 
 For more information, see:
-- [Design System](../design.md)
-- [RPA Selector Reference](../RPA_SELECTOR_REFERENCE.md)
-- [README](../README.md)
+- [Design System](design.md)
+- [RPA Selector Reference](RPA_SELECTOR_REFERENCE.md)
+- [README](README.md)

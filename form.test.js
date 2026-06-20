@@ -1,6 +1,25 @@
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
+const path = require("node:path");
 const test = require("node:test");
+
+function expectedBarcodeInputCount(html) {
+  const staticCount = (html.match(/data-barcode-input/g) || []).length;
+  const seedMatch = html.match(/data-initial-result-rows="(\d+)"/);
+  if (seedMatch) {
+    return parseInt(seedMatch[1], 10);
+  }
+  return staticCount;
+}
+
+function readBundledCss(file) {
+  const baseDir = path.dirname(file);
+  let content = fs.readFileSync(file, "utf8");
+  for (const match of content.matchAll(/@import url\("([^"]+)"\)/g)) {
+    content += "\n" + fs.readFileSync(path.join(baseDir, match[1]), "utf8");
+  }
+  return content;
+}
 
 function assertConcreteForm(html) {
   assert.match(html, /CONCRETE CUBE TEST REQUEST FORM/);
@@ -12,14 +31,14 @@ function assertConcreteForm(html) {
   assert.match(html, /barcode\.js/);
   assert.match(html, /app\.js/);
   assert.match(html, /id="cubeRequestForm"[^>]*novalidate/);
-  assert.equal((html.match(/data-barcode-input/g) || []).length, 3);
+  assert.equal(expectedBarcodeInputCount(html), 3);
 }
 
 test("original digital form keeps the PDF form sections and ten barcode inputs", () => {
   const html = fs.readFileSync("index.html", "utf8");
-  const css = fs.readFileSync("styles.css", "utf8");
+  const css = readBundledCss("css/styles.css");
 
-  assert.match(html, /styles\.css/);
+  assert.match(html, /css\/styles\.css/);
   assert.match(css, /html \{\s*font-family: Arial, sans-serif;/);
   assert.match(css, /body \{[\s\S]*font-family: Arial, sans-serif;/);
   assert.match(css, /button,\s*input,\s*select \{[\s\S]*font-family: Arial, sans-serif;/);
@@ -28,9 +47,10 @@ test("original digital form keeps the PDF form sections and ten barcode inputs",
 
 test("glassmorphic digital form uses Outfit and keeps barcode inputs", () => {
   const html = fs.readFileSync("glassmorphic.html", "utf8");
-  const css = fs.readFileSync("glassmorphic.css", "utf8");
+  const css = readBundledCss("css/glassmorphic.css");
 
-  assert.match(html, /glassmorphic\.css/);
+  assert.match(html, /css\/glassmorphic\.css/);
+  assert.match(html, /cubesync-form-markup\.js/);
   assert.match(html, /fonts\.googleapis\.com/);
   assert.match(html, /Outfit/);
   assert.match(css, /font-family: "Outfit"/);
@@ -40,8 +60,8 @@ test("glassmorphic digital form uses Outfit and keeps barcode inputs", () => {
 
 test("barcode cells keep compact entry fields and bounded previews in both styles", () => {
   const app = fs.readFileSync("app.js", "utf8");
-  const originalCss = fs.readFileSync("styles.css", "utf8");
-  const glassCss = fs.readFileSync("glassmorphic.css", "utf8");
+  const originalCss = readBundledCss("css/styles.css");
+  const glassCss = readBundledCss("css/glassmorphic.css");
 
   assert.match(app, /has-barcode/);
   assert.match(app, /preview\.innerHTML = ""/);

@@ -1,0 +1,190 @@
+/**
+ * Dashboard field settings dialog.
+ */
+.field-config-dialog {
+  width: min(920px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  border: 1px solid var(--line-strong);
+  padding: 0;
+}
+
+.field-config-dialog form {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  max-height: calc(100vh - 32px);
+}
+
+.field-config-dialog header,
+.field-config-dialog footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.field-config-dialog footer {
+  border-bottom: 0;
+  border-top: 1px solid var(--line);
+}
+
+.field-config-intro {
+  margin: 0;
+  padding: 12px 20px;
+  color: var(--muted);
+  border-bottom: 1px solid var(--line);
+}
+
+.field-config-groups {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  padding: 20px;
+  overflow: auto;
+}
+
+.field-config-group h3 {
+  margin: 0 0 12px;
+  font-size: 1rem;
+}
+
+.field-config-list {
+  display: grid;
+  gap: 8px;
+}
+
+.field-config-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--subtle);
+}
+
+.field-config-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1 1 50%;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.field-config-toggle span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.field-config-toggle input[type="checkbox"] {
+  width: auto;
+  margin: 0;
+  flex: 0 0 auto;
+}
+
+.field-config-rename {
+  flex: 1 1 45%;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg);
+  color: inherit;
+  font: inherit;
+}
+
+.field-config-rename::placeholder {
+  color: var(--muted);
+  opacity: 0.7;
+}
+
+.field-config-group-full {
+  grid-column: 1 / -1;
+}
+
+.field-config-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.field-config-group-header h3 {
+  margin: 0;
+}
+
+.field-config-add-button {
+  white-space: nowrap;
+}
+
+.field-config-section-note {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.custom-field-editor-list {
+  display: grid;
+  gap: 10px;
+}
+
+.custom-field-editor {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) minmax(140px, 1.2fr) 110px auto auto minmax(140px, 1.2fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--subtle);
+}
+
+.custom-field-editor input,
+.custom-field-editor select {
+  width: 100%;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg);
+  color: inherit;
+  font: inherit;
+}
+
+.custom-field-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  font-size: 0.92rem;
+}
+
+.custom-field-flag input {
+  width: auto;
+  margin: 0;
+}
+
+.custom-field-remove {
+  white-space: nowrap;
+}
+
+.custom-request-fields {
+  display: contents;
+}
+
+@media (max-width: 960px) {
+  .custom-field-editor {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .field-config-groups {
+    grid-template-columns: 1fr;
+  }
+}

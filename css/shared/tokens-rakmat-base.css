@@ -1,0 +1,11 @@
+/**
+ * Rakmat brand tokens shared by original (index) and glassmorphic forms.
+ */
+:root {
+  --brand-blue: #003399;
+  --brand-blue-strong: #002266;
+  --brand-accent: #E31E24;
+  --brand-sky-soft: #f0f5ff;
+  --error: #b42318;
+  --error-soft: rgba(180, 35, 24, 0.10);
+}

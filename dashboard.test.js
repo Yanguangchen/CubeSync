@@ -1,10 +1,20 @@
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
+const path = require("node:path");
 const test = require("node:test");
+
+function readBundledCss(file) {
+  const baseDir = path.dirname(file);
+  let content = fs.readFileSync(file, "utf8");
+  for (const match of content.matchAll(/@import url\("([^"]+)"\)/g)) {
+    content += "\n" + fs.readFileSync(path.join(baseDir, match[1]), "utf8");
+  }
+  return content;
+}
 
 test("dashboard frontend exposes form CRUD controls", () => {
   const html = fs.readFileSync("dashboard.html", "utf8");
-  const css = fs.readFileSync("dashboard.css", "utf8");
+  const css = readBundledCss("css/dashboard.css");
   const js = fs.readFileSync("dashboard.js", "utf8");
 
   assert.match(html, /<title>Concrete Cube Dashboard<\/title>/);
@@ -14,7 +24,7 @@ test("dashboard frontend exposes form CRUD controls", () => {
   assert.doesNotMatch(js, /totalForms/);
   assert.doesNotMatch(css, /\.metric-grid/);
   assert.doesNotMatch(html, /<h1>Concrete Cube Dashboard<\/h1>/);
-  assert.match(html, /dashboard\.css/);
+  assert.match(html, /css\/dashboard\.css/);
   assert.match(html, /barcode\.js/);
   assert.match(html, /cubesync-form-data\.js/);
   assert.match(html, /firestore\.js/);

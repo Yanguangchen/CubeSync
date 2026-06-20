@@ -1,0 +1,92 @@
+/**
+ * Barcode preview cells — theme via custom properties on :root.
+ */
+.barcode-cell {
+  padding: var(--barcode-cell-padding, 8px);
+  overflow: visible;
+  vertical-align: top;
+}
+
+.results-table .barcode-cell > input {
+  display: block;
+  width: 100%;
+  max-width: 150px;
+  min-height: var(--barcode-input-min-height, 32px);
+  margin: var(--barcode-input-margin, 0 auto 6px);
+  padding: var(--barcode-input-padding, 0 6px);
+  border: var(--barcode-input-border, 1px solid var(--line-strong));
+  border-radius: var(--barcode-input-radius, var(--radius-sm, 3px));
+  background: var(--barcode-input-bg, var(--surface));
+  font-size: var(--barcode-input-font-size, 12px);
+  text-align: left;
+}
+
+.results-table .barcode-cell > input[aria-invalid="true"] {
+  border-color: var(--error);
+}
+
+.barcode-preview {
+  display: none;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+  height: var(--barcode-preview-height, 72px);
+  min-height: var(--barcode-preview-height, 72px);
+  max-height: var(--barcode-preview-height, 72px);
+  margin-top: var(--barcode-preview-margin-top, 0);
+  padding: 4px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  border: var(--barcode-preview-border, 1px solid var(--line));
+  border-radius: var(--barcode-preview-radius, var(--radius-sm, 0));
+  background: var(--barcode-preview-bg, var(--surface));
+}
+
+.barcode-cell.has-barcode .barcode-preview,
+.barcode-cell.has-error .barcode-preview {
+  display: flex;
+}
+
+.barcode-preview svg {
+  display: block;
+  flex: 0 0 auto;
+  width: auto;
+  max-width: none;
+  height: var(--barcode-svg-height, 64px);
+}
+
+.barcode-preview svg rect:not(.barcode-background) {
+  fill: var(--barcode-bar-color, #111111);
+}
+
+.barcode-preview svg text {
+  font-family: var(--barcode-text-font, inherit);
+  font-size: 10px;
+  fill: var(--barcode-text-fill, var(--ink));
+}
+
+.barcode-placeholder,
+.barcode-error {
+  font-size: var(--barcode-message-font-size, 12px);
+  font-weight: var(--barcode-message-font-weight, 600);
+}
+
+.barcode-placeholder {
+  color: var(--barcode-placeholder-color, var(--muted));
+}
+
+.barcode-error {
+  color: var(--error);
+}
+
+.barcode-message {
+  min-height: var(--barcode-message-min-height, 0);
+  margin: var(--barcode-message-margin, 4px 0 0);
+  color: var(--error);
+  font-size: var(--barcode-message-font-size, 11px);
+  line-height: 1.3;
+}
+
+.barcode-message:empty {
+  display: none;
+}

@@ -534,10 +534,10 @@ graph LR
     end
 
     subgraph Styles
-        S1[styles.css]
-        S2[glassmorphic.css]
-        S3[dashboard.css]
-        S4[rpa-dashboard.css]
+        S1[css/styles.css]
+        S2[css/glassmorphic.css]
+        S3[css/dashboard.css]
+        S4[css/rpa-dashboard.css]
     end
 
     subgraph Scripts

@@ -4,6 +4,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 
 const glassHtml = fs.readFileSync("glassmorphic.html", "utf8");
+const indexHtml = fs.readFileSync("index.html", "utf8");
 
 function installDom(html, url = "http://localhost/") {
   const dom = new JSDOM(html, { url });
@@ -21,6 +22,7 @@ function installDom(html, url = "http://localhost/") {
     text: async () => "Option A\nOption B"
   });
   global.window.CubeSyncBarcode = require("./barcode.js");
+  global.window.CubeSyncFormMarkup = require("./cubesync-form-markup.js");
   global.window.CubeSyncFormData = require("./cubesync-form-data.js");
 
   delete require.cache[require.resolve("./app.js")];
@@ -176,8 +178,8 @@ test("app.js loads autocomplete options for ERP and billing fields", async () =>
 
   await new Promise((resolve) => setTimeout(resolve, 50));
 
-  assert.ok(fetchCalledWith.includes(encodeURI("project erp.txt")));
-  assert.ok(fetchCalledWith.includes(encodeURI("customer billing.txt")));
+  assert.ok(fetchCalledWith.includes(encodeURI("dropdown-options/project erp.txt")));
+  assert.ok(fetchCalledWith.includes(encodeURI("dropdown-options/customer billing.txt")));
 
   ["projectErp", "customerBilling"].forEach((inputName) => {
     const inputs = global.document.querySelectorAll(`input[name="${inputName}"]`);
@@ -202,6 +204,63 @@ test("app.js loads autocomplete options for ERP and billing fields", async () =>
       assert.match(options[2].textContent, /Option C/);
     });
   });
+
+  delete require.cache[require.resolve("./app.js")];
+});
+
+test("app.js stores typed dropdown fields as free text even when the value matches an option", async () => {
+  installDom(glassHtml, "http://localhost/glassmorphic.html");
+
+  global.window.fetch = async () => ({
+    ok: true,
+    text: async () => "Option A\nOption B"
+  });
+  global.window.CubeSyncEnv = { RECAPTCHA_SITE_KEY: "test-site-key" };
+  global.window.grecaptcha = {
+    render: () => 0,
+    getResponse: () => "test-recaptcha-token",
+    reset: () => {}
+  };
+
+  let savedPayload = null;
+  global.window.CubeSyncFirestore = {
+    getFormFieldConfig: async () => null,
+    savePublicCubeRequest: async (payload) => {
+      savedPayload = payload;
+      return "saved-free-text";
+    }
+  };
+
+  dispatchDOMContentLoaded();
+  await new Promise((resolve) => setTimeout(resolve, 50));
+
+  fillRequiredRequestFields(global.document);
+
+  const typedExactOption = global.document.querySelector('[name="projectErp"]');
+  typedExactOption.value = "Option A";
+  typedExactOption.dispatchEvent(new global.Event("input", { bubbles: true }));
+
+  const selectedOption = global.document.querySelector('[name="customerBilling"]');
+  selectedOption.value = "Option";
+  selectedOption.dispatchEvent(new global.Event("input", { bubbles: true }));
+  selectedOption
+    .parentElement
+    .querySelector(".erp-dropdown-item")
+    .dispatchEvent(new global.window.MouseEvent("mousedown", { bubbles: true, cancelable: true }));
+
+  const typedCustomOption = global.document.querySelector('[name="supplier"]');
+  typedCustomOption.value = "Typed Supplier";
+  typedCustomOption.dispatchEvent(new global.Event("input", { bubbles: true }));
+
+  global.document.querySelector('[name="specimenRef1"]').value = "T-003";
+  global.document.querySelector('[name="barcode1"]').value = "BC-003";
+
+  global.document.getElementById("nextStep").click();
+  global.document.getElementById("nextStep").click();
+  await new Promise((resolve) => setTimeout(resolve, 30));
+
+  assert.deepEqual(savedPayload.customFields, ["projectErp", "supplier"]);
+  assert.equal(savedPayload.customerBilling, "Option A");
 
   delete require.cache[require.resolve("./app.js")];
 });
@@ -298,6 +357,98 @@ test("app.js uses custom validation instead of native hidden-step dateOfCast err
   assert.equal(submitEventFired, true);
   assert.match(global.document.getElementById("saveStatus").textContent, /Date of cast/i);
   assert.ok(global.document.querySelector('.form-step[data-step="1"]').classList.contains("active"));
+
+  delete require.cache[require.resolve("./app.js")];
+});
+
+test("app.js initializes correctly on index.html", async () => {
+  installDom(indexHtml, "http://localhost/index.html");
+  require("./app.js");
+  dispatchDOMContentLoaded();
+
+  assert.ok(global.document.getElementById("cubeRequestForm"));
+  
+  delete require.cache[require.resolve("./app.js")];
+});
+
+test("app.js loads existing form from ?id= param", async () => {
+  installDom(glassHtml, "http://localhost/glassmorphic.html?id=test-form-123");
+  
+  let getCubeRequestCalled = false;
+  global.window.CubeSyncFirestore = {
+    getCubeRequest: async (id) => {
+      getCubeRequestCalled = true;
+      assert.equal(id, "test-form-123");
+      return {
+        projectErp: "Loaded ERP",
+        results: [{
+          setNo: 1,
+          size: "150x150x150",
+          specimenRef: "REF-LOADED",
+          barcode: "BC-LOADED"
+        }]
+      };
+    }
+  };
+
+  require("./app.js");
+  dispatchDOMContentLoaded();
+  
+  await new Promise(resolve => setTimeout(resolve, 50));
+  
+  assert.equal(getCubeRequestCalled, true);
+  assert.equal(global.document.querySelector('[name="projectErp"]').value, "Loaded ERP");
+  assert.equal(global.document.querySelector('[name="specimenRef1"]').value, "REF-LOADED");
+  assert.equal(global.document.querySelector('[name="barcode1"]').value, "BC-LOADED");
+  assert.equal(global.document.getElementById("saveStatus").textContent, "Loaded");
+
+  delete require.cache[require.resolve("./app.js")];
+});
+
+test("print action triggered by print button", async () => {
+  installDom(glassHtml);
+  
+  let printCalls = 0;
+  global.window.print = () => {
+    printCalls += 1;
+  };
+  
+  require("./app.js");
+  dispatchDOMContentLoaded();
+  
+  const printBtn = global.document.getElementById("printButton");
+  assert.ok(printBtn);
+  printBtn.click();
+  
+  assert.equal(printCalls, 1);
+
+  delete require.cache[require.resolve("./app.js")];
+});
+
+test("form reset clears barcodes and save status", async () => {
+  installDom(glassHtml);
+  require("./app.js");
+  dispatchDOMContentLoaded();
+  
+  const form = global.document.getElementById("cubeRequestForm");
+  const saveStatus = global.document.getElementById("saveStatus");
+  const barcodeInput = global.document.querySelector('[name="barcode1"]');
+  
+  barcodeInput.value = "TEST-BC";
+  barcodeInput.dispatchEvent(new global.Event("input"));
+  
+  assert.ok(barcodeInput.closest(".barcode-cell").classList.contains("has-barcode"));
+  saveStatus.textContent = "Saved";
+  saveStatus.classList.add("is-error");
+  
+  form.reset();
+  barcodeInput.value = "";
+  
+  await new Promise(resolve => setTimeout(resolve, 10));
+  
+  assert.equal(barcodeInput.closest(".barcode-cell").classList.contains("has-barcode"), false);
+  assert.equal(saveStatus.textContent, "");
+  assert.equal(saveStatus.classList.contains("is-error"), false);
 
   delete require.cache[require.resolve("./app.js")];
 });

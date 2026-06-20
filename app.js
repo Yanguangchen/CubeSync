@@ -39,24 +39,28 @@
   }
 
   function resultRowHtml(rowCount) {
-    return `
-      <td data-result-field="setNo" data-label="Set No"><input type="number" name="setNo${rowCount}" min="1" step="1" value="1" aria-label="Row ${rowCount} set number"></td>
-      <td data-result-field="size" data-label="Size"><input type="text" name="size${rowCount}" aria-label="Row ${rowCount} size"></td>
-      <td data-result-field="specimenRef" data-label="Specimen Ref #"><input type="text" name="specimenRef${rowCount}" aria-label="Row ${rowCount} specimen reference"></td>
-      <td class="barcode-cell" data-result-field="barcode" data-label="Barcode">
-        <input type="text" name="barcode${rowCount}" data-barcode-input placeholder="Enter barcode text" aria-label="Row ${rowCount} barcode text">
-        <div class="barcode-preview" aria-live="polite"><span class="barcode-placeholder">Paste Barcode Here</span></div>
-        <p class="barcode-message" role="alert"></p>
-      </td>
-      <td data-result-field="specifiedSlump" data-label="Specified Slump"><input type="text" name="specifiedSlump${rowCount}" aria-label="Row ${rowCount} specified slump"></td>
-      <td data-result-field="meanSlump" data-label="Mean Slump"><input type="number" name="meanSlump${rowCount}" min="0" step="1" aria-label="Row ${rowCount} mean slump"></td>
-      <td data-result-field="resultGrade" data-label="Concrete Grade"><input type="text" name="resultGrade${rowCount}" aria-label="Row ${rowCount} concrete grade"></td>
-      <td data-result-field="resultDateOfCast" data-label="Date Of Cast"><input type="date" name="resultDateOfCast${rowCount}" aria-label="Row ${rowCount} date of cast"></td>
-      <td data-result-field="age" data-label="Age"><input type="number" name="age${rowCount}" min="0" step="1" aria-label="Row ${rowCount} age in days"></td>
-      <td data-result-field="dateOfTest" data-label="Date Of Test"><input type="date" name="dateOfTest${rowCount}" aria-label="Row ${rowCount} date of test"></td>
-      <td data-result-field="invoiceNumber" data-label="Invoice Number"><input type="text" name="invoiceNumber${rowCount}" aria-label="Row ${rowCount} invoice number"></td>
-      <td data-label="Action"><button type="button" class="remove-row-btn" aria-label="Remove row ${rowCount}">Remove</button></td>
-    `;
+    const markup = window.CubeSyncFormMarkup;
+    if (!markup || typeof markup.resultRowHtml !== "function") {
+      throw new Error("CubeSyncFormMarkup is required for result rows");
+    }
+    return markup.resultRowHtml(rowCount);
+  }
+
+  function getBarcodeInputs() {
+    return Array.from(document.querySelectorAll("[data-barcode-input]"));
+  }
+
+  function seedInitialResultRows() {
+    const tableBody = document.querySelector(".results-table tbody");
+    const markup = window.CubeSyncFormMarkup;
+    if (!tableBody || !markup || typeof markup.seedResultRows !== "function") {
+      return;
+    }
+
+    const initialRows = parseInt(tableBody.dataset.initialResultRows || "0", 10);
+    if (initialRows > 0 && tableBody.children.length === 0) {
+      markup.seedResultRows(tableBody, initialRows);
+    }
   }
 
   function setSaveStatus(element, message, isError) {
@@ -190,6 +194,18 @@
     });
     populateResults(form, data.results, tableBody, addRow, renumberRows);
   }
+
+  function setFreeTextState(input, isFreeText) {
+    if (!input) return;
+
+    if (isFreeText && String(input.value || "").trim()) {
+      input.dataset.freeTextEntry = "true";
+      return;
+    }
+
+    delete input.dataset.freeTextEntry;
+  }
+
   async function setupAutocomplete(inputName, fetchUrl, storageKey) {
     try {
       const fetchFn = window.fetch || fetch;
@@ -220,6 +236,7 @@
       document.querySelectorAll(`input[name="${inputName}"]`).forEach(input => {
         input.setAttribute('autocomplete', 'off');
         input.removeAttribute('list');
+        input.dataset.dropdownOptionField = inputName;
         
         let wrapper = input.parentElement;
         if (!wrapper.classList.contains('erp-autocomplete-wrapper')) {
@@ -283,9 +300,7 @@
             
             li.addEventListener('mousedown', (e) => {
               e.preventDefault();
-              input.value = match;
-              input.dispatchEvent(new window.Event('input', { bubbles: true }));
-              closeDropdown();
+              chooseOption(match);
             });
             
             dropdown.appendChild(li);
@@ -298,6 +313,15 @@
         const closeDropdown = () => {
           dropdown.style.display = 'none';
           focusedIndex = -1;
+        };
+
+        const chooseOption = (value) => {
+          input.dataset.autocompleteSelecting = "true";
+          input.value = value;
+          setFreeTextState(input, false);
+          input.dispatchEvent(new window.Event('input', { bubbles: true }));
+          delete input.dataset.autocompleteSelecting;
+          closeDropdown();
         };
         
         const updateFocus = () => {
@@ -315,7 +339,12 @@
         };
         
         input.addEventListener('focus', () => renderDropdown(input.value));
-        input.addEventListener('input', () => renderDropdown(input.value));
+        input.addEventListener('input', () => {
+          if (input.dataset.autocompleteSelecting !== "true") {
+            setFreeTextState(input, true);
+          }
+          renderDropdown(input.value);
+        });
         input.addEventListener('blur', closeDropdown);
         
         input.addEventListener('keydown', (e) => {
@@ -332,9 +361,7 @@
             } else if (e.key === 'Enter') {
               if (focusedIndex >= 0 && focusedIndex < items.length) {
                 e.preventDefault();
-                input.value = items[focusedIndex].textContent;
-                input.dispatchEvent(new window.Event('input', { bubbles: true }));
-                closeDropdown();
+                chooseOption(items[focusedIndex].textContent);
               }
             } else if (e.key === 'Escape') {
               closeDropdown();
@@ -398,20 +425,22 @@
   }
 
   window.addEventListener("DOMContentLoaded", function () {
-    setupAutocomplete('projectErp', 'project erp.txt', 'savedProjectErps');
-    setupAutocomplete('customerBilling', 'customer billing.txt', 'savedCustomerBillings');
-    setupAutocomplete('supplier', 'supplier.txt', 'savedSuppliers');
-    setupAutocomplete('concreteGrade', 'Grade.txt', 'savedGrades');
-    setupAutocomplete('personInCharge', 'person-in-charge', 'savedPersonsInCharge');
-    setupAutocomplete('managerInCharge', 'manager-in-charge.txt', 'savedManagersInCharge');
-    setupAutocomplete('testItem', 'testitem.txt', 'savedTestItems');
-    setupAutocomplete('specimenSize', 'size.txt', 'savedSizes');
+    seedInitialResultRows();
+
+    setupAutocomplete('projectErp', 'dropdown-options/project erp.txt', 'savedProjectErps');
+    setupAutocomplete('customerBilling', 'dropdown-options/customer billing.txt', 'savedCustomerBillings');
+    setupAutocomplete('supplier', 'dropdown-options/supplier.txt', 'savedSuppliers');
+    setupAutocomplete('concreteGrade', 'dropdown-options/Grade.txt', 'savedGrades');
+    setupAutocomplete('personInCharge', 'dropdown-options/person-in-charge.txt', 'savedPersonsInCharge');
+    setupAutocomplete('managerInCharge', 'dropdown-options/manager-in-charge.txt', 'savedManagersInCharge');
+    setupAutocomplete('testItem', 'dropdown-options/testitem.txt', 'savedTestItems');
+    setupAutocomplete('specimenSize', 'dropdown-options/size.txt', 'savedSizes');
     const form = document.getElementById("cubeRequestForm");
     const printButton = document.getElementById("printButton");
     const saveButton = document.getElementById("saveFormButton");
     const saveStatus = document.getElementById("saveStatus");
     const recaptchaContainer = document.getElementById("recaptchaContainer");
-    const barcodeInputs = Array.from(document.querySelectorAll("[data-barcode-input]"));
+    const barcodeInputs = getBarcodeInputs();
     const urlParams = new URLSearchParams(window.location.search);
     let currentDocId = urlParams.get("id");
     let activeFieldConfig = null;
@@ -431,7 +460,7 @@
     if (form) {
       form.addEventListener("reset", function () {
         window.setTimeout(function () {
-          renderAll(barcodeInputs);
+          renderAll(getBarcodeInputs());
           setSaveStatus(saveStatus, "", false);
         }, 0);
       });
@@ -730,7 +759,8 @@
             populateForm(form, record, tableBody, addResultRow, renumberRows);
             if (window.CubeSyncFormData) {
               activeFieldConfig = window.CubeSyncFormData.applyFormFieldConfig(form, activeFieldConfig, {
-                activeStep: currentStep
+                activeStep: currentStep,
+                extraFieldValues: record.extraFields
               });
               applyManualCubeJobState();
             }

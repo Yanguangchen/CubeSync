@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-theme="light">
+<html lang="en">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -8,9 +8,8 @@
     <link rel="apple-touch-icon" href="assets/icon-192.png">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#42d5bb">
-    <link rel="stylesheet" href="dashboard.css">
-    <link rel="stylesheet" href="rpa-dashboard.css">
-    <link rel="stylesheet" href="xp-taskbar.css">
+    <link rel="stylesheet" href="css/dashboard.css">
+    <link rel="stylesheet" href="css/rpa-dashboard.css">
     <script src="cubesync-form-data.js" defer></script>
     <script src="cubesync-export.js" defer></script>
     <script type="module" src="firestore.js"></script>
@@ -39,14 +38,6 @@
             <input type="date" id="datePicker" aria-label="Select date" style="width: auto;">
             <div style="flex-grow: 1;"></div>
             <button type="button" id="exportAllButton" class="export-button" disabled>Export all CSV</button>
-            <div class="theme-switch" style="margin-left: 10px;">
-              <div class="theme-switch-face">
-                <input type="checkbox" id="themeToggle" class="theme-switch-input" aria-label="Toggle light and dark mode">
-                <div class="theme-switch-mouth"><div class="theme-switch-tongue"></div></div>
-                <div class="theme-switch-eye theme-switch-eye-1"></div>
-                <div class="theme-switch-eye theme-switch-eye-2"></div>
-              </div>
-            </div>
             <div id="currentDateDisplay" class="current-date-badge"></div>
           </div>
 

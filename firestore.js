@@ -224,7 +224,7 @@ async function saveFormFieldConfig(config) {
   await setDoc(settingsDocument(FORM_FIELD_CONFIG_DOC_ID), withoutUndefined({
     ...config,
     updatedAt: serverTimestamp()
-  }), { merge: true });
+  }));
   return FORM_FIELD_CONFIG_DOC_ID;
 }
 

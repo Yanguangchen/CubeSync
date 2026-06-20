@@ -62,6 +62,16 @@
     "dateOfTest",
     "invoiceNumber"
   ];
+  const DROPDOWN_OPTION_FIELDS = [
+    "projectErp",
+    "customerBilling",
+    "supplier",
+    "concreteGrade",
+    "personInCharge",
+    "managerInCharge",
+    "testItem",
+    "specimenSize"
+  ];
   const RESULT_FIELD_LABELS = {
     setNo: "Set No",
     size: "Size",
@@ -100,8 +110,8 @@
     locationRepresented: "Location",
     additionalInformation: "Additional Info",
     dateOfCast: "Date of cast",
-    concreteGrade: "Grade",
-    reportGrade: "Grade",
+    concreteGrade: "Concrete Grade",
+    reportGrade: "Report Grade",
     specimenSize: "Size",
     slumpMeasured: "Mean Slump",
     slumpSpecified: "Specified Slump",
@@ -119,6 +129,24 @@
     dateOfCast: ["dateOfCast", "dateTimeSampled", "internalDate"],
     reportGrade: ["reportGrade", "concreteGrade", "grade"]
   };
+  const CUSTOM_FIELD_TYPES = ["text", "number", "date", "checkbox", "textarea"];
+  const MAX_CUSTOM_REQUEST_FIELDS = 25;
+  const CUSTOM_FIELD_ID_PATTERN = /^[a-z][a-zA-Z0-9_]{0,31}$/;
+  const RESERVED_FIELD_IDS = new Set([
+    ...FORM_FIELDS,
+    ...RESULT_FIELDS,
+    "customFields",
+    "extraFields",
+    "results",
+    "template",
+    "status",
+    "id",
+    "createdAt",
+    "updatedAt",
+    "erpStatus",
+    "rpaStatus",
+    "attemptCount"
+  ]);
 
   function normalizeText(value) {
     return String(value == null ? "" : value).trim();
@@ -168,6 +196,36 @@
       .filter(hasRowValue);
   }
 
+  function normalizeCustomFields(fields) {
+    if (!Array.isArray(fields)) {
+      return [];
+    }
+
+    const allowed = new Set(DROPDOWN_OPTION_FIELDS);
+    const customFields = [];
+
+    fields.forEach((field) => {
+      const normalized = normalizeText(field);
+      if (allowed.has(normalized) && !customFields.includes(normalized)) {
+        customFields.push(normalized);
+      }
+    });
+
+    return customFields;
+  }
+
+  function collectCustomFields(form) {
+    return normalizeCustomFields(DROPDOWN_OPTION_FIELDS.filter((field) => {
+      const control = form.elements[field];
+      return Boolean(
+        control &&
+        control.dataset &&
+        control.dataset.freeTextEntry === "true" &&
+        normalizeText(control.value)
+      );
+    }));
+  }
+
   function isRequestFieldFilled(field, value) {
     if (NUMBER_FIELDS.has(field)) {
       return typeof value === "number" && Number.isFinite(value);
@@ -179,8 +237,117 @@
   function defaultFormFieldConfig() {
     return {
       requestFields: Object.fromEntries(FORM_FIELDS.map((field) => [field, true])),
-      resultFields: Object.fromEntries(RESULT_FIELDS.map((field) => [field, true]))
+      resultFields: Object.fromEntries(RESULT_FIELDS.map((field) => [field, true])),
+      requestLabels: {},
+      resultLabels: {},
+      customRequestFields: []
     };
+  }
+
+  function isValidCustomFieldId(id) {
+    return typeof id === "string" &&
+      CUSTOM_FIELD_ID_PATTERN.test(id) &&
+      !RESERVED_FIELD_IDS.has(id);
+  }
+
+  function slugifyCustomFieldId(label) {
+    const slug = normalizeText(label)
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "")
+      .slice(0, 32);
+
+    if (!slug || !/^[a-z]/.test(slug)) {
+      return "";
+    }
+
+    return slug;
+  }
+
+  function normalizeCustomFieldDefinition(raw) {
+    if (!raw || typeof raw !== "object") {
+      return null;
+    }
+
+    let id = normalizeText(raw.id);
+    const label = normalizeText(raw.label);
+    if (!id && label) {
+      id = slugifyCustomFieldId(label);
+    }
+
+    if (!isValidCustomFieldId(id) || !label) {
+      return null;
+    }
+
+    const type = CUSTOM_FIELD_TYPES.includes(raw.type) ? raw.type : "text";
+    const formLabel = normalizeText(raw.formLabel);
+
+    return {
+      id,
+      label,
+      type,
+      required: Boolean(raw.required),
+      enabled: raw.enabled !== false,
+      formLabel: formLabel || ""
+    };
+  }
+
+  function normalizeCustomRequestFields(raw) {
+    if (!Array.isArray(raw)) {
+      return [];
+    }
+
+    const seen = new Set();
+    const fields = [];
+
+    raw.forEach((item) => {
+      const def = normalizeCustomFieldDefinition(item);
+      if (!def || seen.has(def.id)) {
+        return;
+      }
+
+      seen.add(def.id);
+      fields.push(def);
+    });
+
+    return fields.slice(0, MAX_CUSTOM_REQUEST_FIELDS);
+  }
+
+  function customFieldInputName(id) {
+    return `custom__${id}`;
+  }
+
+  function getCustomFieldFormLabel(def) {
+    return normalizeText(def.formLabel) || def.label || def.id;
+  }
+
+  function getCustomRequestFields(config) {
+    return normalizeFormFieldConfig(config).customRequestFields;
+  }
+
+  function getEnabledCustomRequestFields(config) {
+    return getCustomRequestFields(config).filter((def) => def.enabled !== false);
+  }
+
+  function normalizeLabelOverrides(rawLabels, fields, defaultLabels) {
+    const labels = {};
+    if (!rawLabels || typeof rawLabels !== "object") {
+      return labels;
+    }
+
+    fields.forEach((field) => {
+      const value = rawLabels[field];
+      if (typeof value !== "string") {
+        return;
+      }
+
+      const trimmed = value.trim();
+      if (trimmed && trimmed !== (defaultLabels[field] || field)) {
+        labels[field] = trimmed;
+      }
+    });
+
+    return labels;
   }
 
   function normalizeFormFieldConfig(raw) {
@@ -208,7 +375,23 @@
       });
     }
 
-    return { requestFields, resultFields };
+    return {
+      requestFields,
+      resultFields,
+      requestLabels: normalizeLabelOverrides(raw.requestLabels, FORM_FIELDS, REQUEST_FIELD_LABELS),
+      resultLabels: normalizeLabelOverrides(raw.resultLabels, RESULT_FIELDS, RESULT_FIELD_LABELS),
+      customRequestFields: normalizeCustomRequestFields(raw.customRequestFields)
+    };
+  }
+
+  function getRequestFieldLabel(config, field) {
+    const normalized = normalizeFormFieldConfig(config);
+    return normalized.requestLabels[field] || REQUEST_FIELD_LABELS[field] || field;
+  }
+
+  function getResultFieldLabel(config, field) {
+    const normalized = normalizeFormFieldConfig(config);
+    return normalized.resultLabels[field] || RESULT_FIELD_LABELS[field] || field;
   }
 
   function getActiveRequiredFormFields(config) {
@@ -359,6 +542,269 @@
     }
   }
 
+  function findRequestFieldLabelSpan(form, field) {
+    const control = form.elements[field];
+    if (!control || typeof control.closest !== "function") {
+      return null;
+    }
+
+    const row = control.closest("label, .field-row");
+    if (!row || typeof row.querySelector !== "function") {
+      return null;
+    }
+
+    return row.querySelector("span");
+  }
+
+  function decoratedLabel(baseText, existingText) {
+    const existing = String(existingText == null ? "" : existingText);
+    const suffix = `${/\*/.test(existing) ? " *" : ""}${/:/.test(existing) ? " :" : ""}`;
+    return `${baseText}${suffix}`;
+  }
+
+  function applyRequestFieldLabel(form, field, customLabel) {
+    const span = findRequestFieldLabelSpan(form, field);
+    if (!span) {
+      return;
+    }
+
+    span.textContent = decoratedLabel(customLabel, span.textContent);
+  }
+
+  function applyResultFieldLabel(form, field, customLabel) {
+    const header = form.querySelector(`thead th[data-result-field="${field}"]`);
+    if (header) {
+      header.textContent = customLabel;
+    }
+
+    form.querySelectorAll(`td[data-result-field="${field}"]`).forEach((cell) => {
+      if (cell.hasAttribute("data-label")) {
+        cell.setAttribute("data-label", customLabel);
+      }
+    });
+  }
+
+  function readCustomFieldControlValue(control, type) {
+    if (!control) {
+      return type === "checkbox" ? false : "";
+    }
+
+    if (type === "checkbox") {
+      return Boolean(control.checked);
+    }
+
+    if (type === "number") {
+      return normalizeValue("slumpMeasured", control.value);
+    }
+
+    return normalizeText(control.value);
+  }
+
+  function isCustomFieldValueFilled(type, value) {
+    if (type === "checkbox") {
+      return Boolean(value);
+    }
+
+    if (type === "number") {
+      return typeof value === "number" && Number.isFinite(value);
+    }
+
+    return normalizeText(value) !== "";
+  }
+
+  function formatCustomFieldDisplayValue(def, value) {
+    if (def.type === "checkbox") {
+      return value ? "Yes" : "No";
+    }
+
+    if (value == null || value === "") {
+      return "";
+    }
+
+    return String(value);
+  }
+
+  function customRequestFieldHtml(def) {
+    const formLabel = getCustomFieldFormLabel(def);
+    const requiredMark = def.required ? " *" : "";
+    const inputName = customFieldInputName(def.id);
+    const hidden = def.enabled === false ? " hidden" : "";
+    const disabled = def.enabled === false ? " disabled" : "";
+    const requiredAttr = def.required && def.enabled !== false ? " required" : "";
+    const commonAttrs = ` name="${inputName}" data-custom-field-id="${def.id}" data-custom-field-type="${def.type}"${requiredAttr}${disabled}`;
+
+    if (def.type === "checkbox") {
+      return `
+        <label class="field-row toggle-row custom-field-row" data-custom-field-row="${def.id}"${hidden}>
+          <span>${formLabel}${requiredMark} :</span>
+          <input type="checkbox"${commonAttrs}>
+        </label>
+      `;
+    }
+
+    if (def.type === "textarea") {
+      return `
+        <label class="field-row custom-field-row" data-custom-field-row="${def.id}"${hidden}>
+          <span>${formLabel}${requiredMark} :</span>
+          <textarea${commonAttrs}></textarea>
+        </label>
+      `;
+    }
+
+    const inputType = def.type === "number" || def.type === "date" ? def.type : "text";
+    const extraAttrs = def.type === "number" ? ' min="0" step="1"' : "";
+
+    return `
+      <label class="field-row custom-field-row" data-custom-field-row="${def.id}"${hidden}>
+        <span>${formLabel}${requiredMark} :</span>
+        <input type="${inputType}"${commonAttrs}${extraAttrs}>
+      </label>
+    `;
+  }
+
+  function applyCustomRequestFields(form, config, values) {
+    const container = form.querySelector("#customRequestFields, .custom-request-fields");
+    if (!container) {
+      return;
+    }
+
+    const normalized = normalizeFormFieldConfig(config);
+    const valueMap = values && typeof values === "object" ? values : {};
+
+    container.innerHTML = normalized.customRequestFields
+      .map((def) => customRequestFieldHtml(def))
+      .join("");
+
+    normalized.customRequestFields.forEach((def) => {
+      const control = form.querySelector(`[data-custom-field-id="${def.id}"]`);
+      if (!control) {
+        return;
+      }
+
+      const value = valueMap[def.id];
+      if (def.type === "checkbox") {
+        control.checked = Boolean(value);
+      } else if (value != null && value !== "") {
+        control.value = def.type === "date" ? String(value).slice(0, 10) : value;
+      }
+
+      if (def.enabled === false) {
+        control.disabled = true;
+        const row = control.closest(".custom-field-row");
+        if (row) {
+          row.hidden = true;
+        }
+        control.removeAttribute("required");
+      }
+    });
+  }
+
+  function collectExtraFields(form) {
+    const extraFields = {};
+
+    form.querySelectorAll("[data-custom-field-id]").forEach((control) => {
+      const id = control.dataset.customFieldId;
+      if (!id) {
+        return;
+      }
+
+      extraFields[id] = readCustomFieldControlValue(control, control.dataset.customFieldType || "text");
+    });
+
+    return extraFields;
+  }
+
+  function normalizeStoredExtraFieldValue(def, value) {
+    if (def.type === "checkbox") {
+      return Boolean(value);
+    }
+
+    if (def.type === "number") {
+      return normalizeValue("slumpMeasured", value);
+    }
+
+    return normalizeText(value);
+  }
+
+  function normalizeExtraFields(raw, config) {
+    const defs = getCustomRequestFields(config);
+    if (!defs.length) {
+      return {};
+    }
+
+    const allowed = new Set(defs.map((def) => def.id));
+    const source = raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
+    const extraFields = {};
+
+    allowed.forEach((id) => {
+      if (!(id in source)) {
+        return;
+      }
+
+      const def = defs.find((item) => item.id === id);
+      if (!def) {
+        return;
+      }
+
+      extraFields[id] = normalizeStoredExtraFieldValue(def, source[id]);
+    });
+
+    return extraFields;
+  }
+
+  function validateExtraFields(extraFields, config) {
+    const defs = getEnabledCustomRequestFields(config).filter((def) => def.required);
+    const values = extraFields && typeof extraFields === "object" ? extraFields : {};
+    const missingFieldKeys = defs
+      .filter((def) => !isCustomFieldValueFilled(def.type, values[def.id]))
+      .map((def) => def.id);
+    const missingFields = missingFieldKeys.map((id) => {
+      const def = defs.find((item) => item.id === id);
+      return def ? def.label : id;
+    });
+
+    return {
+      valid: missingFieldKeys.length === 0,
+      missingFieldKeys,
+      missingFields,
+      message: missingFieldKeys.length
+        ? `Please fill in all request details before submitting: ${missingFields.join(", ")}`
+        : ""
+    };
+  }
+
+  function getExtraFieldValue(data, id) {
+    if (!data || !data.extraFields || typeof data.extraFields !== "object") {
+      return "";
+    }
+
+    return data.extraFields[id];
+  }
+
+  function applyFieldLabels(form, config) {
+    if (!form) {
+      return normalizeFormFieldConfig(config);
+    }
+
+    const normalized = normalizeFormFieldConfig(config);
+
+    FORM_FIELDS.forEach((field) => {
+      const customLabel = normalized.requestLabels[field];
+      if (customLabel) {
+        applyRequestFieldLabel(form, field, customLabel);
+      }
+    });
+
+    RESULT_FIELDS.forEach((field) => {
+      const customLabel = normalized.resultLabels[field];
+      if (customLabel) {
+        applyResultFieldLabel(form, field, customLabel);
+      }
+    });
+
+    return normalized;
+  }
+
   function applyFormFieldConfig(form, config, options) {
     if (!form) {
       return normalizeFormFieldConfig(config);
@@ -377,6 +823,9 @@
       });
     }
 
+    applyFieldLabels(form, normalized);
+    applyCustomRequestFields(form, normalized, options && options.extraFieldValues);
+
     syncNativeFormConstraints(form, {
       config: normalized,
       activeStep: options && options.activeStep
@@ -389,6 +838,20 @@
     return applyFormFieldConfig(form, config, options);
   }
 
+  function readLabelOverride(editorForm, inputName, defaultLabel) {
+    const control = editorForm.elements[inputName];
+    if (!control || typeof control.value !== "string") {
+      return "";
+    }
+
+    const trimmed = control.value.trim();
+    if (!trimmed || trimmed === defaultLabel) {
+      return "";
+    }
+
+    return trimmed;
+  }
+
   function readFormFieldConfigFromEditor(editorForm) {
     const config = defaultFormFieldConfig();
 
@@ -397,6 +860,15 @@
       if (control) {
         config.requestFields[field] = Boolean(control.checked);
       }
+
+      const customLabel = readLabelOverride(
+        editorForm,
+        `request-label-${field}`,
+        REQUEST_FIELD_LABELS[field] || field
+      );
+      if (customLabel) {
+        config.requestLabels[field] = customLabel;
+      }
     });
 
     RESULT_FIELDS.forEach((field) => {
@@ -404,7 +876,41 @@
       if (control) {
         config.resultFields[field] = Boolean(control.checked);
       }
+
+      const customLabel = readLabelOverride(
+        editorForm,
+        `result-label-${field}`,
+        RESULT_FIELD_LABELS[field] || field
+      );
+      if (customLabel) {
+        config.resultLabels[field] = customLabel;
+      }
     });
+
+    const customRows = editorForm.querySelectorAll(".custom-field-editor");
+    customRows.forEach((row) => {
+      const idControl = row.querySelector('[name^="custom-field-id-"]');
+      const labelControl = row.querySelector('[name^="custom-field-label-"]');
+      const typeControl = row.querySelector('[name^="custom-field-type-"]');
+      const requiredControl = row.querySelector('[name^="custom-field-required-"]');
+      const enabledControl = row.querySelector('[name^="custom-field-enabled-"]');
+      const formLabelControl = row.querySelector('[name^="custom-field-form-label-"]');
+
+      const def = normalizeCustomFieldDefinition({
+        id: idControl ? idControl.value : "",
+        label: labelControl ? labelControl.value : "",
+        type: typeControl ? typeControl.value : "text",
+        required: requiredControl ? requiredControl.checked : false,
+        enabled: enabledControl ? enabledControl.checked : true,
+        formLabel: formLabelControl ? formLabelControl.value : ""
+      });
+
+      if (def) {
+        config.customRequestFields.push(def);
+      }
+    });
+
+    config.customRequestFields = normalizeCustomRequestFields(config.customRequestFields);
 
     return config;
   }
@@ -413,13 +919,19 @@
     const requiredFields = config ? getActiveRequiredFormFields(config) : REQUIRED_FORM_FIELDS;
     const missingFieldKeys = requiredFields.filter((field) => !isRequestFieldFilled(field, payload[field]));
     const missingFields = missingFieldKeys.map((field) => REQUEST_FIELD_LABELS[field] || field);
+    const extraValidation = config
+      ? validateExtraFields(payload.extraFields || {}, config)
+      : { valid: true, missingFieldKeys: [], missingFields: [], message: "" };
+
+    const combinedMissingKeys = missingFieldKeys.concat(extraValidation.missingFieldKeys || []);
+    const combinedMissingFields = missingFields.concat(extraValidation.missingFields || []);
 
     return {
-      valid: missingFieldKeys.length === 0,
-      missingFieldKeys,
-      missingFields,
-      message: missingFieldKeys.length
-        ? `Please fill in all request details before submitting: ${missingFields.join(", ")}`
+      valid: combinedMissingKeys.length === 0,
+      missingFieldKeys: combinedMissingKeys,
+      missingFields: combinedMissingFields,
+      message: combinedMissingKeys.length
+        ? `Please fill in all request details before submitting: ${combinedMissingFields.join(", ")}`
         : ""
     };
   }
@@ -429,6 +941,7 @@
       request[field] = readFormValue(form, field);
       return request;
     }, {});
+    payload.extraFields = collectExtraFields(form);
 
     return validateCubeRequestPayload(payload, config);
   }
@@ -443,6 +956,12 @@
     payload.template = form.dataset.template || "Original";
     payload.status = payload.status || "Draft";
     payload.results = collectResultRows(form);
+    payload.customFields = collectCustomFields(form);
+    payload.extraFields = collectExtraFields(form);
+
+    if (!Object.keys(payload.extraFields).length) {
+      delete payload.extraFields;
+    }
 
     return payload;
   }
@@ -490,6 +1009,8 @@
   }
 
   function normalizeCubeRequestForDashboard(data, id) {
+    const customFields = normalizeCustomFields(data.customFields);
+
     return {
       id,
       reportNo: normalizeText(data.reportNo || data.cubeJobNumber || data.reportNumber),
@@ -523,38 +1044,66 @@
       gradeFreeText: normalizeText(data.reportGrade || data.gradeFreeText),
       personInCharge: normalizeText(data.personInCharge),
       managerInCharge: normalizeText(data.managerInCharge),
+      customFields,
+      customFieldCount: customFields.length,
+      extraFields: data.extraFields && typeof data.extraFields === "object" ? data.extraFields : {},
       raw: data
     };
   }
 
   function dashboardEditToCubeRequest(formData) {
-    const request = {
-      reportNo: normalizeText(formData.get("reportNo")),
-      status: normalizeText(formData.get("status")) || "Draft",
-      client: normalizeText(formData.get("client")),
-      project: normalizeText(formData.get("project")),
-      concreteGrade: normalizeText(formData.get("grade")),
-      template: normalizeText(formData.get("template")) || "Original",
-      locationRepresented: normalizeText(formData.get("location")),
-      additionalInformation: normalizeText(formData.get("notes")),
-      internalDate: normalizeText(formData.get("internalDate")),
-      projectCode: normalizeText(formData.get("projectCode")),
-      method: normalizeText(formData.get("method")),
-      supplier: normalizeText(formData.get("supplier")),
-      dateTimeSampled: normalizeText(formData.get("dateTimeSampled")),
-      slumpMeasured: normalizeValue("slumpMeasured", formData.get("slumpMeasured")),
-      specimenSize: normalizeText(formData.get("specimenSize")),
-      slumpSpecified: normalizeValue("slumpSpecified", formData.get("slumpSpecified"))
+    const value = (...names) => {
+      for (const name of names) {
+        const candidate = formData.get(name);
+        if (candidate !== null && candidate !== undefined && normalizeText(candidate) !== "") {
+          return candidate;
+        }
+      }
+
+      return "";
     };
 
-    request.cubeJobNumber = request.reportNo;
-    request.customerBilling = request.client;
-    request.projectNameOnReport = request.project;
-    request.projectErp = request.projectCode;
-    request.testItem = request.method;
-    request.dateOfCast = request.internalDate || request.dateTimeSampled;
-    request.supplierDisplay = request.supplier;
-    request.reportGrade = request.concreteGrade;
+    const request = {
+      reportNo: normalizeText(value("cubeJobNumber", "reportNo")),
+      status: normalizeText(value("status")) || "Draft",
+      client: normalizeText(value("customerBilling", "client", "clientNameOnReport")),
+      project: normalizeText(value("projectNameOnReport", "project", "projectErp")),
+      concreteGrade: normalizeText(value("concreteGrade", "grade")),
+      template: normalizeText(value("template")) || "Original",
+      locationRepresented: normalizeText(value("locationRepresented", "location")),
+      additionalInformation: normalizeText(value("additionalInformation", "notes")),
+      internalDate: normalizeText(value("dateOfCast", "internalDate")),
+      projectCode: normalizeText(value("projectErp", "projectCode")),
+      method: normalizeText(value("testItem", "method")),
+      supplier: normalizeText(value("supplier")),
+      dateTimeSampled: normalizeText(value("dateOfCast", "dateTimeSampled")),
+      slumpMeasured: normalizeValue("slumpMeasured", formData.get("slumpMeasured")),
+      specimenSize: normalizeText(formData.get("specimenSize")),
+      slumpSpecified: normalizeValue("slumpSpecified", formData.get("slumpSpecified")),
+      projectErp: normalizeText(value("projectErp", "projectCode")),
+      customerBilling: normalizeText(value("customerBilling", "client")),
+      projectNameOnReport: normalizeText(value("projectNameOnReport", "project")),
+      clientNameOnReport: normalizeText(value("clientNameOnReport", "client")),
+      contact: normalizeText(value("contact")),
+      enableManualCubeJobNumber: formData.get("enableManualCubeJobNumber") != null,
+      cubeJobNumber: normalizeText(value("cubeJobNumber", "reportNo")),
+      quote: normalizeText(value("quote")),
+      testItem: normalizeText(value("testItem", "method")),
+      supplierDisplay: normalizeText(value("supplierDisplay", "supplier")),
+      dateOfCast: normalizeText(value("dateOfCast", "internalDate", "dateTimeSampled")),
+      reportGrade: normalizeText(value("reportGrade", "grade", "concreteGrade")),
+      personInCharge: normalizeText(value("personInCharge")),
+      managerInCharge: normalizeText(value("managerInCharge"))
+    };
+
+    request.reportNo = request.reportNo || request.cubeJobNumber;
+    request.client = request.client || request.customerBilling || request.clientNameOnReport;
+    request.project = request.project || request.projectNameOnReport || request.projectErp;
+    request.concreteGrade = request.concreteGrade || request.reportGrade;
+    request.internalDate = request.internalDate || request.dateOfCast;
+    request.projectCode = request.projectCode || request.projectErp;
+    request.method = request.method || request.testItem;
+    request.dateTimeSampled = request.dateTimeSampled || request.dateOfCast;
     return request;
   }
 
@@ -583,13 +1132,33 @@
     FORM_FIELDS,
     REQUIRED_FORM_FIELDS,
     RESULT_FIELDS,
+    DROPDOWN_OPTION_FIELDS,
     REQUEST_FIELD_LABELS,
     RESULT_FIELD_LABELS,
+    CUSTOM_FIELD_TYPES,
+    MAX_CUSTOM_REQUEST_FIELDS,
     defaultFormFieldConfig,
     normalizeFormFieldConfig,
+    normalizeCustomFieldDefinition,
+    normalizeCustomRequestFields,
+    isValidCustomFieldId,
+    customFieldInputName,
+    getCustomFieldFormLabel,
+    getCustomRequestFields,
+    getEnabledCustomRequestFields,
+    customRequestFieldHtml,
+    applyCustomRequestFields,
+    collectExtraFields,
+    normalizeExtraFields,
+    validateExtraFields,
+    formatCustomFieldDisplayValue,
+    getExtraFieldValue,
     getActiveRequiredFormFields,
     isRequestFieldEnabled,
     isResultFieldEnabled,
+    getRequestFieldLabel,
+    getResultFieldLabel,
+    applyFieldLabels,
     applyFormFieldConfig,
     syncNativeFormConstraints,
     syncFormFieldConfig,

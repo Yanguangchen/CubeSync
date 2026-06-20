@@ -40,8 +40,7 @@ test("Vercel deployment serves generated public output", () => {
   assert.match(buildScript, /"index\.html"/);
   assert.match(buildScript, /"glassmorphic\.html"/);
   assert.match(buildScript, /"env\.js"/);
-  assert.match(buildScript, /AUTOCOMPLETE_FILES/);
-  assert.match(buildScript, /person-in-charge/);
+  assert.match(buildScript, /"dropdown-options"/);
   assert.match(eslintConfig, /"public\/\*\*"/);
   assert.match(gitignore, /public\//);
 });
@@ -58,15 +57,12 @@ test("build script uses .env.local and emits non-empty public env output", () =>
     "barcode.js",
     "chime.js",
     "cubesync-form-data.js",
+    "cubesync-form-markup.js",
     "cubesync-export.js",
     "dashboard.js",
     "firestore.js",
     "rpa-dashboard.js",
     "rpa-view.js",
-    "styles.css",
-    "glassmorphic.css",
-    "dashboard.css",
-    "rpa-dashboard.css",
     "favicon.png",
     "manifest.json",
     "sw.js"
@@ -74,8 +70,17 @@ test("build script uses .env.local and emits non-empty public env output", () =>
 
   staticFiles.forEach((file) => writeFile(root, file, file));
   writeFile(root, "assets/logo.png", "logo");
-  writeFile(root, "supplier.txt", "Supplier A\nSupplier B");
-  writeFile(root, "person-in-charge", "Person A");
+  writeFile(root, "css/styles.css", '@import url("shared/tokens-rakmat-base.css");');
+  writeFile(root, "css/glassmorphic.css", '@import url("shared/barcode.css");');
+  writeFile(root, "css/dashboard.css", '@import url("dashboard/tokens.css");');
+  writeFile(root, "css/rpa-dashboard.css", '@import url("rpa/xp-theme.css");');
+  writeFile(root, "css/xp-taskbar.css", '@import url("rpa/xp-theme.css");');
+  writeFile(root, "css/shared/tokens-rakmat-base.css", "");
+  writeFile(root, "css/shared/barcode.css", "");
+  writeFile(root, "css/dashboard/tokens.css", "");
+  writeFile(root, "css/rpa/xp-theme.css", "body { color: #000; }");
+  writeFile(root, "dropdown-options/supplier.txt", "Supplier A\nSupplier B");
+  writeFile(root, "dropdown-options/person-in-charge.txt", "Person A");
   writeFile(root, ".env", "CUBESYNC_RECAPTCHA_SITE_KEY=\n");
   writeFile(root, ".env.local", "CUBESYNC_RECAPTCHA_SITE_KEY=local-test-site-key\n");
 
@@ -89,7 +94,9 @@ test("build script uses .env.local and emits non-empty public env output", () =>
   assert.ok(fs.existsSync(path.join(root, "public/index.html")));
   assert.ok(fs.existsSync(path.join(root, "public/glassmorphic.html")));
   assert.ok(fs.existsSync(path.join(root, "public/assets/logo.png")));
-  assert.ok(fs.existsSync(path.join(root, "public/supplier.txt")));
-  assert.ok(fs.existsSync(path.join(root, "public/person-in-charge")));
-  assert.match(fs.readFileSync(path.join(root, "public/supplier.txt"), "utf8"), /Supplier A/);
+  assert.ok(fs.existsSync(path.join(root, "public/css/styles.css")));
+  assert.ok(fs.existsSync(path.join(root, "public/css/rpa/xp-theme.css")));
+  assert.ok(fs.existsSync(path.join(root, "public/dropdown-options/supplier.txt")));
+  assert.ok(fs.existsSync(path.join(root, "public/dropdown-options/person-in-charge.txt")));
+  assert.match(fs.readFileSync(path.join(root, "public/dropdown-options/supplier.txt"), "utf8"), /Supplier A/);
 });

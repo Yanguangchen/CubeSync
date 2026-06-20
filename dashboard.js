@@ -11,6 +11,7 @@
   };
 
   const elements = {};
+  let initialized = false;
 
   function escapeHtml(value) {
     return String(value == null ? "" : value)
@@ -81,6 +82,38 @@
     return state.forms.find((form) => form.id === state.selectedId) || null;
   }
 
+  function customFields(form) {
+    return form && Array.isArray(form.customFields) ? form.customFields : [];
+  }
+
+  function customFieldCount(form) {
+    return customFields(form).length;
+  }
+
+  function renderCustomFieldBadge(form) {
+    const count = customFieldCount(form);
+    if (!count) {
+      return "";
+    }
+
+    const label = count === 1 ? "1 free-text field" : `${count} free-text fields`;
+    return `<span class="custom-field-count" title="Dropdown values typed as free text">${escapeHtml(label)}</span>`;
+  }
+
+  function renderCustomFieldLegend(form) {
+    const count = customFieldCount(form);
+    if (!count) {
+      return "";
+    }
+
+    return `
+      <aside class="custom-field-legend" aria-label="Free text dropdown legend">
+        <strong>Free-text dropdown fields: ${escapeHtml(count)}</strong>
+        <span>Orange tint indicates free text typed instead of selecting a dropdown option.</span>
+      </aside>
+    `;
+  }
+
   function renderForms() {
     if (state.loading) {
       setListMessage("Loading Firestore forms...");
@@ -89,9 +122,10 @@
 
     const rows = filteredForms().map(function (form) {
       const selectedClass = form.id === state.selectedId ? " selected" : "";
+      const customClass = customFieldCount(form) ? " has-custom-fields" : "";
       return `
-        <tr class="${selectedClass}" data-id="${escapeHtml(form.id)}" tabindex="0">
-          <td><strong>${escapeHtml(form.reportNo || form.id)}</strong></td>
+        <tr class="${selectedClass}${customClass}" data-id="${escapeHtml(form.id)}" tabindex="0">
+          <td><strong>${escapeHtml(form.reportNo || form.id)}</strong>${renderCustomFieldBadge(form)}</td>
           <td>${escapeHtml(form.client)}</td>
           <td>${escapeHtml(form.project)}</td>
           <td>${escapeHtml(form.template)}</td>
@@ -153,6 +187,28 @@
     `;
   }
 
+  function renderCustomDetailFields(raw, helper) {
+    if (!helper || typeof helper.getCustomRequestFields !== "function") {
+      return "";
+    }
+
+    const config = state.fieldConfig || helper.defaultFormFieldConfig();
+    const extraFields = raw.extraFields && typeof raw.extraFields === "object" ? raw.extraFields : {};
+
+    return helper.getCustomRequestFields(config).map(function (def) {
+      const value = extraFields[def.id];
+      if (value == null || value === "") {
+        return "";
+      }
+
+      const displayValue = helper.formatCustomFieldDisplayValue
+        ? helper.formatCustomFieldDisplayValue(def, value)
+        : String(value);
+
+      return `<div class="detail-field"><dt>${escapeHtml(def.label)}</dt><dd>${escapeHtml(displayValue)}</dd></div>`;
+    }).join("");
+  }
+
   function viewForm(id) {
     state.selectedId = id;
     const form = selectedForm();
@@ -166,14 +222,16 @@
     }
 
     elements.detailTitle.textContent = form.reportNo || form.id;
+    const customFieldSet = new Set(customFields(form));
     const renderField = (label, value, fieldName) => {
-      if (!value) return '';
-      const isCustom = form.customFields && form.customFields.includes(fieldName);
+      if (value == null || value === "") return '';
+      const isCustom = customFieldSet.has(fieldName);
       const displayValue = isCustom ? `<span class="highlight-custom" title="Custom free text entry">${escapeHtml(value)}</span>` : escapeHtml(value);
-      return `<div><dt>${escapeHtml(label)}</dt><dd>${displayValue}</dd></div>`;
+      return `<div class="detail-field${isCustom ? " is-custom-field" : ""}"><dt>${escapeHtml(label)}</dt><dd>${displayValue}</dd></div>`;
     };
 
     elements.detailContent.innerHTML = `
+      ${renderCustomFieldLegend(form)}
       <dl class="detail-list">
         ${renderField("Project (ERP)", form.projectErp, "projectErp")}
         ${renderField("Customer (Billing)", form.customerBilling, "customerBilling")}
@@ -196,6 +254,7 @@
         ${renderField("Specified Slump", form.slumpSpecified, "slumpSpecified")}
         ${renderField("Person in Charge", form.personInCharge, "personInCharge")}
         ${renderField("Manager in Charge", form.managerInCharge, "managerInCharge")}
+        ${renderCustomDetailFields(form.raw || {}, formDataHelper())}
       </dl>
       ${renderBarcodeList(form)}
     `;
@@ -259,26 +318,36 @@
     if (!helper || !elements.fieldConfigGroups) return;
 
     const normalized = helper.normalizeFormFieldConfig(config);
+
+    function renderItem(prefix, field, label, enabled, customLabel) {
+      const checked = enabled ? "checked" : "";
+      const value = customLabel ? escapeHtml(customLabel) : "";
+      const safeLabel = escapeHtml(label);
+      return `
+        <div class="field-config-item">
+          <label class="field-config-toggle">
+            <input type="checkbox" name="${prefix}-${field}" ${checked}>
+            <span>${safeLabel}</span>
+          </label>
+          <input type="text" class="field-config-rename" name="${prefix}-label-${field}"
+            value="${value}" placeholder="${safeLabel}"
+            aria-label="Custom label shown on forms for ${safeLabel}">
+        </div>
+      `;
+    }
+
     const requestItems = helper.FORM_FIELDS.map(function (field) {
       const label = helper.REQUEST_FIELD_LABELS[field] || field;
-      const checked = normalized.requestFields[field] !== false ? "checked" : "";
-      return `
-        <label>
-          <input type="checkbox" name="request-${field}" ${checked}>
-          <span>${escapeHtml(label)}</span>
-        </label>
-      `;
+      return renderItem("request", field, label, normalized.requestFields[field] !== false, normalized.requestLabels[field]);
     }).join("");
 
     const resultItems = helper.RESULT_FIELDS.map(function (field) {
       const label = helper.RESULT_FIELD_LABELS[field] || field;
-      const checked = normalized.resultFields[field] !== false ? "checked" : "";
-      return `
-        <label>
-          <input type="checkbox" name="result-${field}" ${checked}>
-          <span>${escapeHtml(label)}</span>
-        </label>
-      `;
+      return renderItem("result", field, label, normalized.resultFields[field] !== false, normalized.resultLabels[field]);
+    }).join("");
+
+    const customFieldRows = normalized.customRequestFields.map(function (def, index) {
+      return renderCustomFieldEditorRow(def, index, helper);
     }).join("");
 
     elements.fieldConfigGroups.innerHTML = `
@@ -290,7 +359,74 @@
         <h3 id="resultFieldConfigTitle">Test results columns</h3>
         <div class="field-config-list">${resultItems}</div>
       </section>
+      <section class="field-config-group field-config-group-full" aria-labelledby="customFieldConfigTitle">
+        <div class="field-config-group-header">
+          <h3 id="customFieldConfigTitle">Custom request fields</h3>
+          <button type="button" id="addCustomFieldButton" class="field-config-add-button">Add custom field</button>
+        </div>
+        <p class="field-config-section-note">Custom fields appear on both public forms. Use a unique key such as <code>siteRef</code>.</p>
+        <div class="custom-field-editor-list">${customFieldRows}</div>
+      </section>
     `;
+
+    bindCustomFieldEditorActions();
+  }
+
+  function renderCustomFieldEditorRow(def, index, helper) {
+    const types = helper.CUSTOM_FIELD_TYPES || ["text", "number", "date", "checkbox", "textarea"];
+    const typeOptions = types.map(function (type) {
+      const selected = (def.type || "text") === type ? "selected" : "";
+      return `<option value="${type}" ${selected}>${type}</option>`;
+    }).join("");
+    const requiredChecked = def.required ? "checked" : "";
+    const enabledChecked = def.enabled !== false ? "checked" : "";
+
+    return `
+      <div class="custom-field-editor">
+        <input type="text" name="custom-field-id-${index}" value="${escapeHtml(def.id || "")}" placeholder="Key (e.g. siteRef)" aria-label="Custom field key">
+        <input type="text" name="custom-field-label-${index}" value="${escapeHtml(def.label || "")}" placeholder="Dashboard label" aria-label="Custom field dashboard label">
+        <select name="custom-field-type-${index}" aria-label="Custom field type">${typeOptions}</select>
+        <label class="custom-field-flag"><input type="checkbox" name="custom-field-required-${index}" ${requiredChecked}> Required</label>
+        <label class="custom-field-flag"><input type="checkbox" name="custom-field-enabled-${index}" ${enabledChecked}> Enabled</label>
+        <input type="text" name="custom-field-form-label-${index}" value="${escapeHtml(def.formLabel || "")}" placeholder="Form label override" aria-label="Custom field form label override">
+        <button type="button" class="custom-field-remove">Delete</button>
+      </div>
+    `;
+  }
+
+  function bindCustomFieldEditorActions() {
+    if (!elements.fieldConfigGroups) return;
+
+    elements.addCustomFieldButton = document.getElementById("addCustomFieldButton");
+    if (elements.addCustomFieldButton) {
+      elements.addCustomFieldButton.onclick = addCustomFieldEditorRow;
+    }
+
+    elements.fieldConfigGroups.querySelectorAll(".custom-field-remove").forEach(function (button) {
+      button.addEventListener("click", function () {
+        const row = button.closest(".custom-field-editor");
+        if (row) row.remove();
+      });
+    });
+  }
+
+  function addCustomFieldEditorRow() {
+    const helper = formDataHelper();
+    const list = elements.fieldConfigGroups && elements.fieldConfigGroups.querySelector(".custom-field-editor-list");
+    if (!helper || !list) return;
+
+    const index = list.querySelectorAll(".custom-field-editor").length;
+    list.insertAdjacentHTML("beforeend", renderCustomFieldEditorRow({}, index, helper));
+
+    const newRow = list.lastElementChild;
+    if (!newRow) return;
+
+    const removeButton = newRow.querySelector(".custom-field-remove");
+    if (removeButton) {
+      removeButton.addEventListener("click", function () {
+        newRow.remove();
+      });
+    }
   }
 
   async function loadFieldConfig() {
@@ -316,6 +452,12 @@
   function openFieldConfigDialog() {
     renderFieldConfigEditor(state.fieldConfig);
     elements.fieldConfigDialog.showModal();
+  }
+
+  function resetFieldConfigEditor() {
+    const helper = formDataHelper();
+    if (!helper) return;
+    renderFieldConfigEditor(helper.defaultFormFieldConfig());
   }
 
   async function saveFieldConfig(event) {
@@ -401,28 +543,467 @@
     });
   }
 
+  let currentEditorStep = 1;
+
+  function setEditorStep(step) {
+    currentEditorStep = step;
+    
+    const indicator1 = document.getElementById("editStepIndicator1");
+    const indicator2 = document.getElementById("editStepIndicator2");
+    
+    if (indicator1 && indicator2) {
+      indicator1.classList.toggle("active", step === 1);
+      indicator2.classList.toggle("active", step === 2);
+      
+      if (step === 2) {
+        indicator2.removeAttribute("disabled");
+      }
+    }
+
+    const step1 = document.getElementById("editFormStep1");
+    const step2 = document.getElementById("editFormStep2");
+    
+    if (step1 && step2) {
+      step1.classList.toggle("active", step === 1);
+      step2.classList.toggle("active", step === 2);
+    }
+
+    const prevBtn = document.getElementById("editPrevStep");
+    const nextBtn = document.getElementById("editNextStep");
+
+    if (prevBtn && nextBtn) {
+      if (step === 1) {
+        prevBtn.classList.add("hidden");
+        nextBtn.textContent = "Next: Test Results";
+      } else {
+        prevBtn.classList.remove("hidden");
+        nextBtn.textContent = "Finish / Review";
+      }
+    }
+  }
+
+  function renderEditorBarcode(input) {
+    const cell = input.closest(".barcode-cell");
+    if (!cell) return;
+    const preview = cell.querySelector(".barcode-preview");
+    const message = cell.querySelector(".barcode-message");
+    const barcode = window.CubeSyncBarcode;
+
+    if (!preview || !message || !barcode) return;
+
+    try {
+      const svg = barcode.renderBarcodeSvg(input.value, {
+        height: 64,
+        moduleWidth: 1.45,
+        quietZoneModules: 8,
+        includeText: false
+      });
+      const hasBarcode = Boolean(svg);
+
+      cell.classList.toggle("has-barcode", hasBarcode);
+      cell.classList.remove("has-error");
+      input.setAttribute("aria-invalid", "false");
+      message.textContent = "";
+      if (hasBarcode) {
+        preview.innerHTML = svg;
+      } else {
+        preview.innerHTML = "";
+      }
+    } catch (error) {
+      cell.classList.remove("has-barcode");
+      cell.classList.add("has-error");
+      input.setAttribute("aria-invalid", "true");
+      preview.innerHTML = '<span class="barcode-error">Invalid barcode text</span>';
+      message.textContent = error.message;
+    }
+  }
+
+  function renderAllEditorBarcodes() {
+    const inputs = elements.editResultsBody.querySelectorAll("[data-barcode-input]");
+    inputs.forEach(renderEditorBarcode);
+  }
+
+  const REQUEST_TO_RESULT_PREFILL = {
+    size: "specimenSize",
+    specifiedSlump: "slumpSpecified",
+    meanSlump: "slumpMeasured",
+    resultGrade: "concreteGrade",
+    resultDateOfCast: "dateOfCast"
+  };
+
+  function prefillEditorRowFromRequest(row) {
+    Object.keys(REQUEST_TO_RESULT_PREFILL).forEach(function (rowField) {
+      const target = row.querySelector('[name^="' + rowField + '"]');
+      const source = elements.editForm.elements[REQUEST_TO_RESULT_PREFILL[rowField]];
+      if (target && source && !target.value) {
+        target.value = source.value || "";
+      }
+    });
+  }
+
+  function computeEditorRowAge(row) {
+    const cast = row.querySelector('[name^="resultDateOfCast"]');
+    const test = row.querySelector('[name^="dateOfTest"]');
+    const age = row.querySelector('[name^="age"]');
+    if (!cast || !test || !age || !cast.value || !test.value) return;
+
+    const castDate = new Date(cast.value);
+    const testDate = new Date(test.value);
+    const diffDays = Math.round((testDate - castDate) / (1000 * 60 * 60 * 24));
+    if (Number.isFinite(diffDays) && diffDays >= 0) {
+      age.value = diffDays;
+    }
+  }
+
+  function attachEditorRowListeners(row) {
+    const newInput = row.querySelector("[data-barcode-input]");
+    if (newInput) {
+      newInput.addEventListener("input", function () {
+        renderEditorBarcode(newInput);
+      });
+    }
+
+    ['[name^="resultDateOfCast"]', '[name^="dateOfTest"]'].forEach(function (selector) {
+      const dateInput = row.querySelector(selector);
+      if (dateInput) {
+        dateInput.addEventListener("change", function () {
+          computeEditorRowAge(row);
+        });
+      }
+    });
+
+    const removeBtn = row.querySelector(".remove-row-btn");
+    if (removeBtn) {
+      removeBtn.addEventListener("click", function () {
+        row.remove();
+        renumberEditRows();
+      });
+    }
+  }
+
+  function addEditResultRow() {
+    const rowCount = elements.editResultsBody.querySelectorAll("tr").length + 1;
+    const newRow = document.createElement("tr");
+    const markup = window.CubeSyncFormMarkup;
+    if (!markup) return;
+    newRow.innerHTML = markup.resultRowHtml(rowCount);
+    elements.editResultsBody.appendChild(newRow);
+    prefillEditorRowFromRequest(newRow);
+    attachEditorRowListeners(newRow);
+  }
+
+  function renumberEditRows() {
+    const rows = elements.editResultsBody.querySelectorAll("tr");
+    rows.forEach((row, index) => {
+      const num = index + 1;
+      const inputs = row.querySelectorAll("input, select");
+      inputs.forEach(input => {
+        const baseName = input.name.replace(/\d+$/, "");
+        input.name = baseName + num;
+        
+        if (input.hasAttribute("aria-label")) {
+          const baseAria = input.getAttribute("aria-label").replace(/Row \d+/, `Row ${num}`);
+          input.setAttribute("aria-label", baseAria);
+        }
+      });
+    });
+  }
+
+  function applyEditorManualCubeJobState() {
+    const manualCubeJobToggle = elements.editForm.elements["enableManualCubeJobNumber"];
+    const cubeJobNumberInput = elements.editForm.elements["cubeJobNumber"];
+    if (!manualCubeJobToggle || !cubeJobNumberInput) return;
+    
+    const enabled = manualCubeJobToggle.checked;
+    cubeJobNumberInput.disabled = !enabled;
+    cubeJobNumberInput.classList.toggle("is-disabled", !enabled);
+    if (enabled) {
+      cubeJobNumberInput.removeAttribute("readonly");
+    } else {
+      cubeJobNumberInput.value = "";
+    }
+  }
+
+  async function setupAutocomplete(inputName, fetchUrl, storageKey) {
+    try {
+      const fetchFn = typeof window !== "undefined" && window.fetch ? window.fetch : (typeof fetch !== "undefined" ? fetch : null);
+      
+      let fileOptions = [];
+      if (fetchFn) {
+        try {
+          const response = await fetchFn(encodeURI(fetchUrl));
+          if (response.ok) {
+            const text = await response.text();
+            fileOptions = text.split('\n').map(l => l.trim()).filter(l => l);
+          }
+        } catch {
+          // Ignore missing autocomplete source files.
+        }
+      }
+      
+      let localOptions = [];
+      try {
+        const stored = localStorage.getItem(storageKey);
+        if (stored) {
+          localOptions = JSON.parse(stored);
+        }
+      } catch {
+        // Ignore missing autocomplete source files.
+      }
+      
+      const allOptions = Array.from(new Set([...fileOptions, ...localOptions]));
+      
+      document.querySelectorAll(`input[name="${inputName}"]`).forEach(input => {
+        input.setAttribute('autocomplete', 'off');
+        input.removeAttribute('list');
+        input.dataset.dropdownOptionField = inputName;
+        
+        let wrapper = input.parentElement;
+        if (!wrapper.classList.contains('erp-autocomplete-wrapper')) {
+          wrapper = document.createElement('div');
+          wrapper.className = 'erp-autocomplete-wrapper';
+          input.parentNode.insertBefore(wrapper, input);
+          wrapper.appendChild(input);
+        }
+        
+        let dropdown = wrapper.querySelector('.erp-dropdown');
+        if (!dropdown) {
+          dropdown = document.createElement('ul');
+          dropdown.className = 'erp-dropdown';
+          wrapper.appendChild(dropdown);
+        }
+        
+        let focusedIndex = -1;
+
+        const setFreeTextState = (isFreeText) => {
+          if (isFreeText) {
+            input.dataset.freeTextEntry = "true";
+          } else {
+            delete input.dataset.freeTextEntry;
+          }
+        };
+
+        const chooseOption = (value) => {
+          input.dataset.autocompleteSelecting = "true";
+          input.value = value;
+          setFreeTextState(false);
+          input.dispatchEvent(new window.Event('input', { bubbles: true }));
+          delete input.dataset.autocompleteSelecting;
+          closeDropdown();
+        };
+        
+        const renderDropdown = (query) => {
+          dropdown.innerHTML = '';
+          const lowerQuery = query.toLowerCase();
+          
+          let matches = allOptions.filter(opt => opt.toLowerCase().includes(lowerQuery));
+          
+          if (matches.length === 0) {
+            dropdown.style.display = 'none';
+            return;
+          }
+          
+          matches.sort((a, b) => {
+            const aLower = a.toLowerCase();
+            const bLower = b.toLowerCase();
+            if (aLower === lowerQuery) return -1;
+            if (bLower === lowerQuery) return 1;
+            const aStarts = aLower.startsWith(lowerQuery);
+            const bStarts = bLower.startsWith(lowerQuery);
+            if (aStarts && !bStarts) return -1;
+            if (!aStarts && bStarts) return 1;
+            return 0;
+          });
+          
+          matches.forEach((match) => {
+            const li = document.createElement('li');
+            li.className = 'erp-dropdown-item';
+            
+            const queryLen = query.length;
+            const matchIndex = match.toLowerCase().indexOf(lowerQuery);
+            if (queryLen > 0 && matchIndex !== -1) {
+              const before = match.substring(0, matchIndex);
+              const matchedPart = match.substring(matchIndex, matchIndex + queryLen);
+              const after = match.substring(matchIndex + queryLen);
+              
+              let html = '';
+              if (before) html += `<strong>${before}</strong>`;
+              html += matchedPart;
+              if (after) html += `<strong>${after}</strong>`;
+              li.innerHTML = html;
+            } else {
+              li.innerHTML = `<strong>${match}</strong>`;
+            }
+            
+            li.addEventListener('mousedown', (e) => {
+              e.preventDefault();
+              chooseOption(match);
+            });
+            
+            dropdown.appendChild(li);
+          });
+          
+          dropdown.style.display = 'block';
+          focusedIndex = -1;
+        };
+        
+        const closeDropdown = () => {
+          dropdown.style.display = 'none';
+          focusedIndex = -1;
+        };
+        
+        const updateFocus = () => {
+          const items = dropdown.querySelectorAll('.erp-dropdown-item');
+          items.forEach((item, idx) => {
+            if (idx === focusedIndex) {
+              item.classList.add('selected');
+              if (typeof item.scrollIntoView === 'function') {
+                item.scrollIntoView({ block: 'nearest' });
+              }
+            } else {
+              item.classList.remove('selected');
+            }
+          });
+        };
+        
+        const checkFreeText = () => {
+          setFreeTextState(Boolean(input.value.trim()));
+        };
+        
+        input.addEventListener('focus', () => renderDropdown(input.value));
+        input.addEventListener('input', () => {
+          if (input.dataset.autocompleteSelecting === "true") {
+            renderDropdown(input.value);
+            return;
+          }
+
+          renderDropdown(input.value);
+          checkFreeText();
+        });
+        input.addEventListener('blur', closeDropdown);
+        
+        input.addEventListener('keydown', (e) => {
+          const items = dropdown.querySelectorAll('.erp-dropdown-item');
+          if (dropdown.style.display === 'block' && items.length > 0) {
+            if (e.key === 'ArrowDown') {
+              e.preventDefault();
+              focusedIndex = (focusedIndex + 1) % items.length;
+              updateFocus();
+            } else if (e.key === 'ArrowUp') {
+              e.preventDefault();
+              focusedIndex = (focusedIndex - 1 + items.length) % items.length;
+              updateFocus();
+            } else if (e.key === 'Enter') {
+              if (focusedIndex >= 0 && focusedIndex < items.length) {
+                e.preventDefault();
+                chooseOption(items[focusedIndex].textContent);
+              }
+            } else if (e.key === 'Escape') {
+              closeDropdown();
+            }
+          }
+        });
+      });
+      
+      if (!document.getElementById('erp-dropdown-css')) {
+        const style = document.createElement('style');
+        style.id = 'erp-dropdown-css';
+        style.textContent = `
+          .erp-autocomplete-wrapper { position: relative; display: inline-block; width: 100%; }
+          .erp-autocomplete-wrapper input:focus { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+          .erp-dropdown { position: absolute; top: 100%; left: 0; right: 0; background: #fff; border: 1px solid #dfe1e5; border-top: none; border-radius: 0 0 24px 24px; box-shadow: 0 4px 6px rgba(32, 33, 36, 0.28); z-index: 1000; list-style: none; padding: 10px 0 20px 0; margin: 0; display: none; max-height: 350px; overflow-y: auto; text-align: left; }
+          .erp-dropdown-item { padding: 4px 20px; cursor: pointer; display: flex; align-items: center; font-family: Arial, sans-serif; font-size: 16px; color: #212124; line-height: 24px; }
+          .erp-dropdown-item::before { content: "🔍"; margin-right: 14px; opacity: 0.4; font-size: 14px; }
+          .erp-dropdown-item:hover, .erp-dropdown-item.selected { background-color: #f1f3f4; }
+          .erp-dropdown-item strong { font-weight: 600; }
+        `;
+        document.head.appendChild(style);
+      }
+    } catch (e) {
+      console.error('Failed to setup autocomplete for', inputName, e);
+    }
+  }
+
   function openEditor(id) {
     const form = state.forms.find((item) => item.id === id);
     if (!form) return;
     const raw = form.raw || {};
+    const existingCustomFields = new Set(customFields(form));
+
+    elements.editResultsBody.innerHTML = "";
 
     elements.editForm.elements.id.value = form.id;
-    elements.editForm.elements.reportNo.value = form.reportNo;
-    elements.editForm.elements.internalDate.value = raw.internalDate || "";
-    elements.editForm.elements.projectCode.value = raw.projectCode || "";
-    elements.editForm.elements.method.value = raw.method || "";
-    elements.editForm.elements.supplier.value = raw.supplier || "";
-    elements.editForm.elements.dateTimeSampled.value = raw.dateTimeSampled || "";
-    elements.editForm.elements.slumpMeasured.value = raw.slumpMeasured == null ? "" : raw.slumpMeasured;
-    elements.editForm.elements.specimenSize.value = raw.specimenSize || "";
-    elements.editForm.elements.slumpSpecified.value = raw.slumpSpecified == null ? "" : raw.slumpSpecified;
-    elements.editForm.elements.status.value = form.status;
-    elements.editForm.elements.client.value = form.client;
-    elements.editForm.elements.project.value = form.project;
-    elements.editForm.elements.grade.value = form.grade;
-    elements.editForm.elements.template.value = form.template;
-    elements.editForm.elements.location.value = form.location;
-    elements.editForm.elements.notes.value = form.notes;
+
+    const helper = formDataHelper();
+    if (helper && helper.FORM_FIELDS) {
+      helper.FORM_FIELDS.forEach((field) => {
+        const control = elements.editForm.elements[field];
+        if (control) {
+          if (control.type === "checkbox") {
+            control.checked = Boolean(helper.getCubeRequestFormValue(raw, field));
+          } else {
+            control.value = helper.getCubeRequestFormValue(raw, field);
+          }
+        }
+      });
+    }
+
+    const legacyFields = {
+      internalDate: raw.internalDate || raw.dateOfCast || "",
+      projectCode: raw.projectCode || raw.projectErp || "",
+      method: raw.method || raw.testItem || "",
+      dateTimeSampled: raw.dateTimeSampled || raw.dateOfCast || "",
+      client: form.client || raw.client || raw.customerBilling || "",
+      project: form.project || raw.project || raw.projectNameOnReport || "",
+      grade: form.grade || raw.concreteGrade || raw.reportGrade || "",
+      location: form.location || raw.locationRepresented || raw.location || "",
+      notes: form.notes || raw.additionalInformation || raw.notes || "",
+      reportNo: form.reportNo || raw.cubeJobNumber || ""
+    };
+    Object.keys(legacyFields).forEach((field) => {
+      const control = elements.editForm.elements[field];
+      if (control) {
+        control.value = legacyFields[field];
+      }
+    });
+
+    existingCustomFields.forEach((field) => {
+      const control = elements.editForm.elements[field];
+      if (control && control.dataset && String(control.value || "").trim()) {
+        control.dataset.freeTextEntry = "true";
+      }
+    });
+
+    if (helper && typeof helper.applyCustomRequestFields === "function") {
+      helper.applyCustomRequestFields(elements.editForm, state.fieldConfig, raw.extraFields || {});
+    }
+
+    if (elements.editForm.elements.status) {
+      elements.editForm.elements.status.value = form.status || "Draft";
+    }
+    if (elements.editForm.elements.template) {
+      elements.editForm.elements.template.value = form.template || "Original";
+    }
+
+    const results = raw.results || [];
+    results.forEach((result, index) => {
+      addEditResultRow();
+      const rowNum = index + 1;
+      if (helper && helper.RESULT_FIELDS) {
+        helper.RESULT_FIELDS.forEach((field) => {
+          const control = elements.editForm.elements[`${field}${rowNum}`];
+          if (control) {
+            control.value = result[field] == null ? "" : result[field];
+          }
+        });
+      }
+    });
+
+    renumberEditRows();
+    renderAllEditorBarcodes();
+    setEditorStep(1);
+    applyEditorManualCubeJobState();
+
     elements.editDialog.showModal();
   }
 
@@ -431,16 +1012,53 @@
 
     const store = formStore();
     const helper = formDataHelper();
-    const formData = new FormData(elements.editForm);
-    const id = formData.get("id");
+    if (!store || !helper) return;
 
-    if (!store || !helper || !id) return;
+    const id = elements.editForm.elements.id.value;
+    if (!id) return;
 
     const submitButton = elements.editForm.querySelector('button[type="submit"]');
     if (submitButton) submitButton.disabled = true;
 
     try {
-      await store.updateCubeRequest(id, helper.dashboardEditToCubeRequest(formData));
+      // Sync legacy hidden fields from standard visible fields before serializing
+      const syncLegacy = (legacyName, standardName) => {
+        const legacyControl = elements.editForm.elements[legacyName];
+        const standardControl = elements.editForm.elements[standardName];
+        if (legacyControl && standardControl) {
+          if (standardControl.type === "checkbox") {
+            legacyControl.value = standardControl.checked ? "true" : "";
+          } else {
+            legacyControl.value = standardControl.value;
+          }
+        }
+      };
+
+      syncLegacy("internalDate", "dateOfCast");
+      syncLegacy("projectCode", "projectErp");
+      syncLegacy("method", "testItem");
+      syncLegacy("dateTimeSampled", "dateOfCast");
+      syncLegacy("client", "customerBilling");
+      syncLegacy("project", "projectNameOnReport");
+      syncLegacy("grade", "reportGrade");
+      syncLegacy("location", "locationRepresented");
+      syncLegacy("notes", "additionalInformation");
+      syncLegacy("reportNo", "cubeJobNumber");
+
+      const formData = new FormData(elements.editForm);
+      const payload = {
+        ...helper.buildCubeRequestFromForm(elements.editForm),
+        ...helper.dashboardEditToCubeRequest(formData)
+      };
+
+      if (elements.editForm.elements.status) {
+        payload.status = elements.editForm.elements.status.value;
+      }
+      if (elements.editForm.elements.template) {
+        payload.template = elements.editForm.elements.template.value;
+      }
+
+      await store.updateCubeRequest(id, payload);
       elements.editDialog.close();
       state.selectedId = id;
       await loadForms();
@@ -477,14 +1095,6 @@
     window.open(`${url}?id=${encodeURIComponent(id)}&print=true`, "_blank");
   }
 
-  function openTemplate(id) {
-    const form = state.forms.find((item) => item.id === id);
-    if (!form) return;
-
-    const url = form.template === "Glassmorphic" ? "glassmorphic.html" : "index.html";
-    window.location.href = `${url}?id=${encodeURIComponent(id)}`;
-  }
-
   function handleListClick(event) {
     const actionButton = event.target.closest("[data-action]");
     const row = event.target.closest("tr[data-id]");
@@ -500,7 +1110,10 @@
     event.stopPropagation();
     const action = actionButton.dataset.action;
 
-    if (action === "view") viewForm(id);
+    if (action === "view") {
+      viewForm(id);
+      openEditor(id);
+    }
     if (action === "edit") openEditor(id);
     if (action === "print") printForm(id);
     if (action === "delete") deleteForm(id);
@@ -519,7 +1132,10 @@
       "statusFilter", "editDialog", "editForm", "closeEditorButton", "cancelEditButton",
       "detailViewButton", "detailEditButton", "detailPrintButton", "detailDeleteButton",
       "printArea", "fieldSettingsButton", "fieldConfigDialog", "fieldConfigForm",
-      "fieldConfigGroups", "closeFieldConfigButton", "cancelFieldConfigButton"
+      "fieldConfigGroups", "closeFieldConfigButton", "cancelFieldConfigButton",
+      "resetFieldConfigButton", "addCustomFieldButton",
+      "menuToggle", "dropdownMenu", "editAddRowButton", "editResultsBody", 
+      "editPrevStep", "editNextStep", "editStepIndicator1", "editStepIndicator2"
     ].forEach((id) => {
       elements[id] = document.getElementById(id);
     });
@@ -553,6 +1169,11 @@
   }
 
   window.addEventListener("DOMContentLoaded", function () {
+    if (initialized) {
+      return;
+    }
+
+    initialized = true;
     bindElements();
     renderForms();
 
@@ -567,7 +1188,7 @@
       renderForms();
     });
 
-    elements.detailViewButton.addEventListener("click", () => openTemplate(state.selectedId));
+    elements.detailViewButton.addEventListener("click", () => openEditor(state.selectedId));
     elements.detailEditButton.addEventListener("click", () => openEditor(state.selectedId));
     elements.detailPrintButton.addEventListener("click", () => printForm(state.selectedId));
     elements.detailDeleteButton.addEventListener("click", () => deleteForm(state.selectedId));
@@ -575,6 +1196,44 @@
     elements.editForm.addEventListener("submit", saveEditedForm);
     elements.closeEditorButton.addEventListener("click", () => elements.editDialog.close());
     elements.cancelEditButton.addEventListener("click", () => elements.editDialog.close());
+
+    if (elements.editAddRowButton) {
+      elements.editAddRowButton.addEventListener("click", addEditResultRow);
+    }
+    if (elements.editPrevStep) {
+      elements.editPrevStep.addEventListener("click", () => {
+        if (currentEditorStep > 1) setEditorStep(currentEditorStep - 1);
+      });
+    }
+    if (elements.editNextStep) {
+      elements.editNextStep.addEventListener("click", () => {
+        if (currentEditorStep === 1) {
+          setEditorStep(2);
+        } else {
+          elements.editForm.dispatchEvent(new window.Event("submit", { cancelable: true }));
+        }
+      });
+    }
+    if (elements.editStepIndicator1) {
+      elements.editStepIndicator1.addEventListener("click", () => setEditorStep(1));
+    }
+    if (elements.editStepIndicator2) {
+      elements.editStepIndicator2.addEventListener("click", () => setEditorStep(2));
+    }
+
+    const manualCubeJobToggle = elements.editForm.elements["enableManualCubeJobNumber"];
+    if (manualCubeJobToggle) {
+      manualCubeJobToggle.addEventListener("change", applyEditorManualCubeJobState);
+    }
+
+    setupAutocomplete('projectErp', 'dropdown-options/project erp.txt', 'savedProjectErps');
+    setupAutocomplete('customerBilling', 'dropdown-options/customer billing.txt', 'savedCustomerBillings');
+    setupAutocomplete('supplier', 'dropdown-options/supplier.txt', 'savedSuppliers');
+    setupAutocomplete('concreteGrade', 'dropdown-options/Grade.txt', 'savedGrades');
+    setupAutocomplete('personInCharge', 'dropdown-options/person-in-charge.txt', 'savedPersonsInCharge');
+    setupAutocomplete('managerInCharge', 'dropdown-options/manager-in-charge.txt', 'savedManagersInCharge');
+    setupAutocomplete('testItem', 'dropdown-options/testitem.txt', 'savedTestItems');
+    setupAutocomplete('specimenSize', 'dropdown-options/size.txt', 'savedSizes');
 
     if (elements.fieldSettingsButton) {
       elements.fieldSettingsButton.addEventListener("click", openFieldConfigDialog);
@@ -587,6 +1246,25 @@
     }
     if (elements.cancelFieldConfigButton) {
       elements.cancelFieldConfigButton.addEventListener("click", () => elements.fieldConfigDialog.close());
+    }
+    if (elements.resetFieldConfigButton) {
+      elements.resetFieldConfigButton.addEventListener("click", resetFieldConfigEditor);
+    }
+
+    if (elements.menuToggle && elements.dropdownMenu) {
+      elements.menuToggle.addEventListener("click", function (event) {
+        event.stopPropagation();
+        const expanded = elements.menuToggle.getAttribute("aria-expanded") === "true";
+        elements.menuToggle.setAttribute("aria-expanded", !expanded);
+        elements.dropdownMenu.classList.toggle("active");
+      });
+
+      document.addEventListener("click", function (event) {
+        if (!elements.dropdownMenu.contains(event.target) && event.target !== elements.menuToggle) {
+          elements.menuToggle.setAttribute("aria-expanded", "false");
+          elements.dropdownMenu.classList.remove("active");
+        }
+      });
     }
 
     bindThemeToggle();

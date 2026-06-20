@@ -62,10 +62,60 @@ test("Firestore rules enforce CubeSync staff allowlist for direct client access"
   assert.match(rules, /jlee\.j\.m9382@gmail\.com/);
   assert.match(rules, /match \/settings\/formFieldConfig/);
   assert.match(rules, /isValidFormFieldConfig/);
+  assert.match(rules, /customRequestFields/);
+  assert.match(rules, /isValidExtraFields/);
+  assert.match(rules, /'extraFields'/);
   assert.doesNotMatch(rules, /allow read, write: if isSignedIn\(\);/);
   assert.match(rules, /match \/bookings\/\{bookingId\}/);
   assert.match(rules, /match \/collisions\/\{collisionId\}/);
   assert.match(rules, /match \/\{document=\*\*\}/);
+});
+
+test("Firestore rules allow current CubeSync dashboard save payloads", () => {
+  const rules = fs.readFileSync("firestore.rules", "utf8");
+
+  for (const field of [
+    "projectErp",
+    "customerBilling",
+    "projectNameOnReport",
+    "clientNameOnReport",
+    "contact",
+    "enableManualCubeJobNumber",
+    "cubeJobNumber",
+    "quote",
+    "testItem",
+    "supplierDisplay",
+    "dateOfCast",
+    "reportGrade",
+    "personInCharge",
+    "managerInCharge",
+    "customFields",
+    "extraFields",
+    "erpStatus",
+    "rpaStatus"
+  ]) {
+    assert.match(rules, new RegExp(`'${field}'`));
+  }
+
+  for (const resultField of [
+    "setNo",
+    "size",
+    "specimenRef",
+    "barcode",
+    "specifiedSlump",
+    "meanSlump",
+    "resultGrade",
+    "resultDateOfCast",
+    "age",
+    "dateOfTest",
+    "invoiceNumber"
+  ]) {
+    assert.match(rules, new RegExp(`'${resultField}'`));
+  }
+
+  assert.match(rules, /function isValidCubeCustomFields/);
+  assert.match(rules, /isValidCubeCustomFields\(request\.resource\.data\.customFields\)/);
+  assert.match(rules, /value is string && value\.size\(\) <= 64/);
 });
 
 test("public submission API verifies reCAPTCHA v2 before Admin SDK writes", () => {

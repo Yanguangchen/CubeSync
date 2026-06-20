@@ -1,11 +1,10 @@
-:root {
-  /* Brand - Rakmat Professional Blue */
-  --brand-blue: #003399;
-  --brand-blue-strong: #002266;
-  --brand-accent: #E31E24;
-  --brand-sky-soft: #f0f5ff;
+@import url("shared/tokens-rakmat-base.css");
+@import url("shared/barcode.css");
 
-  /* Semantic */
+/* ==========================================================================
+   Glassmorphic form — semantic tokens
+   ========================================================================== */
+:root {
   --accent: var(--brand-blue);
   --accent-strong: var(--brand-blue-strong);
   --accent-soft: rgba(0, 51, 153, 0.1);
@@ -14,7 +13,6 @@
   --highlight: #e6eefc;
   --highlight-soft: #f0f5ff;
 
-  /* Neutrals */
   --ink: #000000;
   --muted: #4b5563;
   --line: rgba(0, 51, 153, 0.12);
@@ -23,23 +21,24 @@
   --subtle: #f9fafb;
   --page-bg: #eef4f8;
 
-  /* Feedback */
-  --error: #b42318;
-  --error-soft: rgba(180, 35, 24, 0.10);
   --success: var(--brand-blue);
   --success-soft: var(--accent-soft);
 
-  /* Spacing */
   --space-1: 6px;
   --space-2: 12px;
   --space-3: 18px;
   --space-4: 28px;
 
-  /* Radius */
   --radius: 12px;
   --radius-sm: 8px;
+
+  --barcode-text-font: "Outfit", Arial, Helvetica, sans-serif;
+  --barcode-placeholder-color: var(--muted);
 }
 
+/* ==========================================================================
+   Base
+   ========================================================================== */
 * {
   box-sizing: border-box;
 }
@@ -49,7 +48,7 @@ html {
   color: var(--ink);
 }
 
-body {
+body:has(.page-tools) {
   min-height: 100vh;
   margin: 0;
   background: var(--page-bg);
@@ -70,7 +69,9 @@ select,
   font: inherit;
 }
 
-/* Action bar -------------------------------------------------- */
+/* ==========================================================================
+   Action bar
+   ========================================================================== */
 .page-tools {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
@@ -190,7 +191,9 @@ select:focus-visible {
   outline-offset: 2px;
 }
 
-/* Sheet ------------------------------------------------------- */
+/* ==========================================================================
+   Sheet & steps
+   ========================================================================== */
 .sheet {
   width: min(1100px, calc(100vw - 32px));
   margin: 0 auto var(--space-4);
@@ -202,7 +205,6 @@ select:focus-visible {
   box-shadow: 0 1px 3px rgba(22, 33, 56, 0.06), 0 12px 32px rgba(22, 33, 56, 0.06);
 }
 
-/* Step Navigation --------------------------------------------- */
 .form-steps {
   display: flex;
   align-items: center;
@@ -288,7 +290,9 @@ select:focus-visible {
   display: none;
 }
 
-/* Header ------------------------------------------------------ */
+/* ==========================================================================
+   Header & title
+   ========================================================================== */
 .form-header {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -360,7 +364,6 @@ select:focus-visible {
   text-transform: uppercase;
 }
 
-/* Title ------------------------------------------------------- */
 .title-band {
   margin: var(--space-4) 0 var(--space-3);
 }
@@ -381,11 +384,18 @@ h1 {
   line-height: 1.15;
 }
 
-/* Request details -------------------------------------------- */
+/* ==========================================================================
+   Request fields
+   ========================================================================== */
 .request-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: var(--space-3) var(--space-4);
+}
+
+.request-section,
+.request-section-fields {
+  display: contents;
 }
 
 .field-row {
@@ -410,8 +420,8 @@ h1 {
   justify-self: start;
 }
 
-input,
-select {
+.sheet input:not([type="checkbox"]),
+.sheet select {
   width: 100%;
   min-width: 0;
   min-height: 40px;
@@ -424,7 +434,7 @@ select {
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-input[type="checkbox"] {
+.sheet .field-row input[type="checkbox"] {
   width: 20px;
   min-width: 20px;
   min-height: 20px;
@@ -434,18 +444,20 @@ input[type="checkbox"] {
   accent-color: var(--accent);
 }
 
-input:hover,
-select:hover {
+.sheet input:not([type="checkbox"]):hover,
+.sheet select:hover {
   border-color: var(--muted);
 }
 
-input:focus,
-select:focus {
+.sheet input:not([type="checkbox"]):focus,
+.sheet select:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
-/* Results ----------------------------------------------------- */
+/* ==========================================================================
+   Results table
+   ========================================================================== */
 .results-section {
   margin-top: var(--space-4);
 }
@@ -562,99 +574,15 @@ select:focus {
   width: 31.2%;
 }
 
-/* Barcode ----------------------------------------------------- */
-.barcode-cell {
-  padding: 8px;
-  vertical-align: top;
-}
-
-.results-table .barcode-cell > input {
-  display: block;
-  width: 100%;
-  max-width: 150px;
-  min-height: 32px;
-  margin: 0 auto 6px;
-  border: 1px solid var(--line-strong);
-  background: var(--surface);
-  font-size: 12px;
-  text-align: left;
-}
-
-.results-table .barcode-cell > input[aria-invalid="true"] {
-  border-color: var(--error);
-}
-
-.barcode-preview {
-  display: none;
-  align-items: center;
-  justify-content: flex-start;
-  width: 100%;
-  height: 72px;
-  min-height: 72px;
-  max-height: 72px;
-  padding: 4px;
-  overflow-x: auto;
-  overflow-y: hidden;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-}
-
-.barcode-cell.has-barcode .barcode-preview,
-.barcode-cell.has-error .barcode-preview {
-  display: flex;
-}
-
-.barcode-preview svg {
-  display: block;
-  flex: 0 0 auto;
-  width: auto;
-  max-width: none;
-  height: 64px;
-}
-
-.barcode-preview svg rect:not(.barcode-background) {
-  fill: #111111;
-}
-
-.barcode-preview svg text {
-  font-family: "Outfit", Arial, Helvetica, sans-serif;
-  font-size: 10px;
-  fill: var(--ink);
-}
-
-.barcode-placeholder,
-.barcode-error {
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.barcode-placeholder {
-  color: var(--muted);
-}
-
-.barcode-error,
-.barcode-message {
-  color: var(--error);
-}
-
-.barcode-message {
-  margin: 4px 0 0;
-  font-size: 11px;
-  line-height: 1.3;
-}
-
-.barcode-message:empty {
-  display: none;
-}
-
-/* Responsive -------------------------------------------------- */
+/* ==========================================================================
+   Responsive
+   ========================================================================== */
 @media (max-width: 960px) {
-  .results-table, 
-  .results-table thead, 
-  .results-table tbody, 
-  .results-table th, 
-  .results-table td, 
+  .results-table,
+  .results-table thead,
+  .results-table tbody,
+  .results-table th,
+  .results-table td,
   .results-table tr {
     display: block;
   }
@@ -675,7 +603,7 @@ select:focus {
     border-radius: var(--radius);
     background: var(--surface);
     overflow: hidden;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   }
 
   .results-table td {
@@ -768,7 +696,9 @@ select:focus {
   }
 }
 
-/* Print ------------------------------------------------------- */
+/* ==========================================================================
+   Print
+   ========================================================================== */
 @page {
   size: A4 landscape;
   margin: 10mm;

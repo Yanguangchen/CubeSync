@@ -1,0 +1,346 @@
+/**
+ * Windows XP theme — taskbar, window chrome, and RPA overrides.
+ */
+:root {
+  --xp-blue: #0058e6;
+  --xp-blue-light: #245edb;
+  --xp-bg: #ece9d8;
+  --xp-window-border: #0054e3;
+  --xp-title-text: #ffffff;
+}
+
+body {
+  padding-bottom: 40px !important;
+}
+
+html,
+body {
+  background: url("../../assets/xplogo.png") no-repeat center bottom 32px fixed, url("../../assets/xpwallpaper.png") no-repeat center center fixed #3a6ea5 !important;
+  background-size: 260px, cover !important;
+  margin: 0;
+  padding: 0;
+  font-family: "Tahoma", "Trebuchet MS", sans-serif !important;
+}
+
+/* Taskbar */
+.xp-taskbar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 30px;
+  background: linear-gradient(to bottom, #245edb 0%, #3f8cf3 9%, #245edb 18%, #245edb 92%, #333 100%);
+  display: flex;
+  align-items: center;
+  z-index: 9999;
+  font-family: Tahoma, "Segoe UI", sans-serif !important;
+  color: white;
+  border-top: 1px solid #0050d2;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+.xp-taskbar * {
+  font-family: Tahoma, "Segoe UI", sans-serif !important;
+}
+
+.xp-start-btn {
+  background: linear-gradient(to bottom, #39a349 0%, #3c9f45 10%, #2f8e36 40%, #1e7024 100%);
+  height: 100%;
+  display: flex;
+  align-items: center;
+  padding: 0 15px 0 5px;
+  border-right: 1px solid rgba(0, 0, 0, 0.5);
+  box-shadow: inset 1px 1px 1px rgba(255, 255, 255, 0.7), inset -1px 0 1px rgba(255, 255, 255, 0.3);
+  border-top-right-radius: 8px;
+  border-bottom-right-radius: 8px;
+  font-style: italic;
+  font-weight: bold;
+  font-size: 14px;
+  cursor: pointer;
+  margin-right: 10px;
+  text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.5);
+}
+
+.xp-start-btn img {
+  height: 18px;
+  margin-right: 4px;
+}
+
+.xp-tasks {
+  display: flex;
+  flex: 1;
+  gap: 5px;
+  height: 100%;
+  padding: 3px 0;
+  overflow: hidden;
+}
+
+.xp-task {
+  background: #3b82e2;
+  border: 1px solid #1449a5;
+  border-radius: 3px;
+  color: white !important;
+  text-decoration: none !important;
+  font-size: 11px;
+  padding: 0 10px;
+  display: flex;
+  align-items: center;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  white-space: nowrap;
+}
+
+.xp-task:hover {
+  background: #5398eb;
+}
+
+.xp-task:active {
+  background: #1f5ca8;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.xp-tray {
+  background: linear-gradient(to bottom, #119beb 0%, #2fb2f2 10%, #1094e1 40%, #0369a4 100%);
+  height: 100%;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  border-left: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: inset 1px 0 0 rgba(0, 0, 0, 0.2);
+  gap: 15px;
+}
+
+.xp-tray-item {
+  color: white !important;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+}
+
+.xp-btn {
+  background: transparent !important;
+  border: none !important;
+  text-transform: none !important;
+  cursor: pointer;
+  padding: 0;
+  box-shadow: none !important;
+}
+
+.xp-btn:hover {
+  text-decoration: underline !important;
+  background: transparent !important;
+  color: white !important;
+}
+
+/* Window chrome */
+.xp-window {
+  background: var(--xp-bg) !important;
+  border: 3px solid var(--xp-window-border) !important;
+  border-radius: 8px 8px 0 0 !important;
+  box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.5) !important;
+  overflow: hidden !important;
+  width: min(1000px, 95vw) !important;
+  margin: 40px auto !important;
+}
+
+.xp-window-title {
+  background: linear-gradient(to bottom, #0058e6 0%, #3a93ff 10%, #288eff 30%, #127dff 50%, #036bfe 100%);
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
+  padding: 5px 10px;
+  display: flex;
+  align-items: center;
+  color: white;
+  border: 1px solid #00138c;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  margin-bottom: 0;
+}
+
+.xp-window-title .brand-block {
+  display: flex;
+  align-items: center;
+}
+
+.xp-window-title h1 {
+  font-family: Tahoma, "Segoe UI", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: bold;
+  text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.5);
+  margin: 0;
+  color: white !important;
+  letter-spacing: normal !important;
+}
+
+.xp-window-title .eyebrow {
+  display: none !important;
+}
+
+.xp-logo-large {
+  height: 64px !important;
+  margin-right: 12px !important;
+  filter: none !important;
+}
+
+.xp-window-body {
+  background-color: #ece9d8 !important;
+  color: #000000 !important;
+  padding: 10px;
+}
+
+.xp-window-body h2 {
+  color: #000000 !important;
+}
+
+.xp-window-body .eyebrow {
+  color: #555555 !important;
+}
+
+/* RPA shell overrides */
+.dashboard-shell {
+  display: block !important;
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 20px !important;
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  overflow: visible !important;
+}
+
+.date-navigator {
+  padding: 10px !important;
+}
+
+.date-navigator h2 {
+  font-size: 14px !important;
+  font-weight: bold !important;
+  color: #000 !important;
+  margin-bottom: 10px !important;
+}
+
+.workspace {
+  padding: 0 10px 10px 10px !important;
+}
+
+.list-panel {
+  border: none !important;
+  background: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
+.panel-heading {
+  display: none !important;
+}
+
+button,
+.top-actions a {
+  background: linear-gradient(to bottom, #ffffff 0%, #f0f0f0 50%, #e0e0e0 100%) !important;
+  border: 1px solid #003c74 !important;
+  border-radius: 3px !important;
+  color: #000 !important;
+  padding: 2px 12px !important;
+  min-height: 24px !important;
+  font-size: 12px !important;
+  text-decoration: none !important;
+  box-shadow: inset -1px -1px 1px #808080, inset 1px 1px 1px #ffffff !important;
+}
+
+button:hover,
+.top-actions a:hover {
+  background: #e5f1fb !important;
+  border-color: #0054e3 !important;
+}
+
+button:active {
+  box-shadow: inset 1px 1px 1px #808080 !important;
+  background: #d4d4d4 !important;
+}
+
+.export-button,
+.top-actions a:first-of-type {
+  background: linear-gradient(to bottom, #42b018 0%, #166e00 100%) !important;
+  color: white !important;
+  border: 1px solid #003b00 !important;
+  font-weight: bold !important;
+  text-shadow: 1px 1px 1px #003b00 !important;
+}
+
+.export-button:hover {
+  background: #52c028 !important;
+}
+
+.form-table {
+  background: white !important;
+  border: 1px solid #808080 !important;
+  width: 100% !important;
+}
+
+.form-table th {
+  background: linear-gradient(to bottom, #f0f0f0 0%, #d4d4d4 100%) !important;
+  color: #000 !important;
+  border: 1px solid #fff !important;
+  border-right: 1px solid #808080 !important;
+  border-bottom: 1px solid #808080 !important;
+  padding: 4px 8px !important;
+  font-size: 11px !important;
+}
+
+.form-table td {
+  border: 1px solid #f0f0f0 !important;
+  color: #000 !important;
+  padding: 4px 8px !important;
+  font-size: 12px !important;
+}
+
+.form-table tbody tr:hover {
+  background: #316ac5 !important;
+  color: white !important;
+}
+
+.form-table tbody tr:hover td {
+  color: white !important;
+}
+
+.status-pill {
+  border: 1px solid #808080 !important;
+  font-size: 10px !important;
+  padding: 1px 4px !important;
+  background: #fff !important;
+}
+
+.current-date-badge {
+  color: #0058e6 !important;
+  font-size: 18px !important;
+  font-weight: bold !important;
+  padding: 2px 10px;
+  background: #fff;
+  border: 1px inset #808080;
+}
+
+input[type="date"],
+#datePicker {
+  border: 2px inset #dcdcdc !important;
+  background: #fff !important;
+}
+
+.disabled-row {
+  background: #d4d4d4 !important;
+  opacity: 0.6;
+}
+
+::-webkit-scrollbar {
+  width: 16px;
+  height: 16px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f0f0f0;
+  border: 1px solid #d4d4d4;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d4d4d4;
+  border: 1px solid #fff;
+  box-shadow: inset -1px -1px 1px #808080, inset 1px 1px 1px #ffffff;
+}

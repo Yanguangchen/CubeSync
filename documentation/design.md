@@ -192,7 +192,7 @@ Typeahead suggestions for selected request fields (`app.js` → `setupAutocomple
 - Match highlighting: matched substring normal weight; other segments wrapped in `<strong>`
 - Input: `autocomplete="off"`; native `<datalist>` is not used
 
-Options load from root static files (see `README.md` → Autocomplete) plus `localStorage`. Production builds must copy those files into `public/`.
+Options load from root static files (see `documentation/README.md` → Autocomplete) plus `localStorage`. Production builds must copy those files into `public/`.
 
 ### Multi-step form validation
 
@@ -256,21 +256,25 @@ Avoid re-enabling native `required` on hidden controls — browsers throw “not
 
 ### Form field configuration
 
-Staff configure which request fields and test-result columns appear on **both** `index.html` and `glassmorphic.html`.
+Staff configure which request fields and test-result columns appear on **both** `index.html` and `glassmorphic.html`, and may rename the label shown for any field/column on those forms.
 
 | Concern | Implementation |
 |---------|----------------|
-| Dashboard UI | **Field settings** button opens `#fieldConfigDialog` with checkboxes for every `FORM_FIELDS` and `RESULT_FIELDS` entry |
-| Persistence | Firestore document `settings/formFieldConfig` (`requestFields`, `resultFields`, `updatedAt`) |
+| Dashboard UI | **Field settings** button opens `#fieldConfigDialog`; each row has an enable checkbox plus a rename box for every `FORM_FIELDS` and `RESULT_FIELDS` entry. The dashboard always shows the canonical name; the rename box only changes what the public forms display |
+| Reset | **Reset to default** button (`#resetFieldConfigButton`) re-renders the dialog with `defaultFormFieldConfig()` (all enabled, no renames); takes effect on save |
+| Persistence | Firestore document `settings/formFieldConfig` (`requestFields`, `resultFields`, `requestLabels`, `resultLabels`, `customRequestFields`, `updatedAt`) |
+| Custom fields | Staff define `customRequestFields[]` (`id`, `label`, `type`, `required`, `enabled`, `formLabel`). Per-request values live in `extraFields: { [id]: value }` on `cubeRequests` |
+| Custom field CRUD | Field settings section **Custom request fields**: **Add custom field**, edit, **Delete**, **Save field settings**. **Reset to default** clears custom definitions |
 | Local cache | `localStorage` key `cubesync-form-field-config` so forms apply settings before remote fetch completes |
-| Form apply | `CubeSyncFormData.applyFormFieldConfig(form, config, { activeStep })` hides rows/columns and syncs native constraints |
+| Form apply | `CubeSyncFormData.applyFormFieldConfig(form, config, { activeStep, extraFieldValues })` hides rows/columns, applies label overrides, renders custom fields (`applyCustomRequestFields`), and syncs native constraints |
+| Label apply | `applyFieldLabels()` rewrites request `<span>` labels (preserving the ` * :` / ` :` decoration) and result `<th>` text + cell `data-label`, only for fields that have a custom label |
 | Validation | `validateCubeRequestForm` / `validateCubeRequestPayload` accept optional config and skip disabled required fields |
 | Native constraints | `syncNativeFormConstraints()` — only the active step’s enabled fields keep `required` |
-| Result columns | Mark headers and cells with `data-result-field="{fieldName}"` for stable show/hide targeting |
+| Result columns | Mark headers and cells with `data-result-field="{fieldName}"` for stable show/hide and rename targeting |
 | Access control | Firestore rules: CubeSync staff read/write only on `settings/formFieldConfig` (`firestore.rules`) |
 | Tests | `form-field-config.test.js`, `dashboard-functional.test.js`, `app-functional.test.js` |
 
-Default behavior when no config exists: all fields enabled (see `defaultFormFieldConfig()` in `cubesync-form-data.js`).
+Default behavior when no config exists: all fields enabled with their canonical labels (see `defaultFormFieldConfig()` in `cubesync-form-data.js`).
 
 ---
 
@@ -310,18 +314,21 @@ Avoid animating layout properties on data-heavy views (tables).
 
 | File | Scope |
 |------|-------|
-| `glassmorphic.css` | Stepped request form (primary UI) |
-| `dashboard.css` | Form list, detail panel, field settings dialog, dark mode |
-| `styles.css` | Original print-oriented form |
-| `rpa-dashboard.css` | RPA queue page overrides |
+| `css/glassmorphic.css` | Stepped request form (primary UI) |
+| `css/dashboard.css` | Form list, detail panel, field settings dialog, dark mode |
+| `css/styles.css` | Original print-oriented form |
+| `css/rpa-dashboard.css` | RPA queue page overrides |
+| `css/shared/` | Shared tokens and barcode styles |
+| `css/dashboard/` | Dashboard tokens and field-config dialog |
+| `css/rpa/` | Windows XP theme for RPA pages |
 | `cubesync-form-data.js` | Schema, validation, field config, dashboard normalization |
 | `app.js` | Form UX: steps, autocomplete, barcodes, save flow |
 | `scripts/write-env.js` | Build: `env.js` + copy static assets and autocomplete files to `public/` |
-| `design.md` | This document — source of truth for tokens and UI patterns |
-| `README.md` | Project overview, schema, build/deploy, testing |
+| `documentation/design.md` | Source of truth for tokens and UI patterns |
+| `documentation/README.md` | Project overview, schema, build/deploy, testing |
 | `form-field-config.test.js` | TDD coverage for field enable/disable and step constraints |
 | `deployment-config.test.js` | Build output contract (including autocomplete files) |
-| `architecture.md` | UML diagrams: class, sequence, component, state, ER |
-| `RPA_SELECTOR_REFERENCE.md` | Stable selectors for RPA automation |
+| `documentation/architecture.md` | UML diagrams: class, sequence, component, state, ER |
+| `documentation/RPA_SELECTOR_REFERENCE.md` | Stable selectors for RPA automation |
 
 When adding new UI, define tokens in `:root` first, then reference semantic names (`--accent`, `--muted`) in component rules — not raw hex values inline.

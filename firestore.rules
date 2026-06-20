@@ -858,7 +858,9 @@ service cloud.firestore {
     }
 
     function isCubeSyncTimestamp(value) {
-      return value == request.time || value is timestamp;
+      return value == request.time ||
+        value is timestamp ||
+        (value is string && value.size() <= 64);
     }
 
     function optCubeSyncTimestamp(data, field) {
@@ -874,28 +876,76 @@ service cloud.firestore {
           data[field] <= 1000000000);
     }
 
+    function optCubeBool(data, field) {
+      return !(field in data) || data[field] is bool;
+    }
+
+    function isCubeDropdownField(value) {
+      return value in [
+        'projectErp',
+        'customerBilling',
+        'supplier',
+        'concreteGrade',
+        'personInCharge',
+        'managerInCharge',
+        'testItem',
+        'specimenSize'
+      ];
+    }
+
+    function isValidCubeCustomFields(value) {
+      return value is list &&
+        value.size() <= 8 &&
+        (value.size() > 0 ? isCubeDropdownField(value[0]) : true) &&
+        (value.size() > 1 ? isCubeDropdownField(value[1]) : true) &&
+        (value.size() > 2 ? isCubeDropdownField(value[2]) : true) &&
+        (value.size() > 3 ? isCubeDropdownField(value[3]) : true) &&
+        (value.size() > 4 ? isCubeDropdownField(value[4]) : true) &&
+        (value.size() > 5 ? isCubeDropdownField(value[5]) : true) &&
+        (value.size() > 6 ? isCubeDropdownField(value[6]) : true) &&
+        (value.size() > 7 ? isCubeDropdownField(value[7]) : true);
+    }
+
     function isValidCubeResult(row) {
       return row is map &&
         row.keys().hasOnly([
           'testNumber',
-
           'dateTested',
           'ageDays',
           'weightKg',
           'loadKn',
           'strength',
           'failureMode',
-          'barcode'
+          'setNo',
+          'size',
+          'specimenRef',
+          'barcode',
+          'specifiedSlump',
+          'meanSlump',
+          'resultGrade',
+          'resultDateOfCast',
+          'age',
+          'dateOfTest',
+          'invoiceNumber'
         ]) &&
         optCubeStrOrNum(row, 'testNumber', 64) &&
-
         optCubeStrOrNum(row, 'dateTested', 64) &&
         optCubeStrOrNum(row, 'ageDays', 16) &&
         optCubeStrOrNum(row, 'weightKg', 32) &&
         optCubeStrOrNum(row, 'loadKn', 32) &&
         optCubeStrOrNum(row, 'strength', 32) &&
         optCubeStrOrNum(row, 'failureMode', 200) &&
-        optCubeStrOrNum(row, 'barcode', 128);
+        optCubeStrOrNum(row, 'setNo', 16) &&
+        optCubeStrOrNum(row, 'size', 64) &&
+        optCubeStrOrNum(row, 'specimenRef', 128) &&
+        optCubeStrOrNum(row, 'barcode', 128) &&
+        optCubeStrOrNum(row, 'specifiedSlump', 32) &&
+        optCubeStrOrNum(row, 'meanSlump', 32) &&
+        optCubeStrOrNum(row, 'resultGrade', 120) &&
+        optCubeStrOrNum(row, 'resultDateOfCast', 64) &&
+        optCubeStrOrNum(row, 'age', 16) &&
+        optCubeStrOrNum(row, 'dateOfTest', 64) &&
+        optCubeStrOrNum(row, 'invoiceNumber', 128);
     }
 
     function isValidCubeResults(value) {
@@ -929,6 +979,24 @@ service cloud.firestore {
         'slumpMeasured',
         'specimenSize',
         'slumpSpecified',
+        'projectErp',
+        'customerBilling',
+        'projectNameOnReport',
+        'clientNameOnReport',
+        'contact',
+        'enableManualCubeJobNumber',
+        'cubeJobNumber',
+        'quote',
+        'testItem',
+        'supplierDisplay',
+        'dateOfCast',
+        'reportGrade',
+        'personInCharge',
+        'managerInCharge',
+        'customFields',
+        'extraFields',
+        'erpStatus',
+        'rpaStatus',
         'template',
         'status',
         'results',
@@ -953,6 +1021,26 @@ service cloud.firestore {
         optCubeStrOrNum(data, 'slumpMeasured', 32) &&
         optStrWithin(data, 'specimenSize', 64) &&
         optCubeStrOrNum(data, 'slumpSpecified', 32) &&
+        optStrWithin(data, 'projectErp', 128) &&
+        optStrWithin(data, 'customerBilling', 200) &&
+        optStrWithin(data, 'projectNameOnReport', 200) &&
+        optStrWithin(data, 'clientNameOnReport', 200) &&
+        optStrWithin(data, 'contact', 200) &&
+        optCubeBool(data, 'enableManualCubeJobNumber') &&
+        optStrWithin(data, 'cubeJobNumber', 128) &&
+        optStrWithin(data, 'quote', 128) &&
+        optStrWithin(data, 'testItem', 200) &&
+        optStrWithin(data, 'supplierDisplay', 200) &&
+        optStrWithin(data, 'dateOfCast', 64) &&
+        optStrWithin(data, 'reportGrade', 120) &&
+        optStrWithin(data, 'personInCharge', 200) &&
+        optStrWithin(data, 'managerInCharge', 200) &&
+        optStrWithin(data, 'erpStatus', 80) &&
+        optStrWithin(data, 'rpaStatus', 80) &&
+        (!('customFields' in data) ||
+          isValidCubeCustomFields(data.customFields)) &&
+        (!('extraFields' in data) ||
+          isValidExtraFields(data.extraFields)) &&
         (!('template' in data) ||
           data.template in ['Original', 'Glassmorphic']) &&
         (!('status' in data) ||
@@ -983,6 +1071,24 @@ service cloud.firestore {
           'slumpMeasured',
           'specimenSize',
           'slumpSpecified',
+          'projectErp',
+          'customerBilling',
+          'projectNameOnReport',
+          'clientNameOnReport',
+          'contact',
+          'enableManualCubeJobNumber',
+          'cubeJobNumber',
+          'quote',
+          'testItem',
+          'supplierDisplay',
+          'dateOfCast',
+          'reportGrade',
+          'personInCharge',
+          'managerInCharge',
+          'customFields',
+          'extraFields',
+          'erpStatus',
+          'rpaStatus',
           'template',
           'status',
           'results',
@@ -1023,7 +1129,43 @@ service cloud.firestore {
         (!cubeRequestChanged('specimenSize') ||
           optStrWithin(request.resource.data, 'specimenSize', 64)) &&
         (!cubeRequestChanged('slumpSpecified') ||
-          optCubeStrOrNum(request.resource.data, 'slumpSpecified', 32));
+          optCubeStrOrNum(request.resource.data, 'slumpSpecified', 32)) &&
+        (!cubeRequestChanged('projectErp') ||
+          optStrWithin(request.resource.data, 'projectErp', 128)) &&
+        (!cubeRequestChanged('customerBilling') ||
+          optStrWithin(request.resource.data, 'customerBilling', 200)) &&
+        (!cubeRequestChanged('projectNameOnReport') ||
+          optStrWithin(request.resource.data, 'projectNameOnReport', 200)) &&
+        (!cubeRequestChanged('clientNameOnReport') ||
+          optStrWithin(request.resource.data, 'clientNameOnReport', 200)) &&
+        (!cubeRequestChanged('contact') ||
+          optStrWithin(request.resource.data, 'contact', 200)) &&
+        (!cubeRequestChanged('enableManualCubeJobNumber') ||
+          optCubeBool(request.resource.data, 'enableManualCubeJobNumber')) &&
+        (!cubeRequestChanged('cubeJobNumber') ||
+          optStrWithin(request.resource.data, 'cubeJobNumber', 128)) &&
+        (!cubeRequestChanged('quote') ||
+          optStrWithin(request.resource.data, 'quote', 128)) &&
+        (!cubeRequestChanged('testItem') ||
+          optStrWithin(request.resource.data, 'testItem', 200)) &&
+        (!cubeRequestChanged('supplierDisplay') ||
+          optStrWithin(request.resource.data, 'supplierDisplay', 200)) &&
+        (!cubeRequestChanged('dateOfCast') ||
+          optStrWithin(request.resource.data, 'dateOfCast', 64)) &&
+        (!cubeRequestChanged('reportGrade') ||
+          optStrWithin(request.resource.data, 'reportGrade', 120)) &&
+        (!cubeRequestChanged('personInCharge') ||
+          optStrWithin(request.resource.data, 'personInCharge', 200)) &&
+        (!cubeRequestChanged('managerInCharge') ||
+          optStrWithin(request.resource.data, 'managerInCharge', 200)) &&
+        (!cubeRequestChanged('customFields') ||
+          isValidCubeCustomFields(request.resource.data.customFields)) &&
+        (!cubeRequestChanged('extraFields') ||
+          isValidExtraFields(request.resource.data.extraFields)) &&
+        (!cubeRequestChanged('erpStatus') ||
+          optStrWithin(request.resource.data, 'erpStatus', 80)) &&
+        (!cubeRequestChanged('rpaStatus') ||
+          optStrWithin(request.resource.data, 'rpaStatus', 80));
     }
 
     match /cubeRequests/{requestId} {
@@ -1035,10 +1177,18 @@ service cloud.firestore {
       allow delete: if isCubeSyncStaff();
     }
 
+    function isValidExtraFields(value) {
+      return value is map && value.size() <= 25;
+    }
+
     function isValidFormFieldConfig(data) {
-      return data.keys().hasOnly(['requestFields', 'resultFields', 'updatedAt']) &&
+      return data.keys().hasOnly(['requestFields', 'resultFields', 'requestLabels', 'resultLabels', 'customRequestFields', 'updatedAt']) &&
         data.requestFields is map &&
         data.resultFields is map &&
+        (!data.keys().hasAny(['requestLabels']) || data.requestLabels is map) &&
+        (!data.keys().hasAny(['resultLabels']) || data.resultLabels is map) &&
+        (!data.keys().hasAny(['customRequestFields']) ||
+          (data.customRequestFields is list && data.customRequestFields.size() <= 25)) &&
         optCubeSyncTimestamp(data, 'updatedAt');
     }
 

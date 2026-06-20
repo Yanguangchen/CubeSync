@@ -6,7 +6,7 @@
   "scripts": {
     "build": "node scripts/write-env.js",
     "lint": "eslint .",
-    "test": "node --test",
+    "test": "node --test --experimental-test-coverage",
     "validate-env": "node scripts/validate-env.js"
   },
   "dependencies": {

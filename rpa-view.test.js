@@ -4,9 +4,19 @@ const test = require("node:test");
 
 const { FORM_FIELDS, RESULT_FIELDS } = require("./cubesync-form-data");
 
+function readFile(path) {
+  return fs.readFileSync(path, "utf8");
+}
+
+function assertIncludesAllFields(source, fields) {
+  for (const field of fields) {
+    assert.match(source, new RegExp(`${field}:`));
+  }
+}
+
 test("RPA dashboard opens Firestore cube request documents", () => {
-  const html = fs.readFileSync("rpa-dashboard.html", "utf8");
-  const js = fs.readFileSync("rpa-dashboard.js", "utf8");
+  const html = readFile("rpa-dashboard.html");
+  const js = readFile("rpa-dashboard.js");
 
   assert.match(html, /cubesync-form-data\.js/);
   assert.match(html, /cubesync-export\.js/);
@@ -30,8 +40,8 @@ test("RPA dashboard opens Firestore cube request documents", () => {
 });
 
 test("RPA form view renders all shared form fields and result fields", () => {
-  const html = fs.readFileSync("rpa-view.html", "utf8");
-  const js = fs.readFileSync("rpa-view.js", "utf8");
+  const html = readFile("rpa-view.html");
+  const js = readFile("rpa-view.js");
 
   assert.match(html, /cubesync-form-data\.js/);
   assert.match(html, /firestore\.js/);
@@ -42,13 +52,8 @@ test("RPA form view renders all shared form fields and result fields", () => {
   assert.match(js, /FORM_FIELD_LABELS/);
   assert.match(js, /RESULT_FIELD_LABELS/);
 
-  for (const field of FORM_FIELDS) {
-    assert.match(js, new RegExp(`${field}:`));
-  }
-
-  for (const field of RESULT_FIELDS) {
-    assert.match(js, new RegExp(`${field}:`));
-  }
+  assertIncludesAllFields(js, FORM_FIELDS);
+  assertIncludesAllFields(js, RESULT_FIELDS);
 
   assert.match(js, /CubeSyncBarcode/);
   assert.match(js, /renderBarcodeSvg/);
