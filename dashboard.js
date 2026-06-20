@@ -7,11 +7,63 @@
     search: "",
     status: "all",
     loading: false,
-    fieldConfig: null
+    fieldConfig: null,
+    dropdownOptions: {}
   };
+
+  const DROPDOWN_OPTION_SOURCES = [
+    { field: "projectErp", url: "dropdown-options/project erp.txt", storageKey: "savedProjectErps" },
+    { field: "customerBilling", url: "dropdown-options/customer billing.txt", storageKey: "savedCustomerBillings" },
+    { field: "supplier", url: "dropdown-options/supplier.txt", storageKey: "savedSuppliers" },
+    { field: "concreteGrade", url: "dropdown-options/Grade.txt", storageKey: "savedGrades" },
+    { field: "personInCharge", url: "dropdown-options/person-in-charge.txt", storageKey: "savedPersonsInCharge" },
+    { field: "managerInCharge", url: "dropdown-options/manager-in-charge.txt", storageKey: "savedManagersInCharge" },
+    { field: "testItem", url: "dropdown-options/testitem.txt", storageKey: "savedTestItems" },
+    { field: "specimenSize", url: "dropdown-options/size.txt", storageKey: "savedSizes" }
+  ];
 
   const elements = {};
   let initialized = false;
+
+  async function loadDropdownOptionSets() {
+    const fetchFn = typeof window !== "undefined" && window.fetch
+      ? window.fetch
+      : (typeof fetch !== "undefined" ? fetch : null);
+
+    const options = {};
+
+    await Promise.all(DROPDOWN_OPTION_SOURCES.map(async ({ field, url, storageKey }) => {
+      let fileOptions = [];
+      if (fetchFn) {
+        try {
+          const response = await fetchFn(encodeURI(url));
+          if (response.ok) {
+            const text = await response.text();
+            fileOptions = text.split("\n").map((line) => line.trim()).filter(Boolean);
+          }
+        } catch {
+          // Missing option file: leave fileOptions empty.
+        }
+      }
+
+      let localOptions = [];
+      try {
+        const stored = localStorage.getItem(storageKey);
+        if (stored) {
+          localOptions = JSON.parse(stored);
+        }
+      } catch {
+        localOptions = [];
+      }
+
+      const combined = Array.from(new Set([...fileOptions, ...(Array.isArray(localOptions) ? localOptions : [])]));
+      if (combined.length) {
+        options[field] = combined;
+      }
+    }));
+
+    state.dropdownOptions = options;
+  }
 
   function escapeHtml(value) {
     return String(value == null ? "" : value)
@@ -222,10 +274,13 @@
     }
 
     elements.detailTitle.textContent = form.reportNo || form.id;
-    const customFieldSet = new Set(customFields(form));
-    const renderField = (label, value, fieldName) => {
+    const helper = formDataHelper();
+    const flaggedFields = customFields(form);
+    const renderField = (label, value, formFieldKey) => {
       if (value == null || value === "") return '';
-      const isCustom = customFieldSet.has(fieldName);
+      const isCustom = helper && typeof helper.isDropdownFreeTextField === "function"
+        ? helper.isDropdownFreeTextField(flaggedFields, formFieldKey)
+        : flaggedFields.includes(formFieldKey);
       const displayValue = isCustom ? `<span class="highlight-custom" title="Custom free text entry">${escapeHtml(value)}</span>` : escapeHtml(value);
       return `<div class="detail-field${isCustom ? " is-custom-field" : ""}"><dt>${escapeHtml(label)}</dt><dd>${displayValue}</dd></div>`;
     };
@@ -237,7 +292,7 @@
         ${renderField("Customer (Billing)", form.customerBilling, "customerBilling")}
         ${renderField("Project Name on Report", form.projectNameReport, "projectNameReport")}
         ${renderField("Client Name on Report", form.clientReport, "clientReport")}
-        ${renderField("Contact", form.contactPerson, "contactPerson")}
+        ${renderField("Contact", form.contactPerson, "contact")}
         ${renderField("Manual Job", form.enableManualCubeJob, "enableManualCubeJob")}
         ${renderField("Cube Job #", form.cubeJob, "cubeJob")}
         ${renderField("Quote", form.quote, "quote")}
@@ -278,7 +333,19 @@
 
     try {
       const records = await store.listCubeRequests();
-      state.forms = records.map((record) => helper.normalizeCubeRequestForDashboard(record, record.id));
+      state.forms = records.map((record) => {
+        const form = helper.normalizeCubeRequestForDashboard(record, record.id);
+
+        // Combine capture-time metadata with value-based detection so flags
+        // appear even for forms saved without `customFields` metadata.
+        if (typeof helper.deriveFreeTextDropdownFields === "function") {
+          const derived = helper.deriveFreeTextDropdownFields(form.raw || record, state.dropdownOptions);
+          form.customFields = helper.mergeFreeTextDropdownFields(form.customFields, derived);
+          form.customFieldCount = form.customFields.length;
+        }
+
+        return form;
+      });
       state.loading = false;
       renderForms();
 
@@ -539,7 +606,9 @@
       elements.authUser.textContent = user.email || user.displayName || "Signed in";
       setDashboardLocked(false);
       loadFieldConfig();
-      loadForms();
+      loadDropdownOptionSets()
+        .catch(() => {})
+        .then(() => loadForms());
     });
   }
 
@@ -785,6 +854,7 @@
 
         const chooseOption = (value) => {
           input.dataset.autocompleteSelecting = "true";
+          input.dataset.selectedFromDropdown = "true";
           input.value = value;
           setFreeTextState(false);
           input.dispatchEvent(new window.Event('input', { bubbles: true }));
@@ -867,9 +937,14 @@
         };
         
         const checkFreeText = () => {
+          if (input.dataset.selectedFromDropdown === "true") {
+            setFreeTextState(false);
+            return;
+          }
+
           setFreeTextState(Boolean(input.value.trim()));
         };
-        
+
         input.addEventListener('focus', () => renderDropdown(input.value));
         input.addEventListener('input', () => {
           if (input.dataset.autocompleteSelecting === "true") {
@@ -877,10 +952,14 @@
             return;
           }
 
+          delete input.dataset.selectedFromDropdown;
           renderDropdown(input.value);
           checkFreeText();
         });
-        input.addEventListener('blur', closeDropdown);
+        input.addEventListener('blur', function () {
+          closeDropdown();
+          checkFreeText();
+        });
         
         input.addEventListener('keydown', (e) => {
           const items = dropdown.querySelectorAll('.erp-dropdown-item');
@@ -967,12 +1046,16 @@
       }
     });
 
-    existingCustomFields.forEach((field) => {
-      const control = elements.editForm.elements[field];
-      if (control && control.dataset && String(control.value || "").trim()) {
-        control.dataset.freeTextEntry = "true";
-      }
-    });
+    if (helper && typeof helper.applyFreeTextFlags === "function") {
+      helper.applyFreeTextFlags(elements.editForm, customFields(form));
+    } else {
+      existingCustomFields.forEach((field) => {
+        const control = elements.editForm.elements[field];
+        if (control && control.dataset && String(control.value || "").trim()) {
+          control.dataset.freeTextEntry = "true";
+        }
+      });
+    }
 
     if (helper && typeof helper.applyCustomRequestFields === "function") {
       helper.applyCustomRequestFields(elements.editForm, state.fieldConfig, raw.extraFields || {});
@@ -1058,12 +1141,26 @@
         payload.template = elements.editForm.elements.template.value;
       }
 
-      await store.updateCubeRequest(id, payload);
+      const existing = (state.forms.find((item) => item.id === id) || {}).raw || {};
+      const patch = typeof helper.buildCubeRequestUpdatePatch === "function"
+        ? helper.buildCubeRequestUpdatePatch(existing, payload)
+        : payload;
+
+      if (!Object.keys(patch).length) {
+        elements.editDialog.close();
+        return;
+      }
+
+      await store.updateCubeRequest(id, patch);
       elements.editDialog.close();
       state.selectedId = id;
       await loadForms();
     } catch (error) {
-      window.alert(error.message || "Unable to save changes to Firestore.");
+      console.error("CubeSync dashboard save failed", error);
+      const detail = error && error.code
+        ? `${error.code}: ${error.message || "Unable to save changes to Firestore."}`
+        : (error.message || "Unable to save changes to Firestore.");
+      window.alert(detail);
     } finally {
       if (submitButton) submitButton.disabled = false;
     }

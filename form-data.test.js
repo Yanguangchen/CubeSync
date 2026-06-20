@@ -4,13 +4,16 @@ const test = require("node:test");
 
 const {
   buildCubeRequestFromForm,
+  buildCubeRequestUpdatePatch,
   COLLECTION_NAME,
   FORM_FIELDS,
   REQUIRED_FORM_FIELDS,
   RESULT_FIELDS,
   validateCubeRequestForm,
   validateCubeRequestPayload,
-  normalizeCubeRequestForDashboard
+  normalizeCubeRequestForDashboard,
+  deriveFreeTextDropdownFields,
+  mergeFreeTextDropdownFields
 } = require("./cubesync-form-data");
 
 function formFieldNames(html) {
@@ -359,4 +362,75 @@ test("shared schema handles alternative field names and various date types", () 
     internalDate: { toDate: () => new Date("2026-03-03") }
   }, "ts-1");
   assert.equal(tsRecord.updatedAt, "2026-03-03");
+});
+
+test("buildCubeRequestUpdatePatch only sends changed fields", () => {
+  const existing = {
+    status: "Draft",
+    template: "Original",
+    customerBilling: "Acme",
+    client: "Acme",
+    customFields: ["supplier"],
+    slumpMeasured: 50,
+    results: []
+  };
+
+  const statusOnly = buildCubeRequestUpdatePatch(existing, {
+    ...existing,
+    status: "Ready"
+  });
+
+  assert.deepEqual(statusOnly, { status: "Ready" });
+
+  const unchanged = buildCubeRequestUpdatePatch(existing, { ...existing });
+  assert.deepEqual(unchanged, {});
+
+  const normalizedNumber = buildCubeRequestUpdatePatch(existing, {
+    ...existing,
+    slumpMeasured: "50"
+  });
+  assert.deepEqual(normalizedNumber, {});
+
+  const customFieldsCleanup = buildCubeRequestUpdatePatch(existing, {
+    ...existing,
+    customFields: ["supplier", "not-a-dropdown-field"]
+  });
+  assert.deepEqual(customFieldsCleanup, {});
+});
+
+test("deriveFreeTextDropdownFields flags values missing from the option list", () => {
+  const optionsByField = {
+    supplier: ["ABC Concrete", "XYZ Ready Mix"],
+    projectErp: ["ERP-001", "ERP-002"],
+    concreteGrade: ["C32/40", "C40/50"]
+  };
+
+  const data = {
+    supplier: "Some New Supplier",   // not in options -> free text
+    projectErp: "ERP-001",            // matches an option -> not flagged
+    concreteGrade: "c32/40",          // case-insensitive match -> not flagged
+    personInCharge: "Jane"            // no option list provided -> skipped
+  };
+
+  const derived = deriveFreeTextDropdownFields(data, optionsByField);
+  assert.deepEqual(derived, ["supplier"]);
+});
+
+test("deriveFreeTextDropdownFields uses canonical field fallbacks", () => {
+  const optionsByField = { projectErp: ["ERP-001"] };
+  // projectCode is the legacy alias for projectErp.
+  const data = { projectCode: "Typed Project" };
+
+  assert.deepEqual(deriveFreeTextDropdownFields(data, optionsByField), ["projectErp"]);
+});
+
+test("deriveFreeTextDropdownFields skips fields without a known option list", () => {
+  const data = { supplier: "Anything", testItem: "Cube Test" };
+  assert.deepEqual(deriveFreeTextDropdownFields(data, {}), []);
+  assert.deepEqual(deriveFreeTextDropdownFields(data, { supplier: [] }), []);
+});
+
+test("mergeFreeTextDropdownFields combines and de-duplicates flag sources", () => {
+  const merged = mergeFreeTextDropdownFields(["supplier"], ["supplier", "projectErp"], ["bogus"]);
+  assert.deepEqual(merged, ["supplier", "projectErp"]);
 });

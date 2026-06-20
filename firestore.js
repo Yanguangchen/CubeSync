@@ -115,12 +115,29 @@ async function signOutUser() {
   await signOut(auth);
 }
 
+function isPlainObject(value) {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  // Cross-realm safe plain-object check: a plain object's prototype is either
+  // null or an object whose own prototype is null (Object.prototype). Class
+  // instances such as FieldValue (serverTimestamp), Timestamp, and Date have a
+  // deeper prototype chain, so they are left untouched.
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === null || Object.getPrototypeOf(prototype) === null;
+}
+
 function withoutUndefined(value) {
   if (Array.isArray(value)) {
     return value.map(withoutUndefined);
   }
 
-  if (value && typeof value === "object") {
+  // Only recurse into plain data objects. Firestore sentinels such as
+  // serverTimestamp() (FieldValue), Timestamp, and Date are class instances —
+  // copying them via Object.entries() would strip their identity and write a
+  // plain map instead, which the security rules reject (permission-denied).
+  if (isPlainObject(value)) {
     return Object.entries(value).reduce((clean, [key, entry]) => {
       if (entry !== undefined) {
         clean[key] = withoutUndefined(entry);

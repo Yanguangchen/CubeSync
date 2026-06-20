@@ -226,6 +226,66 @@
     }));
   }
 
+  function applyFreeTextFlags(form, customFieldNames) {
+    if (!form) {
+      return;
+    }
+
+    normalizeCustomFields(customFieldNames).forEach((field) => {
+      const control = form.elements[field];
+      if (control && normalizeText(control.value)) {
+        control.dataset.freeTextEntry = "true";
+      }
+    });
+  }
+
+  function isDropdownFreeTextField(customFieldNames, fieldKey) {
+    return normalizeCustomFields(customFieldNames).includes(fieldKey);
+  }
+
+  // Derive free-text flags from the stored values themselves, independent of
+  // the capture-time `customFields` metadata. A dropdown field whose saved
+  // value is not present in its known option list is treated as free text.
+  // optionsByField is a map of { fieldKey: string[] } of allowed options.
+  // Fields without a non-empty option list are skipped (we can't tell), so a
+  // missing option file never floods the dashboard with false positives.
+  function deriveFreeTextDropdownFields(data, optionsByField) {
+    if (!data || !optionsByField || typeof optionsByField !== "object") {
+      return [];
+    }
+
+    const derived = DROPDOWN_OPTION_FIELDS.filter((field) => {
+      const options = optionsByField[field];
+      if (!Array.isArray(options) || options.length === 0) {
+        return false;
+      }
+
+      const value = normalizeText(getCubeRequestFormValue(data, field));
+      if (!value) {
+        return false;
+      }
+
+      const target = value.toLowerCase();
+      return !options.some((option) => normalizeText(option).toLowerCase() === target);
+    });
+
+    return normalizeCustomFields(derived);
+  }
+
+  function mergeFreeTextDropdownFields() {
+    const merged = [];
+
+    Array.prototype.forEach.call(arguments, (list) => {
+      normalizeCustomFields(list).forEach((field) => {
+        if (!merged.includes(field)) {
+          merged.push(field);
+        }
+      });
+    });
+
+    return normalizeCustomFields(merged);
+  }
+
   function isRequestFieldFilled(field, value) {
     if (NUMBER_FIELDS.has(field)) {
       return typeof value === "number" && Number.isFinite(value);
@@ -988,6 +1048,146 @@
     return payload;
   }
 
+  const CUBE_REQUEST_UPDATE_FIELDS = [
+    "internalDate",
+    "projectCode",
+    "reportNo",
+    "client",
+    "method",
+    "project",
+    "concreteGrade",
+    "supplier",
+    "locationRepresented",
+    "additionalInformation",
+    "dateTimeSampled",
+    "slumpMeasured",
+    "specimenSize",
+    "slumpSpecified",
+    "projectErp",
+    "customerBilling",
+    "projectNameOnReport",
+    "clientNameOnReport",
+    "contact",
+    "enableManualCubeJobNumber",
+    "cubeJobNumber",
+    "quote",
+    "testItem",
+    "supplierDisplay",
+    "dateOfCast",
+    "reportGrade",
+    "personInCharge",
+    "managerInCharge",
+    "customFields",
+    "extraFields",
+    "erpStatus",
+    "rpaStatus",
+    "template",
+    "status",
+    "results"
+  ];
+
+  function normalizeResultRowsForUpdate(results) {
+    if (!Array.isArray(results)) {
+      return [];
+    }
+
+    return results
+      .map((row) => RESULT_FIELDS.reduce((normalized, field) => {
+        normalized[field] = normalizeValue(field, row && row[field]);
+        return normalized;
+      }, {}))
+      .filter(hasRowValue);
+  }
+
+  function sanitizeCubeRequestUpdatePayload(payload) {
+    const clean = { ...payload };
+
+    if ("customFields" in clean) {
+      clean.customFields = normalizeCustomFields(clean.customFields);
+    }
+
+    if ("status" in clean) {
+      clean.status = normalizeText(clean.status) || "Draft";
+    }
+
+    if ("template" in clean) {
+      clean.template = normalizeText(clean.template) || "Original";
+    }
+
+    if ("enableManualCubeJobNumber" in clean) {
+      clean.enableManualCubeJobNumber = Boolean(clean.enableManualCubeJobNumber);
+    }
+
+    if ("results" in clean) {
+      clean.results = normalizeResultRowsForUpdate(clean.results);
+    }
+
+    if ("extraFields" in clean) {
+      if (!clean.extraFields || typeof clean.extraFields !== "object" || Array.isArray(clean.extraFields)) {
+        delete clean.extraFields;
+      } else if (!Object.keys(clean.extraFields).length) {
+        delete clean.extraFields;
+      }
+    }
+
+    return clean;
+  }
+
+  function cubeRequestFieldValuesEqual(field, left, right) {
+    if (field === "results") {
+      return JSON.stringify(normalizeResultRowsForUpdate(left)) ===
+        JSON.stringify(normalizeResultRowsForUpdate(right));
+    }
+
+    if (field === "customFields") {
+      return JSON.stringify(normalizeCustomFields(left)) ===
+        JSON.stringify(normalizeCustomFields(right));
+    }
+
+    if (field === "extraFields") {
+      const leftMap = left && typeof left === "object" && !Array.isArray(left) ? left : {};
+      const rightMap = right && typeof right === "object" && !Array.isArray(right) ? right : {};
+      return JSON.stringify(leftMap) === JSON.stringify(rightMap);
+    }
+
+    if (NUMBER_FIELDS.has(field)) {
+      const leftNumber = left == null || left === "" ? null : Number(left);
+      const rightNumber = right == null || right === "" ? null : Number(right);
+
+      if (leftNumber === null && rightNumber === null) {
+        return true;
+      }
+
+      return leftNumber === rightNumber &&
+        Number.isFinite(leftNumber) &&
+        Number.isFinite(rightNumber);
+    }
+
+    if (CHECKBOX_FIELDS.has(field)) {
+      return Boolean(left) === Boolean(right);
+    }
+
+    return normalizeText(left) === normalizeText(right);
+  }
+
+  function buildCubeRequestUpdatePatch(existing, payload) {
+    const sanitized = sanitizeCubeRequestUpdatePayload(payload);
+    const source = existing && typeof existing === "object" ? existing : {};
+    const patch = {};
+
+    CUBE_REQUEST_UPDATE_FIELDS.forEach((field) => {
+      if (!(field in sanitized)) {
+        return;
+      }
+
+      if (!cubeRequestFieldValuesEqual(field, source[field], sanitized[field])) {
+        patch[field] = sanitized[field];
+      }
+    });
+
+    return patch;
+  }
+
   function formatDate(value) {
     if (!value) {
       return "";
@@ -1164,12 +1364,20 @@
     syncFormFieldConfig,
     getRequestFieldStep,
     readFormFieldConfigFromEditor,
+    applyFreeTextFlags,
+    isDropdownFreeTextField,
+    deriveFreeTextDropdownFields,
+    mergeFreeTextDropdownFields,
+    collectCustomFields,
     isRequestFieldFilled,
     validateCubeRequestForm,
     validateCubeRequestPayload,
     buildCubeRequestFromForm,
     dashboardEditToCubeRequest,
     getCubeRequestFormValue,
-    normalizeCubeRequestForDashboard
+    normalizeCubeRequestForDashboard,
+    CUBE_REQUEST_UPDATE_FIELDS,
+    sanitizeCubeRequestUpdatePayload,
+    buildCubeRequestUpdatePatch
   };
 });

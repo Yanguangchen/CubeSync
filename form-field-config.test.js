@@ -25,6 +25,8 @@ const {
   validateCubeRequestPayload,
   validateCubeRequestForm,
   buildCubeRequestFromForm,
+  applyFreeTextFlags,
+  collectCustomFields,
   FORM_FIELD_CONFIG_STORAGE_KEY
 } = require("./cubesync-form-data");
 
@@ -447,6 +449,26 @@ test("applyFormFieldConfig applies custom fields through shared config path", ()
   applyFormFieldConfig(form, config, { extraFieldValues: { siteRef: "Loaded" } });
 
   assert.equal(form.querySelector('[data-custom-field-id="siteRef"]').value, "Loaded");
+});
+
+test("applyFreeTextFlags restores dataset markers from saved customFields metadata", () => {
+  const dom = new JSDOM(`
+    <form id="cubeRequestForm">
+      <input type="text" name="projectErp" value="Typed ERP">
+      <input type="text" name="supplier" value="">
+    </form>
+  `);
+  const form = dom.window.document.getElementById("cubeRequestForm");
+
+  applyFreeTextFlags(form, ["projectErp", "supplier"]);
+
+  assert.equal(form.elements.projectErp.dataset.freeTextEntry, "true");
+  assert.equal(form.elements.supplier.dataset.freeTextEntry, undefined);
+
+  form.elements.supplier.value = "Typed Supplier";
+  form.elements.supplier.dataset.freeTextEntry = "true";
+
+  assert.deepEqual(collectCustomFields(form), ["projectErp", "supplier"]);
 });
 
 test("formatCustomFieldDisplayValue renders checkbox values for dashboard detail", () => {

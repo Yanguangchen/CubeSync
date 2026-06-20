@@ -317,6 +317,7 @@
 
         const chooseOption = (value) => {
           input.dataset.autocompleteSelecting = "true";
+          input.dataset.selectedFromDropdown = "true";
           input.value = value;
           setFreeTextState(input, false);
           input.dispatchEvent(new window.Event('input', { bubbles: true }));
@@ -341,11 +342,17 @@
         input.addEventListener('focus', () => renderDropdown(input.value));
         input.addEventListener('input', () => {
           if (input.dataset.autocompleteSelecting !== "true") {
+            delete input.dataset.selectedFromDropdown;
             setFreeTextState(input, true);
           }
           renderDropdown(input.value);
         });
-        input.addEventListener('blur', closeDropdown);
+        input.addEventListener('blur', function () {
+          closeDropdown();
+          if (input.dataset.selectedFromDropdown !== "true" && String(input.value || "").trim()) {
+            setFreeTextState(input, true);
+          }
+        });
         
         input.addEventListener('keydown', (e) => {
           const items = dropdown.querySelectorAll('.erp-dropdown-item');
@@ -758,6 +765,7 @@
 
             populateForm(form, record, tableBody, addResultRow, renumberRows);
             if (window.CubeSyncFormData) {
+              window.CubeSyncFormData.applyFreeTextFlags(form, record.customFields);
               activeFieldConfig = window.CubeSyncFormData.applyFormFieldConfig(form, activeFieldConfig, {
                 activeStep: currentStep,
                 extraFieldValues: record.extraFields

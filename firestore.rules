@@ -207,6 +207,7 @@ service cloud.firestore {
 
     function optStrWithin(data, field, maxLen) {
       return !(field in data) ||
+        data[field] == null ||
         (data[field] is string && data[field].size() <= maxLen);
     }
 
@@ -814,7 +815,14 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // ---------------------------------------------------------------
+
+    // -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+    // -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+    // -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+    // -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+    // -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+    // -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
     // CUBESYNC-ONLY RULES
     //
     // NEVER edit the WorkGrid rules above for CubeSync changes.
@@ -827,7 +835,7 @@ service cloud.firestore {
     // firestore.js). CubeSync-only users belong here only — not WorkGrid.
     // ---------------------------------------------------------------
     function isCubeSyncAllowedEmail() {
-      return request.auth.token.email in [
+      return request.auth.token.email.lower() in [
         'yanguangchensp@gmail.com',
         'yanguangchen@outlook.com',
         'mushfiqsiddqiue@gmail.com',
@@ -904,6 +912,10 @@ service cloud.firestore {
         (value.size() > 5 ? isCubeDropdownField(value[5]) : true) &&
         (value.size() > 6 ? isCubeDropdownField(value[6]) : true) &&
         (value.size() > 7 ? isCubeDropdownField(value[7]) : true);
+    }
+
+    function isValidExtraFields(value) {
+      return value is map && value.size() <= 25;
     }
 
     function isValidCubeResult(row) {
@@ -1175,10 +1187,6 @@ service cloud.firestore {
       allow update: if isCubeSyncStaff() &&
         isValidCubeRequestUpdate();
       allow delete: if isCubeSyncStaff();
-    }
-
-    function isValidExtraFields(value) {
-      return value is map && value.size() <= 25;
     }
 
     function isValidFormFieldConfig(data) {

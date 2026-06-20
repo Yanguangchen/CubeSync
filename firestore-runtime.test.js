@@ -78,8 +78,18 @@ test("firestore.js runtime tests", async (t) => {
       win.calls.deleteDoc.push(docRef);
     };
 
-    win.updateDoc = async () => {};
-    win.serverTimestamp = () => "mock_timestamp";
+    win.calls.updateDoc = [];
+    win.updateDoc = async (docRef, data) => {
+      win.calls.updateDoc.push({ docRef, data });
+    };
+    // Mirror the real modular SDK: serverTimestamp() returns a FieldValue
+    // class instance (an object sentinel), NOT a string.
+    win.FieldValue = class FieldValue {
+      constructor(methodName) {
+        this._methodName = methodName;
+      }
+    };
+    win.serverTimestamp = () => new win.FieldValue("serverTimestamp");
 
     win.fetch = async (url, options) => {
       win.calls.fetch.push({ url, options });
@@ -120,7 +130,10 @@ test("firestore.js runtime tests", async (t) => {
     assert.equal(id, "new_doc_id");
     assert.equal(dom.window.calls.addDoc.length, 1);
     assert.equal(dom.window.calls.addDoc[0].data.testData, 123);
-    assert.equal(dom.window.calls.addDoc[0].data.createdAt, "mock_timestamp");
+    // The serverTimestamp() sentinel must survive sanitization unchanged.
+    assert.ok(dom.window.calls.addDoc[0].data.createdAt instanceof dom.window.FieldValue);
+    assert.equal(dom.window.calls.addDoc[0].data.createdAt._methodName, "serverTimestamp");
+    assert.ok(dom.window.calls.addDoc[0].data.updatedAt instanceof dom.window.FieldValue);
   });
 
   await t.test("saveCubeRequest (update)", async () => {
@@ -130,7 +143,31 @@ test("firestore.js runtime tests", async (t) => {
     assert.equal(dom.window.calls.setDoc.length, 1);
     assert.equal(dom.window.calls.setDoc[0].docRef, "doc_cubeRequests_existing_id");
     assert.equal(dom.window.calls.setDoc[0].data.testData, 456);
-    assert.equal(dom.window.calls.setDoc[0].data.updatedAt, "mock_timestamp");
+    assert.ok(dom.window.calls.setDoc[0].data.updatedAt instanceof dom.window.FieldValue);
+  });
+
+  await t.test("updateCubeRequest preserves serverTimestamp sentinel and nested data", async () => {
+    const dom = setupDom();
+    await dom.window.CubeSyncFirestore.updateCubeRequest("existing_id", {
+      status: "Ready",
+      extraFields: { foo: "bar", skip: undefined },
+      results: [{ setNo: 1, size: "150" }]
+    });
+
+    assert.equal(dom.window.calls.updateDoc.length, 1);
+    const { data } = dom.window.calls.updateDoc[0];
+
+    // updatedAt must remain the real FieldValue sentinel, not a flattened map.
+    assert.ok(data.updatedAt instanceof dom.window.FieldValue);
+    assert.equal(data.updatedAt._methodName, "serverTimestamp");
+
+    // Plain data objects/arrays should still be sanitized (undefined dropped).
+    assert.equal(data.status, "Ready");
+    assert.equal(data.extraFields.foo, "bar");
+    assert.ok(!("skip" in data.extraFields));
+    assert.equal(data.results.length, 1);
+    assert.equal(data.results[0].setNo, 1);
+    assert.equal(data.results[0].size, "150");
   });
 
   await t.test("currentUser", () => {
