@@ -13,7 +13,8 @@ const {
   validateCubeRequestPayload,
   normalizeCubeRequestForDashboard,
   deriveFreeTextDropdownFields,
-  mergeFreeTextDropdownFields
+  mergeFreeTextDropdownFields,
+  resolveFreeTextDropdownFields
 } = require("./cubesync-form-data");
 
 function formFieldNames(html) {
@@ -433,4 +434,40 @@ test("deriveFreeTextDropdownFields skips fields without a known option list", ()
 test("mergeFreeTextDropdownFields combines and de-duplicates flag sources", () => {
   const merged = mergeFreeTextDropdownFields(["supplier"], ["supplier", "projectErp"], ["bogus"]);
   assert.deepEqual(merged, ["supplier", "projectErp"]);
+});
+
+test("resolveFreeTextDropdownFields does not flag a value that matches an option", () => {
+  const optionsByField = {
+    supplier: ["ABC Concrete", "XYZ Ready Mix"],
+    concreteGrade: ["C32/40"]
+  };
+
+  // Value matches an option (case-insensitive) -> NOT flagged, even though the
+  // capture-time metadata claims it was typed.
+  const data = { supplier: "abc concrete", concreteGrade: "C32/40" };
+  const resolved = resolveFreeTextDropdownFields(data, optionsByField, ["supplier", "concreteGrade"]);
+  assert.deepEqual(resolved, []);
+});
+
+test("resolveFreeTextDropdownFields flags a value missing from the option list", () => {
+  const optionsByField = { supplier: ["ABC Concrete"] };
+  const data = { supplier: "Brand New Supplier" };
+
+  assert.deepEqual(resolveFreeTextDropdownFields(data, optionsByField, []), ["supplier"]);
+});
+
+test("resolveFreeTextDropdownFields falls back to metadata when options are unavailable", () => {
+  // No option list loaded for any field -> use capture-time metadata.
+  const data = { supplier: "Anything", projectErp: "Anything" };
+  const resolved = resolveFreeTextDropdownFields(data, {}, ["supplier"]);
+  assert.deepEqual(resolved, ["supplier"]);
+});
+
+test("resolveFreeTextDropdownFields ignores metadata for fields that have options", () => {
+  // supplier has an option list and its value matches -> not flagged regardless
+  // of metadata. testItem has no list -> metadata fallback applies.
+  const optionsByField = { supplier: ["ABC Concrete"] };
+  const data = { supplier: "ABC Concrete", testItem: "Typed Test" };
+  const resolved = resolveFreeTextDropdownFields(data, optionsByField, ["supplier", "testItem"]);
+  assert.deepEqual(resolved, ["testItem"]);
 });

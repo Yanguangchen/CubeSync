@@ -165,6 +165,20 @@ These selectors apply to `dashboard.html`.
 | Status filter | `#statusFilter` |
 | Selected row | `.form-table tbody tr.selected` |
 
+### Free-text review indicators
+
+Rows and fields flagged when a dropdown-backed value was typed instead of selected from the autocomplete list.
+
+| Target | Selector |
+| --- | --- |
+| Flagged list row | `.form-table tbody tr.has-custom-fields` |
+| Free-text count badge | `.custom-field-count` |
+| Detail legend | `.custom-field-legend` |
+| Flagged detail field | `.detail-field.is-custom-field` |
+| Highlighted value | `.highlight-custom` |
+
+See [free-text-dropdown-highlighting.md](free-text-dropdown-highlighting.md).
+
 ### Row Action Buttons
 
 | Action | Selector |

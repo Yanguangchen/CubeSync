@@ -286,6 +286,40 @@
     return normalizeCustomFields(merged);
   }
 
+  // Decide which dropdown fields to flag for human review on the dashboard.
+  //
+  // Preferred signal is value-based: a field is flagged only when its stored
+  // value is NOT one of the known options. This avoids false positives when a
+  // user typed a value that is actually a valid option (the capture-time
+  // `customFields` metadata flags any typed value, even valid ones), and avoids
+  // misses caused by browser-local option caches.
+  //
+  // When no option list is available for a field (e.g. the option file failed
+  // to load), fall back to the capture-time metadata so behavior degrades
+  // gracefully instead of showing nothing.
+  function resolveFreeTextDropdownFields(data, optionsByField, metadataFields) {
+    const metadata = normalizeCustomFields(metadataFields);
+    const options = optionsByField && typeof optionsByField === "object" ? optionsByField : {};
+
+    const flagged = DROPDOWN_OPTION_FIELDS.filter((field) => {
+      const list = options[field];
+
+      if (Array.isArray(list) && list.length > 0) {
+        const value = normalizeText(getCubeRequestFormValue(data, field));
+        if (!value) {
+          return false;
+        }
+
+        const target = value.toLowerCase();
+        return !list.some((option) => normalizeText(option).toLowerCase() === target);
+      }
+
+      return metadata.includes(field);
+    });
+
+    return normalizeCustomFields(flagged);
+  }
+
   function isRequestFieldFilled(field, value) {
     if (NUMBER_FIELDS.has(field)) {
       return typeof value === "number" && Number.isFinite(value);
@@ -1368,6 +1402,7 @@
     isDropdownFreeTextField,
     deriveFreeTextDropdownFields,
     mergeFreeTextDropdownFields,
+    resolveFreeTextDropdownFields,
     collectCustomFields,
     isRequestFieldFilled,
     validateCubeRequestForm,

@@ -50,7 +50,7 @@ The repo root keeps a short [README.md](../README.md) that links here.
 | Global | Source | Purpose |
 |--------|--------|---------|
 | `window.CubeSyncBarcode` | `barcode.js` | `encodeCode128B`, `renderBarcodeSvg`, `sanitizeBarcodeText` |
-| `window.CubeSyncFormData` | `cubesync-form-data.js` | Schema, validation, `buildCubeRequestFromForm`, `applyFormFieldConfig`, `syncNativeFormConstraints`, `validateCubeRequestForm`, `normalizeCubeRequestForDashboard` |
+| `window.CubeSyncFormData` | `cubesync-form-data.js` | Schema, validation, serialization, field config, free-text helpers (`collectCustomFields`, `deriveFreeTextDropdownFields`, `mergeFreeTextDropdownFields`), patch updates (`buildCubeRequestUpdatePatch`), `normalizeCubeRequestForDashboard` |
 | `window.CubeSyncExport` | `cubesync-export.js` | `buildExportFiles`, `buildFormCsv`, `createZipBlob`, `downloadFilesAsZip` |
 | `window.CubeSyncFirestore` | `firestore.js` | `savePublicCubeRequest`, `listCubeRequests`, `getCubeRequest`, `saveCubeRequest`, `updateCubeRequest`, `deleteCubeRequest`, `getFormFieldConfig`, `saveFormFieldConfig` |
 | `window.CubeSyncAuth` | `firestore.js` | `onAuthChange`, `currentUser`, `isAllowedEmail`, `isAllowedUser`, `signInWithGoogle`, `signOutUser` |
@@ -133,7 +133,17 @@ Test-result table headers and cells use `data-result-field="{name}"` for column 
 
 ### System fields
 
-`template`, `status`, `results`, `createdAt`, `updatedAt`, `rpaStatus`, `erpStatus`, `attemptCount`, `customFields`
+| Field | Purpose |
+|-------|---------|
+| `template` | `Original` or `Glassmorphic` |
+| `status` | `Draft`, `Ready`, or `Archived` (human dashboard lifecycle) |
+| `results` | Array of test-result rows (`RESULT_FIELDS`) |
+| `customFields` | Dropdown field names typed as free text at submit time (see [Free-text dropdown review](#free-text-dropdown-review)) |
+| `extraFields` | Map of staff-defined custom field id → value (`{ [customFieldId]: value }`) |
+| `createdAt`, `updatedAt` | Server timestamps |
+| `rpaStatus`, `erpStatus`, `attemptCount` | RPA queue / ERP automation metadata |
+
+Legacy aliases (`reportNo`, `client`, `project`, `internalDate`, etc.) may still exist on older documents; the dashboard and export normalize them on read.
 
 Barcodes are stored as **text only** — SVGs are rendered client-side via Code 128-B encoding. Never store generated barcode images in Firestore.
 
@@ -141,9 +151,18 @@ Barcodes are stored as **text only** — SVGs are rendered client-side via Code 
 
 | Document | Path | Purpose |
 |----------|------|---------|
-| Form field config | `settings/formFieldConfig` | Which request fields and result columns are enabled on both forms (`requestFields`, `resultFields`, `updatedAt`) |
+| Form field config | `settings/formFieldConfig` | Org-wide form UI configuration (single document, not per request) |
 
-Staff manage this from **Field settings** on `dashboard.html`. Forms cache the config in `localStorage` under `cubesync-form-field-config`.
+| Config key | Type | Purpose |
+|------------|------|---------|
+| `requestFields` | map | Canonical request field name → enabled boolean |
+| `resultFields` | map | Result column name → enabled boolean |
+| `requestLabels` | map (optional) | Custom label overrides for public form request fields |
+| `resultLabels` | map (optional) | Custom label overrides for public form result columns |
+| `customRequestFields` | array (optional) | Staff-defined custom field definitions (`id`, `label`, `type`, `required`, `enabled`, `formLabel`) |
+| `updatedAt` | timestamp | Last save from dashboard field settings |
+
+Staff manage this from **Field settings** on `dashboard.html`. Forms cache the config in `localStorage` under `cubesync-form-field-config`. The dashboard always shows canonical field names; rename boxes only affect labels on `index.html` and `glassmorphic.html`.
 
 ## Form validation
 
@@ -175,11 +194,56 @@ Options are merged from the static file (via `fetch`) and prior user entries in 
 
 These files live under `dropdown-options/`. They are the selector options for the dropdown menu/autocomplete inputs on the request form. For production (Vercel), `npm run build` copies the whole `dropdown-options/` folder into `public/`. If dropdowns are empty in production, confirm those files exist under the deployed site root (e.g. `/dropdown-options/supplier.txt`).
 
-## Custom free text fields
+## Free-text dropdown review
 
-Fields with dropdown menus (`specimenSize`, `managerInCharge`, `testItem`, etc.) support free-text entries dynamically wired through `app.js`. If a user types into one of these fields instead of selecting a dropdown option, the field name is recorded in the `customFields` array.
+Eight request fields use autocomplete dropdowns (`DROPDOWN_OPTION_FIELDS` in `cubesync-form-data.js`): `projectErp`, `customerBilling`, `supplier`, `concreteGrade`, `personInCharge`, `managerInCharge`, `testItem`, `specimenSize`.
 
-The `dashboard.html` human dashboard reads the `customFields` array, shows a free-text counter on the form list, shows a legend in the detail panel, and applies orange `<span class="highlight-custom">` styling to visually call out affected values.
+### Capture on the public form (`app.js`)
+
+When a user **types** into a dropdown-backed field instead of selecting a suggestion, `app.js` sets `dataset.freeTextEntry = "true"` on that input. On save, `collectCustomFields()` writes the canonical field names to `customFields` on the Firestore document.
+
+Selecting an option from the suggestion list clears the free-text flag for that field.
+
+### Display on the human dashboard (`dashboard.js`)
+
+The dashboard flags fields **by value**, via `resolveFreeTextDropdownFields()`:
+
+1. **Value-based (preferred)** — if an option list is loaded for the field, flag it only when the stored value is **not** in that list (case-insensitive). A value matching a valid option is never flagged, so valid selections (and valid typed values) are not tagged.
+2. **Metadata fallback** — if no option list is available for a field, fall back to the capture-time `customFields` entry.
+
+Option lists load once after sign-in via `loadDropdownOptionSets()`, which fetches the deployed `dropdown-options/*.txt` files **only** (not `localStorage`) so the judgment is consistent across machines.
+
+Visual indicators (see `css/dashboard.css`):
+
+| UI element | Class / behavior |
+|------------|------------------|
+| Form list row tint | `.has-custom-fields` on `<tr>` |
+| Row badge | `.custom-field-count` — e.g. “2 free-text fields” |
+| Detail legend | `.custom-field-legend` |
+| Highlighted value | `.highlight-custom` inside `.detail-field.is-custom-field` |
+
+See [free-text-dropdown-highlighting.md](free-text-dropdown-highlighting.md) for TDD history and implementation notes.
+
+## Custom request fields (staff-defined)
+
+Separate from free-text dropdown review, staff can define **additional request fields** from dashboard **Field settings** → **Custom request fields**:
+
+- Definitions live in `settings/formFieldConfig.customRequestFields[]`.
+- Per-request values are stored in `cubeRequests.extraFields` as `{ [id]: value }`.
+- Types: `text`, `number`, `date`, `checkbox`, `textarea`.
+- Public forms render enabled custom fields via `applyCustomRequestFields()`; the submit API whitelists and sanitizes `extraFields`.
+
+## Dashboard saves
+
+Staff edits from `dashboard.html` use a **patch update** path:
+
+1. `buildCubeRequestFromForm()` + `dashboardEditToCubeRequest()` build the full in-memory payload.
+2. `buildCubeRequestUpdatePatch(existing, payload)` compares against the loaded Firestore document (`form.raw`) and sends **only changed fields** to `updateCubeRequest()`.
+3. `firestore.js` adds `updatedAt: serverTimestamp()` and strips `undefined` via `withoutUndefined()`.
+
+`withoutUndefined()` recurses only into plain objects and arrays. Firestore sentinels (`serverTimestamp()` / `FieldValue`), `Timestamp`, and `Date` instances must pass through unchanged — flattening them causes rules validation to reject the write with `permission-denied`.
+
+RPA status updates use the same `updateCubeRequest()` helper but typically send a single field (`rpaStatus` or `erpStatus`).
 
 ## Barcodes
 
@@ -234,17 +298,25 @@ The project uses `node:test` + `node:assert/strict` with `jsdom` for DOM simulat
 
 Notable regression coverage:
 
-- `form-field-config.test.js` — field enable/disable, validation with config, `syncNativeFormConstraints`
-- `app-functional.test.js` — multi-step submit, autocomplete wiring, hidden-step validation (`dateOfCast` / `novalidate`)
+- **`free-text-dropdown.test.js`** — dedicated regression suite for free-text review (metadata vs value resolve, localStorage exclusion, dashboard wiring)
+- `form-field-config.test.js` — field enable/disable, custom labels, custom request field CRUD, validation with config
+- `form-data.test.js` — `resolveFreeTextDropdownFields`, patch updates (`buildCubeRequestUpdatePatch`)
+- `app-functional.test.js` — multi-step submit, typed-vs-selected autocomplete, `customFields` on save, hidden-step validation
+- `dashboard-functional.test.js` — free-text badge/legend/highlight rendering, patch save behavior
+- `firestore-runtime.test.js` — `serverTimestamp()` sentinel preserved through `updateCubeRequest`
 - `deployment-config.test.js` — build output includes autocomplete option files in `public/dropdown-options/`
+
+The suite currently runs **145** tests (`npm test`).
 
 ## Firestore rules safety
 
 `firestore.rules` also contains WorkGrid rules from another sensitive app. **Do not edit the WorkGrid rule blocks** for CubeSync work.
 
-CubeSync-specific access must stay in the clearly marked `CUBESYNC-ONLY RULES` block for `cubeRequests` and `settings/formFieldConfig`. Direct client Firestore access remains authenticated-only. Public customer forms submit through `/api/cube-request-submit`, which verifies reCAPTCHA v2 and writes with Firebase Admin.
+CubeSync-specific access must stay in the clearly marked `CUBESYNC-ONLY RULES` block for `cubeRequests` and `settings/formFieldConfig`. Direct client Firestore access requires **verified Google Auth email** on the CubeSync allowlist (`isCubeSyncStaff()`). Public customer forms submit through `/api/cube-request-submit`, which verifies reCAPTCHA v2 and writes with Firebase Admin (bypasses rules).
 
-The allowlist is maintained in `firestore.js` as `CUBESYNC_ALLOWED_EMAILS`. It mirrors the WorkGrid-listed emails plus CubeSync additions such as `ernestngcy@gmail.com`; do not add CubeSync-only users by editing WorkGrid rule code.
+The allowlist is maintained in `firestore.js` as `CUBESYNC_ALLOWED_EMAILS` and mirrored in `firestore.rules` (`isCubeSyncAllowedEmail()`). Keep both lists in sync when adding staff. Do not add CubeSync-only users by editing WorkGrid rule code.
+
+Updates to `cubeRequests` are validated by `isValidCubeRequestUpdate()` — only whitelisted keys may change, and changed fields must pass type/length checks. A rules rejection surfaces in the client as `permission-denied: Missing or insufficient permissions`.
 
 ## Documentation
 
@@ -254,7 +326,7 @@ The allowlist is maintained in `firestore.js` as `CUBESYNC_ALLOWED_EMAILS`. It m
 | `overview.md` | High-level architecture summary |
 | `design.md` | Design system: palette, tokens, typography, components |
 | `architecture.md` | UML diagrams: class, sequence, component, state, and data model |
-| `free-text-dropdown-highlighting.md` | TDD progress and behavior for typed dropdown option highlighting |
+| `free-text-dropdown-highlighting.md` | Free-text review flags, capture vs review semantics, regression tests |
 | `RPA_SELECTOR_REFERENCE.md` | Stable CSS selectors and field names for RPA automation |
 
 ## Deployment
@@ -263,7 +335,20 @@ Hosted on Vercel as a static site (`public/` output) plus `/api/cube-request-sub
 
 1. Set `CUBESYNC_RECAPTCHA_SITE_KEY`, `CUBESYNC_RECAPTCHA_SECRET_KEY`, and `FIREBASE_SERVICE_ACCOUNT_JSON` (or `_BASE64`) in Vercel.
 2. Ensure the build command is `npm run build` and output directory is `public` (`vercel.json`).
-3. Deploy Firestore rules when changing `settings/formFieldConfig` access (`firestore.rules`).
-4. Push to `main` to deploy.
+3. Deploy Firestore rules when changing CubeSync access or payload validation (`firestore.rules`):
 
-After deploy, verify autocomplete files are reachable (e.g. `https://your-site/dropdown-options/supplier.txt`) and form field settings save from the dashboard.
+   ```sh
+   npx firebase-tools login
+   npx firebase-tools deploy --only firestore:rules --project crewhub-43647
+   ```
+
+   Project ID must match `firebaseConfig.projectId` in `firestore.js`. Copy-pasting rules in the Firebase console works, but CLI deploy avoids partial paste mistakes.
+
+4. Push to `main` (or run `vercel --prod`) to deploy the static app and API.
+
+After deploy, verify:
+
+- Autocomplete files are reachable (e.g. `https://cube-sync.vercel.app/dropdown-options/supplier.txt`).
+- Field settings save from the dashboard.
+- Status changes and edits save without `permission-denied` (requires current `firestore.js` + rules).
+- Free-text flags appear on the dashboard when a dropdown value is not in the option list.

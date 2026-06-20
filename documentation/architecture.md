@@ -91,6 +91,11 @@ classDiagram
         +syncNativeFormConstraints(form: HTMLForm, options: Object) void
         +normalizeCubeRequestForDashboard(data: Object, id: String) Object
         +dashboardEditToCubeRequest(formData: FormData) Object
+        +buildCubeRequestUpdatePatch(existing: Object, payload: Object) Object
+        +collectCustomFields(form: HTMLForm) Array~String~
+        +deriveFreeTextDropdownFields(data: Object, optionsByField: Object) Array~String~
+        +mergeFreeTextDropdownFields(...lists) Array~String~
+        +applyFreeTextFlags(form: HTMLForm, customFieldNames: Array) void
     }
 
     class CubeSyncExport {
@@ -258,9 +263,10 @@ Customers submitting cube requests do not need to sign in. Security is maintaine
 
 ### Internal Operations
 Dashboard and RPA operations require Google Authentication:
-1.  **Firestore Rules:** The `firestore.rules` file enforces `allow read, write: if isSignedIn();` for the `cubeRequests` collection.
-2.  **Application Allowlist:** `firestore.js` maintains `CUBESYNC_ALLOWED_EMAILS`. Even if a user is signed in to Firebase, the UI remains locked unless their email is in the allowlist.
-3.  **Security Rule Mirrors:** The Firestore rules should ideally mirror this allowlist for defense-in-depth (see `firestore.rules`).
+1.  **Firestore Rules:** CubeSync staff access uses `isCubeSyncStaff()` — verified email plus allowlist match in the `CUBESYNC-ONLY RULES` block (`cubeRequests`, `settings/formFieldConfig`).
+2.  **Application Allowlist:** `firestore.js` maintains `CUBESYNC_ALLOWED_EMAILS`. The UI stays locked unless the signed-in email is on the list.
+3.  **Update validation:** `isValidCubeRequestUpdate()` restricts which keys may change and validates field types. Rejections appear as `permission-denied` in the client SDK.
+4.  **Patch writes:** The human dashboard sends only changed fields via `buildCubeRequestUpdatePatch()` to minimize validation surface area.
 
 ---
 
@@ -289,6 +295,7 @@ sequenceDiagram
 
     DSH->>Auth: isAllowedUser(user)
     DSH->>DSH: Unlock dashboard shell
+    DSH->>DSH: loadDropdownOptionSets() — fetch dropdown-options/*.txt
 
     DSH->>FS: listCubeRequests()
     FS->>DB: getDocs(cubeRequests)
@@ -298,18 +305,22 @@ sequenceDiagram
     loop Each form
         DSH->>FD: normalizeCubeRequestForDashboard(data, id)
         FD-->>DSH: normalized record
+        DSH->>FD: deriveFreeTextDropdownFields(raw, dropdownOptions)
+        DSH->>FD: mergeFreeTextDropdownFields(customFields, derived)
     end
-    DSH->>DSH: renderForms() → table
+    DSH->>DSH: renderForms() → table (badges for free-text count)
 
     User->>DSH: Click row → viewForm(id)
-    DSH->>DSH: Render detail panel with barcodes
+    DSH->>DSH: Render detail panel with legend + orange highlights
 
     User->>DSH: Click Edit → openEditor(id)
-    DSH->>DSH: Populate dialog from state
+    DSH->>FD: applyFreeTextFlags(editForm, customFields)
     User->>DSH: Modify fields, submit dialog
-    DSH->>FD: dashboardEditToCubeRequest(formData)
-    FD-->>DSH: updates object
-    DSH->>FS: updateCubeRequest(id, updates)
+    DSH->>FD: buildCubeRequestFromForm + dashboardEditToCubeRequest
+    DSH->>FD: buildCubeRequestUpdatePatch(existing, payload)
+    FD-->>DSH: patch (changed fields only)
+    DSH->>FS: updateCubeRequest(id, patch)
+    FS->>FS: withoutUndefined({ ...patch, updatedAt: serverTimestamp() })
     FS->>DB: updateDoc
     DSH->>DSH: Reload forms
 
@@ -487,6 +498,8 @@ erDiagram
         string rpaStatus "Ready for Bot, In Progress, etc."
         string erpStatus "Pending, Processing, Success, Error"
         number attemptCount "RPA retry count"
+        array customFields "Dropdown fields typed as free text"
+        map extraFields "Staff custom field id → value"
         timestamp createdAt "Server timestamp"
         timestamp updatedAt "Server timestamp"
     }
@@ -508,6 +521,9 @@ erDiagram
     FORM_FIELD_CONFIG {
         map requestFields "fieldName → enabled boolean"
         map resultFields "columnName → enabled boolean"
+        map requestLabels "optional label overrides for public forms"
+        map resultLabels "optional column label overrides"
+        array customRequestFields "staff-defined field definitions"
         timestamp updatedAt "Last saved from dashboard"
     }
 
@@ -572,42 +588,42 @@ graph LR
 
 ## 11. Test Architecture
 
-How the three testing tiers cover the source code.
+The project uses Node’s built-in test runner with `jsdom` for DOM simulation. **145 tests** across unit, functional, and contract tiers.
 
 ```mermaid
 graph TB
-    subgraph UnitTests["Unit Tests (pure functions)"]
-        T1["barcode.test.js<br/>7 tests"]
-        T2["export.test.js<br/>5 tests"]
-        T3["form-data.test.js<br/>4 tests"]
+    subgraph UnitTests["Unit + regression tests"]
+        T1[barcode.test.js]
+        T2[export.test.js]
+        T3[form-data.test.js]
+        T4[form-field-config.test.js]
+        T4b[free-text-dropdown.test.js]
     end
 
     subgraph FunctionalTests["Functional Tests (JSDOM + mocks)"]
-        T4["app-functional.test.js<br/>3 tests"]
-        T5["dashboard-functional.test.js<br/>2 tests"]
-        T6["rpa-functional.test.js<br/>2 tests"]
+        T5[app-functional.test.js]
+        T6[dashboard-functional.test.js]
+        T7[rpa-functional.test.js]
+        T8[firestore-runtime.test.js]
     end
 
     subgraph ContractTests["Contract Tests (static regex)"]
-        T7["form.test.js<br/>3 tests"]
-        T8["dashboard.test.js<br/>1 test"]
-        T9["firestore.test.js<br/>2 tests"]
-        T10["rpa-view.test.js<br/>2 tests"]
+        T9[form.test.js]
+        T10[firestore.test.js]
+        T11[deployment-config.test.js]
     end
 
     T1 -->|covers| B[barcode.js]
     T2 -->|covers| E[cubesync-export.js]
     T3 -->|covers| F[cubesync-form-data.js]
+    T4 -->|covers| F
+    T4b -->|regression: free-text review| F
+    T4b -->|regression: dashboard wiring| C2
 
-    T4 -->|exercises| C1[app.js]
-    T5 -->|exercises| C2[dashboard.js]
-    T6 -->|exercises| C3[rpa-dashboard.js]
-    T6 -->|exercises| C4[rpa-view.js]
+    T5 -->|exercises| C1[app.js]
+    T6 -->|exercises| C2[dashboard.js]
+    T7 -->|exercises| C3[rpa-dashboard.js]
+    T8 -->|exercises| G[firestore.js]
 
-    T7 -.->|validates structure| C1
-    T7 -.->|validates structure| HTMLForms[index.html + glassmorphic.html]
-    T8 -.->|validates structure| C2
-    T9 -.->|validates structure| G[firestore.js]
-    T10 -.->|validates structure| C3
-    T10 -.->|validates structure| C4
+    T10 -.->|validates rules contract| Rules[firestore.rules]
 ```

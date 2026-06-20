@@ -1,42 +1,69 @@
 # CubeSync Architecture Overview
 
-This document provides a high-level overview of the CubeSync architecture. For detailed UML diagrams (Component, Class, Sequence, State, and ER), please refer to [architecture.md](architecture.md).
+High-level summary of the CubeSync system. For UML diagrams (component, class, sequence, state, ER), see [architecture.md](architecture.md).
 
-## System Overview
+## System overview
 
-CubeSync is a digital transformation of the paper-based concrete cube request process. It consists of a suite of web pages, shared utility modules, and a serverless backend for secure data submission.
+CubeSync digitizes the paper concrete cube request process. It includes public submission forms, a staff dashboard, an RPA queue, and a serverless API for secure customer writes.
 
-## Core Components
+## Core components
 
-### 1. Frontend Pages
-- **Request Forms:** `index.html` (Original) and `glassmorphic.html` (Stepped). Powered by `app.js`.
-- **Human Dashboard:** `dashboard.html`. Powered by `dashboard.js`. Provides CRUD operations for internal staff.
-- **RPA Queue:** `rpa-dashboard.html`. Optimized for bot consumption with CSV/ZIP export.
+### Frontend pages
 
-### 2. Shared Modules (UMD)
-- **`barcode.js`:** Code 128-B encoding and SVG rendering.
-- **`cubesync-form-data.js`:** Centralized schema and data transformation logic.
-- **`cubesync-export.js`:** Utility for generating CSV files and ZIP archives.
-- **`firestore.js`:** Wrapper for Firebase Auth and Firestore SDKs.
+| Page | File | Controller | Purpose |
+|------|------|------------|---------|
+| Original form | `index.html` | `app.js` | PDF-faithful request form |
+| Glassmorphic form | `glassmorphic.html` | `app.js` | Stepped request form |
+| Human dashboard | `dashboard.html` | `dashboard.js` | Staff CRUD, field settings, free-text review |
+| RPA queue | `rpa-dashboard.html` | `rpa-dashboard.js` | Date-filtered bot queue, CSV/ZIP export |
+| RPA form view | `rpa-view.html` | `rpa-view.js` | Read-only single form for bots |
 
-### 3. Backend & Security
-- **Public Submission API:** `/api/cube-request-submit.js` (Vercel Function).
-- **reCAPTCHA v2:** Integrated into the form submission flow to prevent spam.
-- **Firebase Admin SDK:** Used by the API to write to Firestore with elevated privileges after reCAPTCHA verification.
+### Shared modules (UMD except `firestore.js`)
 
-## Security Model
+| Module | Role |
+|--------|------|
+| `barcode.js` | Code 128-B encode + SVG render |
+| `cubesync-form-data.js` | Schema, validation, field config, serialization, dashboard normalization, free-text helpers, patch updates |
+| `cubesync-export.js` | CSV + ZIP export |
+| `cubesync-form-markup.js` | Shared result-row HTML for forms and dashboard editor |
+| `firestore.js` | Firebase Auth + Firestore client (ES modules from CDN) |
 
-CubeSync uses a tiered security approach:
-- **Public (Customer):** Access to submission forms. Protected by reCAPTCHA v2. Submissions go through the API proxy.
-- **Internal (Staff):** Access to dashboards. Protected by Google OAuth and an application-level email allowlist (`CUBESYNC_ALLOWED_EMAILS`).
+### Backend
 
-## Data Flow
+| Component | Role |
+|-----------|------|
+| `/api/cube-request-submit.js` | reCAPTCHA verify → Admin SDK write to `cubeRequests` |
+| `firestore.rules` | WorkGrid rules + CubeSync-only block (`cubeRequests`, `settings/formFieldConfig`) |
 
-1. **Submission:** User fills form -> `app.js` captures data -> reCAPTCHA challenge -> POST to `/api/cube-request-submit` -> Verification -> Write to Firestore.
-2. **Management:** Staff signs in -> `dashboard.js` loads forms from Firestore -> CRUD operations -> Sync back to Firestore.
-3. **Automation:** RPA bot loads `rpa-dashboard.html` -> Exports CSV/ZIP -> Downloads files for ERP entry.
+## Security model
 
-For more information, see:
-- [Design System](design.md)
-- [RPA Selector Reference](RPA_SELECTOR_REFERENCE.md)
-- [README](README.md)
+| Audience | Access | Protection |
+|----------|--------|------------|
+| Public (customer) | Submit forms | reCAPTCHA v2 + API proxy (no direct Firestore write) |
+| Staff | Dashboard, RPA | Google OAuth + `CUBESYNC_ALLOWED_EMAILS` (UI) + `isCubeSyncStaff()` (Firestore rules) |
+
+Keep `firestore.js` and `firestore.rules` allowlists in sync.
+
+## Data flow
+
+1. **Submission:** User fills form → `app.js` builds payload (including `customFields`, `extraFields`) → reCAPTCHA → POST `/api/cube-request-submit` → Firestore.
+2. **Management:** Staff signs in → dashboard loads option lists + forms → view/edit/delete → patch update to Firestore.
+3. **Review:** Dashboard merges `customFields` metadata with value-based free-text derivation → orange highlights on list and detail.
+4. **Automation:** RPA loads queue → exports CSV/ZIP or updates `rpaStatus` / `erpStatus`.
+
+## Configuration
+
+Staff use **Field settings** on the dashboard to:
+
+- Enable/disable request fields and result columns on public forms.
+- Rename labels on public forms (`requestLabels`, `resultLabels`).
+- Add/edit/delete custom request fields (`customRequestFields` → `extraFields` on each request).
+
+Config document: `settings/formFieldConfig`. Cached locally as `cubesync-form-field-config`.
+
+## Further reading
+
+- [README.md](README.md) — schema, build, deploy, testing
+- [design.md](design.md) — design tokens and UI patterns
+- [free-text-dropdown-highlighting.md](free-text-dropdown-highlighting.md) — free-text review flags
+- [RPA_SELECTOR_REFERENCE.md](RPA_SELECTOR_REFERENCE.md) — stable selectors for automation

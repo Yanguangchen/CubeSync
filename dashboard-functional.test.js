@@ -218,6 +218,87 @@ test("dashboard.js shows dropdown free text counter, legend, and highlighted fie
   assert.equal(detailContent.querySelectorAll(".detail-field.is-custom-field").length, 3);
 });
 
+test("dashboard.js flags only values missing from the loaded option list", async () => {
+  const dom = new JSDOM(html, {
+    runScripts: "dangerously",
+    url: "http://localhost/"
+  });
+  const { window } = dom;
+
+  const optionFiles = {
+    "dropdown-options/supplier.txt": "ABC Concrete\nXYZ Ready Mix",
+    "dropdown-options/project erp.txt": "ERP-001\nERP-002"
+  };
+
+  window.fetch = async (url) => {
+    const key = decodeURI(String(url));
+    const body = optionFiles[key];
+    return {
+      ok: body !== undefined,
+      text: async () => body || ""
+    };
+  };
+
+  const mockAuth = {
+    onAuthChange: (cb) => cb({ email: "test@rakmat.com.sg" }),
+    isAllowedUser: () => true
+  };
+
+  const mockFirestore = {
+    listCubeRequests: async () => [
+      {
+        id: "selected-1",
+        reportNo: "SELECTED-001",
+        // Both dropdown values match an option exactly -> should NOT be flagged,
+        // even though stale metadata claims they were typed.
+        projectErp: "ERP-001",
+        supplier: "ABC Concrete",
+        status: "Ready",
+        template: "Original",
+        updatedAt: "2026-06-20",
+        customFields: ["projectErp", "supplier"]
+      },
+      {
+        id: "typed-1",
+        reportNo: "TYPED-001",
+        // supplier is not in the option list -> flagged. projectErp matches.
+        projectErp: "ERP-002",
+        supplier: "Brand New Supplier",
+        status: "Ready",
+        template: "Original",
+        updatedAt: "2026-06-20"
+      }
+    ]
+  };
+
+  window.CubeSyncAuth = mockAuth;
+  window.CubeSyncFirestore = mockFirestore;
+
+  [barcodeJs, formDataJs, dashboardJs].forEach((js) => {
+    const script = window.document.createElement("script");
+    script.textContent = js;
+    window.document.head.appendChild(script);
+  });
+
+  const event = window.document.createEvent("Event");
+  event.initEvent("DOMContentLoaded", true, true);
+  window.dispatchEvent(event);
+
+  await new Promise((resolve) => setTimeout(resolve, 80));
+
+  const list = window.document.getElementById("formList");
+  const selectedRow = list.querySelector("tr[data-id='selected-1']");
+  const typedRow = list.querySelector("tr[data-id='typed-1']");
+
+  // Matching values are not flagged despite stale metadata.
+  assert.ok(!selectedRow.classList.contains("has-custom-fields"));
+  assert.doesNotMatch(selectedRow.innerHTML, /free-text field/);
+
+  // The genuinely novel value is flagged.
+  assert.ok(typedRow.classList.contains("has-custom-fields"));
+  assert.match(typedRow.innerHTML, /1 free-text field/);
+});
+
 test("dashboard.js edit form handles all request fields", async () => {
   const dom = new JSDOM(html, {
     runScripts: "dangerously",

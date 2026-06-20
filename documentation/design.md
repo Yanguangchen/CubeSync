@@ -254,6 +254,19 @@ Avoid re-enabling native `required` on hidden controls — browsers throw “not
 | Status: archived | `--muted` badge |
 | Dark mode accent | Shift primary to `--brand-blue` (`#52A0FC`) for better contrast on dark surfaces |
 
+### Free-text dropdown review (human dashboard)
+
+When a dropdown-backed field value was typed instead of selected from the autocomplete list, the human dashboard surfaces it for review:
+
+| Element | Token / class | Notes |
+|---------|---------------|-------|
+| List row tint | `.has-custom-fields` | Warm orange background on form table row |
+| Count badge | `.custom-field-count` | Adjacent to report number in list |
+| Detail legend | `.custom-field-legend` | Above detail `<dl>` when count > 0 |
+| Field highlight | `.highlight-custom` inside `.detail-field.is-custom-field` | Orange text background on flagged values |
+
+Flags come from stored `customFields` metadata and/or value-based comparison against `dropdown-options/*.txt`. See [free-text-dropdown-highlighting.md](free-text-dropdown-highlighting.md).
+
 ### Form field configuration
 
 Staff configure which request fields and test-result columns appear on **both** `index.html` and `glassmorphic.html`, and may rename the label shown for any field/column on those forms.
@@ -326,7 +339,8 @@ Avoid animating layout properties on data-heavy views (tables).
 | `scripts/write-env.js` | Build: `env.js` + copy static assets and autocomplete files to `public/` |
 | `documentation/design.md` | Source of truth for tokens and UI patterns |
 | `documentation/README.md` | Project overview, schema, build/deploy, testing |
-| `form-field-config.test.js` | TDD coverage for field enable/disable and step constraints |
+| `documentation/free-text-dropdown-highlighting.md` | Free-text review flags — capture, derivation, UI |
+| `form-field-config.test.js` | TDD coverage for field enable/disable, labels, custom fields |
 | `deployment-config.test.js` | Build output contract (including autocomplete files) |
 | `documentation/architecture.md` | UML diagrams: class, sequence, component, state, ER |
 | `documentation/RPA_SELECTOR_REFERENCE.md` | Stable selectors for RPA automation |

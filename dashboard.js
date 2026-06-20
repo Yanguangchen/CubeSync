@@ -32,33 +32,26 @@
 
     const options = {};
 
-    await Promise.all(DROPDOWN_OPTION_SOURCES.map(async ({ field, url, storageKey }) => {
-      let fileOptions = [];
-      if (fetchFn) {
-        try {
-          const response = await fetchFn(encodeURI(url));
-          if (response.ok) {
-            const text = await response.text();
-            fileOptions = text.split("\n").map((line) => line.trim()).filter(Boolean);
-          }
-        } catch {
-          // Missing option file: leave fileOptions empty.
-        }
+    // Use the shared, deployed option files as the canonical reference only.
+    // Browser-local (localStorage) suggestions are intentionally excluded so a
+    // value is judged free text consistently across machines, regardless of
+    // what any single staff browser has cached.
+    await Promise.all(DROPDOWN_OPTION_SOURCES.map(async ({ field, url }) => {
+      if (!fetchFn) {
+        return;
       }
 
-      let localOptions = [];
       try {
-        const stored = localStorage.getItem(storageKey);
-        if (stored) {
-          localOptions = JSON.parse(stored);
+        const response = await fetchFn(encodeURI(url));
+        if (response.ok) {
+          const text = await response.text();
+          const fileOptions = text.split("\n").map((line) => line.trim()).filter(Boolean);
+          if (fileOptions.length) {
+            options[field] = fileOptions;
+          }
         }
       } catch {
-        localOptions = [];
-      }
-
-      const combined = Array.from(new Set([...fileOptions, ...(Array.isArray(localOptions) ? localOptions : [])]));
-      if (combined.length) {
-        options[field] = combined;
+        // Missing option file: leave this field without a reference list.
       }
     }));
 
@@ -336,11 +329,15 @@
       state.forms = records.map((record) => {
         const form = helper.normalizeCubeRequestForDashboard(record, record.id);
 
-        // Combine capture-time metadata with value-based detection so flags
-        // appear even for forms saved without `customFields` metadata.
-        if (typeof helper.deriveFreeTextDropdownFields === "function") {
-          const derived = helper.deriveFreeTextDropdownFields(form.raw || record, state.dropdownOptions);
-          form.customFields = helper.mergeFreeTextDropdownFields(form.customFields, derived);
+        // Flag dropdown fields by comparing the stored value against the known
+        // option list (value-based). Capture-time `customFields` metadata is
+        // only used as a fallback when an option list is unavailable.
+        if (typeof helper.resolveFreeTextDropdownFields === "function") {
+          form.customFields = helper.resolveFreeTextDropdownFields(
+            form.raw || record,
+            state.dropdownOptions,
+            form.customFields
+          );
           form.customFieldCount = form.customFields.length;
         }
 
