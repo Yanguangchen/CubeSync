@@ -67,6 +67,25 @@
       .replace(/'/g, "&#39;");
   }
 
+  function formatDashboardDate(value) {
+    if (value == null || value === "") {
+      return "";
+    }
+
+    const text = String(value).trim();
+    const yearFirst = text.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:$|[T\s])/);
+    if (yearFirst) {
+      return `${yearFirst[1]}/${yearFirst[2].padStart(2, "0")}/${yearFirst[3].padStart(2, "0")}`;
+    }
+
+    const dayFirst = text.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})(?:$|[T\s])/);
+    if (dayFirst) {
+      return `${dayFirst[3]}/${dayFirst[2].padStart(2, "0")}/${dayFirst[1].padStart(2, "0")}`;
+    }
+
+    return text;
+  }
+
   function formStore() {
     return window.CubeSyncFirestore;
   }
@@ -175,7 +194,7 @@
           <td>${escapeHtml(form.project)}</td>
           <td>${escapeHtml(form.template)}</td>
           <td><span class="status-pill ${statusClass(form.status)}">${escapeHtml(form.status)}</span></td>
-          <td>${escapeHtml(form.updatedAt)}</td>
+          <td>${escapeHtml(formatDashboardDate(form.updatedAt))}</td>
           <td>
             <div class="row-actions dropdown">
               <button type="button" class="action-dropdown-btn" data-action="toggle-dropdown" aria-haspopup="true" aria-expanded="false" data-id="${escapeHtml(form.id)}">Actions ▼</button>
@@ -249,9 +268,10 @@
         return "";
       }
 
-      const displayValue = helper.formatCustomFieldDisplayValue
+      const rawDisplayValue = helper.formatCustomFieldDisplayValue
         ? helper.formatCustomFieldDisplayValue(def, value)
         : String(value);
+      const displayValue = def.type === "date" ? formatDashboardDate(rawDisplayValue) : rawDisplayValue;
 
       return `<div class="detail-field"><dt>${escapeHtml(def.label)}</dt><dd>${escapeHtml(displayValue)}</dd></div>`;
     }).join("");
@@ -277,7 +297,8 @@
       const isCustom = helper && typeof helper.isDropdownFreeTextField === "function"
         ? helper.isDropdownFreeTextField(flaggedFields, formFieldKey)
         : flaggedFields.includes(formFieldKey);
-      const displayValue = isCustom ? `<span class="highlight-custom" title="Custom free text entry">${escapeHtml(value)}</span>` : escapeHtml(value);
+      const displayText = formFieldKey === "dateOfCast" ? formatDashboardDate(value) : value;
+      const displayValue = isCustom ? `<span class="highlight-custom" title="Custom free text entry">${escapeHtml(displayText)}</span>` : escapeHtml(displayText);
       return `<div class="detail-field${isCustom ? " is-custom-field" : ""}"><dt>${escapeHtml(label)}</dt><dd>${displayValue}</dd></div>`;
     };
 

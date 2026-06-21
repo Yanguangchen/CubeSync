@@ -46,7 +46,8 @@ test("dashboard.js handles auth and loads forms", async () => {
         customerBilling: "Client A",
         status: "Ready",
         template: "Original",
-        updatedAt: "2026-06-17",
+        updatedAt: "17/06/2026",
+        dateOfCast: "18/06/2026",
         results: [
           {
             specimenRef: "T-001",
@@ -102,12 +103,15 @@ test("dashboard.js handles auth and loads forms", async () => {
 
   // Test Selection
   const row = list.querySelector("tr[data-id='1']");
+  assert.equal(row.querySelectorAll("td")[5].textContent.trim(), "2026/06/17");
   row.click();
 
   const detailTitle = window.document.getElementById("detailTitle");
   const detailContent = window.document.getElementById("detailContent");
   assert.equal(detailTitle.textContent, "REPORT-001");
   assert.match(detailContent.innerHTML, /Project X/);
+  assert.match(detailContent.textContent, /2026\/06\/18/);
+  assert.doesNotMatch(detailContent.textContent, /18\/06\/2026/);
 });
 
 test("dashboard.js filters forms by search query", async () => {
