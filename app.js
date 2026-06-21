@@ -302,7 +302,9 @@
 
         try {
           const payload = formData.buildCubeRequestFromForm(form);
-          currentDocId = await store.savePublicCubeRequest(payload, currentDocId, token);
+          // Public submissions are create-only (the API rejects a supplied id),
+          // so never resend the current id — each save creates a new Draft.
+          currentDocId = await store.savePublicCubeRequest(payload, undefined, token);
           
           const saveToLocal = (key, value) => {
             if (!value) return;

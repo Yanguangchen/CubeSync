@@ -253,25 +253,68 @@ test("submission API returns 400 for malformed payload (unexpected field)", asyn
   }
 });
 
-test("submission API updates document when id is provided", async () => {
-  let updatedDocId = null;
-  let updatedData = null;
+test("submission API rejects submissions targeting an existing document id (create-only)", async () => {
+  // The public endpoint is unauthenticated (reCAPTCHA-gated only). Allowing a
+  // caller-supplied id with set(..., { merge: true }) let anyone overwrite any
+  // existing cubeRequests document (IDOR). Public submissions must be create-only.
+  const previousFetch = global.fetch;
+  const previousSecret = process.env.CUBESYNC_RECAPTCHA_SECRET_KEY;
+  global.fetch = async () => ({
+    async json() {
+      return { success: true };
+    }
+  });
+  process.env.CUBESYNC_RECAPTCHA_SECRET_KEY = "test-secret";
+  handler._test.setFirebaseAdminForTest({
+    apps: [{}],
+    firestore() {
+      throw new Error("Firestore must not be touched when an id is supplied");
+    }
+  });
+
+  try {
+    const response = mockResponse();
+    await handler({
+      method: "POST",
+      headers: {},
+      socket: { remoteAddress: "127.0.0.1" },
+      body: {
+        id: "existing-id",
+        recaptchaToken: "captcha-token",
+        payload: {
+          template: "Original",
+          status: "Draft",
+          results: []
+        }
+      }
+    }, response);
+
+    assert.equal(response.statusCode, 400);
+    assert.match(JSON.parse(response.body).error, /cannot target an existing document/i);
+  } finally {
+    global.fetch = previousFetch;
+    if (previousSecret === undefined) {
+      delete process.env.CUBESYNC_RECAPTCHA_SECRET_KEY;
+    } else {
+      process.env.CUBESYNC_RECAPTCHA_SECRET_KEY = previousSecret;
+    }
+    handler._test.setFirebaseAdminForTest(null);
+  }
+});
+
+test("submission API forces public submissions to Draft status", async () => {
+  // status is staff lifecycle state. An anonymous submission must never be able
+  // to set status: "Ready" and inject itself straight into the RPA/ERP queue.
+  const savedDocuments = [];
   const serverTimestamp = { ".sv": "timestamp" };
-  
   function firestore() {
     return {
       collection(name) {
         assert.equal(name, "cubeRequests");
         return {
-          doc(id) {
-            updatedDocId = id;
-            return {
-              set(data, options) {
-                assert.deepEqual(options, { merge: true });
-                updatedData = data;
-                return Promise.resolve();
-              }
-            };
+          add(data) {
+            savedDocuments.push(data);
+            return Promise.resolve({ id: "new-cube-request" });
           }
         };
       }
@@ -301,27 +344,19 @@ test("submission API updates document when id is provided", async () => {
     await handler({
       method: "POST",
       headers: {},
+      socket: { remoteAddress: "127.0.0.1" },
       body: {
-        id: "existing-id",
         recaptchaToken: "captcha-token",
         payload: {
-          projectErp: "ERP-002",
           customerBilling: "Acme Billing",
-          projectNameOnReport: "Tower",
-          clientNameOnReport: "Acme Client",
           contact: "Jane",
-          enableManualCubeJobNumber: true,
-          cubeJobNumber: "CUBE-001",
-          quote: "Q-001",
-          testItem: "Concrete cube",
           supplier: "Supplier A",
           supplierDisplay: "Supplier A Display",
           locationRepresented: "Level 12",
-          additionalInformation: "Rush job",
           dateOfCast: "2026-06-20",
           concreteGrade: "C35/45",
           reportGrade: "C35/45",
-          specimenSize: "150x150",
+          specimenSize: "150 x 150 x 150",
           slumpMeasured: 10,
           slumpSpecified: 20,
           personInCharge: "Jane",
@@ -334,12 +369,9 @@ test("submission API updates document when id is provided", async () => {
     }, response);
 
     assert.equal(response.statusCode, 200);
-    assert.deepEqual(JSON.parse(response.body), { id: "existing-id" });
-    assert.equal(updatedDocId, "existing-id");
-    assert.equal(updatedData.status, "Ready");
-    assert.equal(updatedData.projectErp, "ERP-002");
-    assert.deepEqual(updatedData.updatedAt, serverTimestamp);
-    assert.equal(updatedData.createdAt, undefined); // Should not update createdAt
+    assert.deepEqual(JSON.parse(response.body), { id: "new-cube-request" });
+    assert.equal(savedDocuments.length, 1);
+    assert.equal(savedDocuments[0].status, "Draft");
   } finally {
     global.fetch = previousFetch;
     if (previousSecret === undefined) {

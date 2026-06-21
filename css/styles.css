@@ -128,6 +128,12 @@ button:hover,
   padding: 0 12px;
 }
 
+/* min-width:0 lets the grid columns shrink below their content width so the
+   fixed-width reCAPTCHA widget and command buttons can't overflow the viewport. */
+.tool-section {
+  min-width: 0;
+}
+
 .tool-section.left {
   display: flex;
   justify-content: flex-start;
@@ -140,6 +146,8 @@ button:hover,
 
 .tool-section.right {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   justify-content: flex-end;
   gap: 8px;
 }

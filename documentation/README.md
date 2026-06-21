@@ -70,6 +70,8 @@ Because Firestore security rules require authentication for direct writes, publi
 - **Verification:** The API receives the payload and the `recaptchaToken`. It performs a server-to-server POST request to `https://www.google.com/recaptcha/api/siteverify` using the `CUBESYNC_RECAPTCHA_SECRET_KEY`.
 - **IP Tracking:** The user's IP address (extracted from `x-forwarded-for`) is passed to Google for better risk analysis.
 - **Admin SDK:** Only after successful reCAPTCHA verification does the API initialize the Firebase Admin SDK to write the document to the `cubeRequests` collection.
+- **Create-only:** The endpoint is unauthenticated (reCAPTCHA only proves "a human," not "an authorized user"), so it **rejects any caller-supplied `id`** and always `add()`s a new document. It never `set(..., { merge: true })`s an existing one. This closes an IDOR where anyone with a reCAPTCHA token could overwrite arbitrary records. Staff edits go through the authenticated dashboard (rules-protected), not this endpoint.
+- **Forced Draft status:** Any client-supplied `status` is ignored and overwritten to `Draft`. Only authenticated staff can promote a request to `Ready`/`Archived` via the dashboard, so an anonymous submission can never inject itself directly into the RPA/ERP queue (which processes only `Ready` forms). See [security-audit.md](security-audit.md).
 
 ### 3. Environment Configuration
 The system requires specific environment variables for reCAPTCHA to function:
@@ -333,11 +335,13 @@ Known WorkGrid permission-policy watch items:
 |----------|---------|
 | `README.md` | Project overview and quick start (this file) |
 | `overview.md` | High-level architecture summary |
-| `design.md` | Design system: palette, tokens, typography, components |
+| `design.md` | Design system: palette, tokens, typography, components, responsive patterns |
 | `architecture.md` | UML diagrams: class, sequence, component, state, and data model |
 | `project-uml.md` | Comprehensive project-wide UML diagrams for current modules, data, flows, and security boundaries |
 | `free-text-dropdown-highlighting.md` | Free-text review flags, capture vs review semantics, regression tests |
 | `RPA_SELECTOR_REFERENCE.md` | Stable CSS selectors and field names for RPA automation |
+| `mobile-responsiveness-postmortem.md` | Postmortem: mobile responsiveness issues, root causes, and fixes — read when adding CSS grids or flex layouts |
+| `security-audit.md` | Security & test-coverage audit: public-API hardening (done) and outstanding gaps (CORS, rules emulator tests, rules validation, allowlist sync) |
 
 ## Deployment
 

@@ -7,7 +7,9 @@ const {
 
 const COLLECTION_NAME = "cubeRequests";
 const ALLOWED_TEMPLATES = new Set(["Original", "Glassmorphic"]);
-const ALLOWED_STATUSES = new Set(["Draft", "Ready", "Archived"]);
+// Public submissions are always created as Drafts. "Ready"/"Archived" are staff
+// lifecycle states promoted only through the authenticated dashboard, never here.
+const PUBLIC_SUBMISSION_STATUS = "Draft";
 const LEGACY_FORM_FIELDS = [
   "internalDate",
   "projectCode",
@@ -175,9 +177,10 @@ function cleanPayload(payload) {
     throw new Error("Invalid form template");
   }
 
-  if (!ALLOWED_STATUSES.has(clean.status)) {
-    throw new Error("Invalid form status");
-  }
+  // Ignore any client-supplied status: anonymous submissions are always Drafts
+  // so they cannot inject themselves into the RPA/ERP queue (which only picks up
+  // "Ready" forms). Only authenticated staff can promote a request.
+  clean.status = PUBLIC_SUBMISSION_STATUS;
 
   if (!Array.isArray(clean.results)) {
     throw new Error("Invalid test results");
@@ -230,10 +233,6 @@ function clientIp(request) {
   return request.socket && request.socket.remoteAddress;
 }
 
-function validDocumentId(id) {
-  return !id || /^[A-Za-z0-9_-]{1,128}$/.test(id);
-}
-
 module.exports = async function handler(request, response) {
   setApiHeaders(request, response);
 
@@ -252,8 +251,11 @@ module.exports = async function handler(request, response) {
 
   try {
     const { id, payload, recaptchaToken } = request.body || {};
-    if (!validDocumentId(id)) {
-      json(response, 400, { error: "Invalid document id" });
+    // Create-only: the public endpoint must never overwrite an existing record.
+    // A caller-supplied id with set({ merge: true }) was an unauthenticated IDOR
+    // letting anyone patch any document. Staff edits go through the dashboard.
+    if (id) {
+      json(response, 400, { error: "Public submissions cannot target an existing document." });
       return;
     }
 
@@ -270,12 +272,6 @@ module.exports = async function handler(request, response) {
 
     if (!validation.valid) {
       json(response, 400, { error: validation.message });
-      return;
-    }
-
-    if (id) {
-      await db.collection(COLLECTION_NAME).doc(id).set(clean, { merge: true });
-      json(response, 200, { id });
       return;
     }
 

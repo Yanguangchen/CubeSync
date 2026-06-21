@@ -265,9 +265,9 @@ test("stripWrappingQuotes handles edge cases", () => {
   assert.equal(stripWrappingQuotes("\"mixed'"), "\"mixed'");
 });
 
-// --- Document ID validation ---
+// --- Create-only enforcement (no caller-supplied document id) ---
 
-test("invalid document IDs are rejected with 400", withRecaptcha(async () => {
+test("a malformed document id is rejected (create-only)", withRecaptcha(async () => {
   const response = mockResponse();
   await handler({
     method: "POST",
@@ -280,23 +280,23 @@ test("invalid document IDs are rejected with 400", withRecaptcha(async () => {
   }, response);
 
   assert.equal(response.statusCode, 400);
-  assert.match(JSON.parse(response.body).error, /Invalid document id/);
+  assert.match(JSON.parse(response.body).error, /cannot target an existing document/i);
 }));
 
-test("document IDs longer than 128 characters are rejected", withRecaptcha(async () => {
+test("a well-formed document id is also rejected (create-only IDOR guard)", withRecaptcha(async () => {
   const response = mockResponse();
   await handler({
     method: "POST",
     headers: {},
     body: {
-      id: "a".repeat(129),
+      id: "AbCd1234ValidLookingId",
       recaptchaToken: "token",
       payload: validPayload()
     }
   }, response);
 
   assert.equal(response.statusCode, 400);
-  assert.match(JSON.parse(response.body).error, /Invalid document id/);
+  assert.match(JSON.parse(response.body).error, /cannot target an existing document/i);
 }));
 
 // --- Payload cleaning / extra fields ---
@@ -352,8 +352,14 @@ test("cleanPayload rejects invalid template", withRecaptcha(async () => {
   assert.match(JSON.parse(response.body).error, /Invalid form template/);
 }));
 
-test("cleanPayload rejects invalid status", withRecaptcha(async () => {
-  setFirebaseAdminForTest(mockFirestoreAdmin());
+test("cleanPayload forces any supplied status to Draft", withRecaptcha(async () => {
+  let savedData = null;
+  setFirebaseAdminForTest(mockFirestoreAdmin({
+    add: async (data) => {
+      savedData = data;
+      return { id: "generated-id" };
+    }
+  }));
 
   const response = mockResponse();
   await handler({
@@ -361,12 +367,12 @@ test("cleanPayload rejects invalid status", withRecaptcha(async () => {
     headers: {},
     body: {
       recaptchaToken: "token",
-      payload: validPayload({ status: "BadStatus" })
+      payload: validPayload({ status: "Ready" })
     }
   }, response);
 
-  assert.equal(response.statusCode, 400);
-  assert.match(JSON.parse(response.body).error, /Invalid form status/);
+  assert.equal(response.statusCode, 200);
+  assert.equal(savedData.status, "Draft");
 }));
 
 test("cleanPayload rejects non-array results", withRecaptcha(async () => {

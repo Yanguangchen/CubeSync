@@ -422,3 +422,88 @@ input[type="date"],
   border: 1px solid #fff;
   box-shadow: inset -1px -1px 1px #808080, inset 1px 1px 1px #ffffff;
 }
+
+/* ==========================================================================
+   Responsive — tablets and phones
+   ========================================================================== */
+@media (max-width: 768px) {
+  /* The toolbar is laid out with an inline `display:flex` but no wrap, so its
+     buttons, date picker and badge overflow horizontally on narrow screens. */
+  .xp-toolbar {
+    flex-wrap: wrap !important;
+  }
+
+  /* Let the XP window use the full viewport with a small margin. */
+  .xp-window {
+    width: auto !important;
+    margin: 8px !important;
+  }
+
+  .dashboard-shell {
+    padding: 8px !important;
+  }
+
+  .workspace {
+    padding: 0 !important;
+  }
+
+  /* The shared form table keeps its 940px min-width and scrolls inside the
+     wrap; drop the large desktop bottom padding the RPA view doesn't need. */
+  .xp-window-body .table-wrap {
+    padding-bottom: 20px;
+  }
+
+  .current-date-badge {
+    font-size: 15px !important;
+  }
+
+  /* Keep the taskbar on a single row: shrink the task buttons, protect the
+     start button and the sign-out tray from being squeezed out. */
+  .xp-start-btn {
+    flex-shrink: 0;
+  }
+
+  .xp-tasks {
+    gap: 3px;
+    min-width: 0;
+  }
+
+  .xp-task {
+    font-size: 10px;
+    padding: 0 6px;
+  }
+
+  .xp-tray {
+    flex-shrink: 0;
+    gap: 8px;
+    padding: 0 6px;
+  }
+}
+
+@media (max-width: 480px) {
+  .xp-window-title h1 {
+    font-size: 12px !important;
+  }
+
+  /* Stack the toolbar controls so each is comfortably tappable. */
+  .xp-toolbar {
+    gap: 6px !important;
+    padding: 8px !important;
+  }
+
+  .xp-toolbar > button,
+  .xp-toolbar > #datePicker,
+  .xp-toolbar > .export-button {
+    flex: 1 1 auto;
+  }
+
+  /* The info button stays a fixed circle rather than stretching. */
+  .xp-toolbar > .info-button {
+    flex: 0 0 auto;
+  }
+
+  .current-date-badge {
+    flex: 1 1 100%;
+    text-align: center;
+  }
+}

@@ -109,7 +109,8 @@ test("glassmorphic final step saves to Firestore instead of printing", async () 
   global.window.CubeSyncFirestore = {
     savePublicCubeRequest: async (payload, id, recaptchaToken) => {
       savedPayload = payload;
-      assert.equal(id, null);
+      // Create-only: the form never sends a document id (the API rejects one).
+      assert.equal(id, undefined);
       assert.equal(recaptchaToken, "test-recaptcha-token");
       return "saved-form-1";
     }

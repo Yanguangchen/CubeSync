@@ -303,6 +303,66 @@ Do not recolor logos. Place on white or `--subtle` backgrounds for clarity.
 
 ---
 
+## Responsive layouts
+
+CubeSync supports mobile, tablet, and desktop viewports via CSS media queries. **Critical pattern:** grid and flex items must explicitly allow shrinking below their content width, or fixed-width content (tables, reCAPTCHA widgets) will overflow the viewport.
+
+### Key breakpoints
+
+| Breakpoint | Device | Layout change |
+|------------|--------|----------------|
+| **≤ 980px** | Large tablets | Two-column workspace collapses to single column; detail panel moves below list |
+| **≤ 820px** | Small tablets | Form fields switch from 2-column to 1-column layout |
+| **≤ 680px** | Phones (landscape) | Topbar stacks vertically; toolbar controls wrap; filters stack |
+| **≤ 560px** | Phones (portrait) | Sheets shrink to `calc(100vw - 20px)`; action bars stack and center |
+| **≤ 480px** | Small phones | Title text reduced; toolbar controls wrap and stretch; date badge spans full width (RPA) |
+
+### Grid & flex shrinking rule (critical)
+
+**Problem:** Grid and flex items default to `min-width: auto`, which means they refuse to shrink below their content's intrinsic width. A data table with `min-width: 940px` inside a grid column will force that column (and the whole layout) to be 940px wide, pushing past the viewport — even if the column has `overflow-x: auto`.
+
+**Solution:** Explicitly allow items to shrink with `min-width: 0` (on flex/grid items) or `minmax(0, 1fr)` / `grid-auto-columns: minmax(0, 1fr)` (on grid tracks):
+
+```css
+/* Grid container — make all tracks (explicit + implicit) shrinkable */
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 370px;  /* Not bare 1fr */
+  grid-auto-columns: minmax(0, 1fr);             /* Shrink implicit tracks too */
+}
+
+/* Grid items — allow them to shrink below content */
+.list-panel,
+.detail-panel {
+  min-width: 0;  /* Let this item shrink; table scrolls inside .table-wrap */
+}
+
+/* Flex containers with fixed-width children (e.g., reCAPTCHA + buttons) */
+.tool-section.right {
+  display: flex;
+  flex-wrap: wrap;              /* Wrap instead of overflow */
+  min-width: 0;                 /* Parent item (if nested in grid) can shrink */
+  gap: 8px;
+}
+```
+
+The `min-width: 0` / `minmax(0, …)` pattern is essential on data-heavy views (dashboards with wide tables, forms with fixed-width widgets). See `documentation/mobile-responsiveness-postmortem.md` for detailed postmortem on 5 overflow bugs caused by this pattern.
+
+### Mobile-safe patterns
+
+1. **Grid + narrow sidebars:** Use `minmax(0, 1fr)` for flexible content; `370px` or similar for fixed-width sidebars.
+2. **Flex with wrap:** Add `flex-wrap: wrap` to avoid single-line overflow; allow items to break to new lines.
+3. **Overflow tables:** Tables keep `min-width: 940px` but live in a scrollable `.table-wrap { overflow-x: auto }`. Their parent (grid item or flex child) must allow shrinking.
+4. **Action bars:** `.page-tools` is a grid (`1fr auto 1fr`). Add `min-width: 0` to all sections so the fixed-width reCAPTCHA widget doesn't blow out the layout.
+
+### Accessibility on touch
+
+- Touch targets: minimum `40px` height + `32px` width (buttons, form inputs).
+- Spacing: `8px–12px` gaps between interactive elements.
+- Focus rings: Always visible (outline or box-shadow) — do not rely on hover states.
+
+---
+
 ## Motion
 
 | Interaction | Duration | Easing |
@@ -338,9 +398,10 @@ Avoid animating layout properties on data-heavy views (tables).
 | `cubesync-form-data.js` | Schema, validation, field config, dashboard normalization |
 | `app.js` | Form UX: steps, autocomplete, barcodes, save flow |
 | `scripts/write-env.js` | Build: `env.js` + copy static assets and autocomplete files to `public/` |
-| `documentation/design.md` | Source of truth for tokens and UI patterns |
+| `documentation/design.md` | Source of truth for tokens, UI patterns, responsive layouts |
 | `documentation/README.md` | Project overview, schema, build/deploy, testing |
 | `documentation/free-text-dropdown-highlighting.md` | Free-text review flags — capture, derivation, UI |
+| `documentation/mobile-responsiveness-postmortem.md` | Root causes and fixes for 5 mobile responsiveness bugs (grid min-width, flex wrap, overflow containment) |
 | `form-field-config.test.js` | TDD coverage for field enable/disable, labels, custom fields |
 | `deployment-config.test.js` | Build output contract (including autocomplete files) |
 | `documentation/architecture.md` | UML diagrams: class, sequence, component, state, ER |
