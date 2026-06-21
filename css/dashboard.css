@@ -670,6 +670,9 @@ textarea:focus {
    ========================================================================== */
 .table-wrap {
   overflow-x: auto;
+  min-height: 350px;
+  padding-bottom: 120px;
+  z-index: 1;
 }
 
 .form-table {
@@ -726,6 +729,7 @@ textarea:focus {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+  position: relative;
 }
 
 .row-actions button {

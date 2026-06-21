@@ -730,6 +730,88 @@ test("dashboard.js form actions (delete, print from both detail panel and list r
   assert.equal(deletedId, "1");
 });
 
+test("dashboard.js row action dropdown toggling", async () => {
+  const dom = new JSDOM(html, { runScripts: "dangerously", url: "http://localhost/" });
+  const { window } = dom;
+
+  const mockAuth = {
+    onAuthChange: (cb) => cb({ email: "test@rakmat.com.sg" }),
+    isAllowedUser: () => true
+  };
+
+  const mockFirestore = {
+    listCubeRequests: async () => [
+      { id: "1", reportNo: "ONE", client: "A", project: "P", status: "Draft", template: "Original" },
+      { id: "2", reportNo: "TWO", client: "A", project: "P", status: "Draft", template: "Original" }
+    ]
+  };
+
+  window.CubeSyncAuth = mockAuth;
+  window.CubeSyncFirestore = mockFirestore;
+
+  [barcodeJs, formDataJs, dashboardJs].forEach(js => {
+    const s = window.document.createElement("script");
+    s.textContent = js;
+    window.document.head.appendChild(s);
+  });
+
+  const event = window.document.createEvent("Event");
+  event.initEvent("DOMContentLoaded", true, true);
+  window.dispatchEvent(event);
+
+  await new Promise(resolve => setTimeout(resolve, 50));
+  const list = window.document.getElementById("formList");
+
+  const btn1 = list.querySelector("tr[data-id='1'] button[data-action='toggle-dropdown']");
+  const menu1 = btn1.nextElementSibling;
+  
+  const btn2 = list.querySelector("tr[data-id='2'] button[data-action='toggle-dropdown']");
+  const menu2 = btn2.nextElementSibling;
+
+  // Initially hidden
+  assert.equal(btn1.getAttribute("aria-expanded"), "false");
+  assert.ok(!menu1.classList.contains("active"));
+  
+  // Click btn1 to open
+  btn1.click();
+  assert.equal(btn1.getAttribute("aria-expanded"), "true");
+  assert.ok(menu1.classList.contains("active"));
+
+  // Click btn1 again to close
+  btn1.click();
+  assert.equal(btn1.getAttribute("aria-expanded"), "false");
+  assert.ok(!menu1.classList.contains("active"));
+
+  // Click btn1 to open again
+  btn1.click();
+  
+  // Click btn2 to open menu2 and auto-close menu1
+  btn2.click();
+  assert.equal(btn1.getAttribute("aria-expanded"), "false");
+  assert.ok(!menu1.classList.contains("active"));
+  assert.equal(btn2.getAttribute("aria-expanded"), "true");
+  assert.ok(menu2.classList.contains("active"));
+
+  // Click outside to close menu2
+  window.document.body.click();
+  assert.equal(btn2.getAttribute("aria-expanded"), "false");
+  assert.ok(!menu2.classList.contains("active"));
+
+  // Re-open btn2
+  btn2.click();
+  assert.ok(menu2.classList.contains("active"));
+
+  // Click an action inside menu2
+  const printAction = list.querySelector("tr[data-id='2'] button[data-action='print']");
+  window.open = () => {}; // mock window.open
+  printAction.click();
+
+  // Assert it closed after action
+  assert.equal(btn2.getAttribute("aria-expanded"), "false");
+  assert.ok(!menu2.classList.contains("active"));
+});
+
+
 test("UI regressions: Assert #dropdownMenu z-index/stacking, #themeToggle vs glassmorphic.css checkbox overrides, and stylesheet load order on dashboard.html", async () => {
   const dom = new JSDOM(html);
   const { window } = dom;
@@ -746,4 +828,20 @@ test("UI regressions: Assert #dropdownMenu z-index/stacking, #themeToggle vs gla
 
   const themeToggle = document.getElementById("themeToggle");
   assert.ok(themeToggle);
+});
+
+test("CSS regression: .table-wrap has sufficient sizing to prevent dropdown clipping", () => {
+  const cssPath = require("node:path").join(__dirname, "css", "dashboard.css");
+  const css = fs.readFileSync(cssPath, "utf8");
+  
+  // Find the .table-wrap block
+  const tableWrapMatch = css.match(/\.table-wrap\s*\{([^}]+)\}/);
+  assert.ok(tableWrapMatch, ".table-wrap class should exist");
+  
+  const rules = tableWrapMatch[1];
+  
+  // It needs min-height, padding-bottom, and z-index to prevent clipping dropdown menus
+  assert.match(rules, /min-height:\s*\d+px/i, ".table-wrap must have min-height to prevent clipping");
+  assert.match(rules, /padding-bottom:\s*\d+px/i, ".table-wrap must have padding-bottom for the last row dropdowns");
+  assert.match(rules, /z-index:\s*[1-9]\d*/i, ".table-wrap must have z-index to establish stacking context");
 });

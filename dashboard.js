@@ -177,11 +177,14 @@
           <td><span class="status-pill ${statusClass(form.status)}">${escapeHtml(form.status)}</span></td>
           <td>${escapeHtml(form.updatedAt)}</td>
           <td>
-            <div class="row-actions">
-              <button type="button" data-action="view" data-id="${escapeHtml(form.id)}">View</button>
-              <button type="button" data-action="edit" data-id="${escapeHtml(form.id)}">Edit</button>
-              <button type="button" data-action="print" data-id="${escapeHtml(form.id)}">Print</button>
-              <button type="button" class="danger" data-action="delete" data-id="${escapeHtml(form.id)}">Delete</button>
+            <div class="row-actions dropdown">
+              <button type="button" class="action-dropdown-btn" data-action="toggle-dropdown" aria-haspopup="true" aria-expanded="false" data-id="${escapeHtml(form.id)}">Actions ▼</button>
+              <div class="dropdown-menu">
+                <button type="button" data-action="view" data-id="${escapeHtml(form.id)}">View</button>
+                <button type="button" data-action="edit" data-id="${escapeHtml(form.id)}">Edit</button>
+                <button type="button" data-action="print" data-id="${escapeHtml(form.id)}">Print</button>
+                <button type="button" class="danger" data-action="delete" data-id="${escapeHtml(form.id)}">Delete</button>
+              </div>
             </div>
           </td>
         </tr>
@@ -922,6 +925,31 @@
     event.stopPropagation();
     const action = actionButton.dataset.action;
 
+    if (action === "toggle-dropdown") {
+      const dropdownMenu = actionButton.nextElementSibling;
+      const isActive = dropdownMenu.classList.contains("active");
+
+      // Close all other dropdowns
+      document.querySelectorAll('#formList .dropdown-menu.active').forEach(menu => {
+        menu.classList.remove('active');
+        const toggleBtn = menu.previousElementSibling;
+        if (toggleBtn) toggleBtn.setAttribute('aria-expanded', 'false');
+      });
+
+      if (!isActive) {
+        dropdownMenu.classList.add("active");
+        actionButton.setAttribute("aria-expanded", "true");
+      }
+      return;
+    }
+
+    // Close any open dropdowns when clicking an action
+    document.querySelectorAll('#formList .dropdown-menu.active').forEach(menu => {
+      menu.classList.remove('active');
+      const toggleBtn = menu.previousElementSibling;
+      if (toggleBtn) toggleBtn.setAttribute('aria-expanded', 'false');
+    });
+
     if (action === "view") {
       viewForm(id);
       openEditor(id);
@@ -1076,6 +1104,15 @@
         if (!elements.dropdownMenu.contains(event.target) && event.target !== elements.menuToggle) {
           elements.menuToggle.setAttribute("aria-expanded", "false");
           elements.dropdownMenu.classList.remove("active");
+        }
+
+        // Close row actions dropdowns if clicked outside
+        if (!event.target.closest('.row-actions.dropdown')) {
+          document.querySelectorAll('#formList .dropdown-menu.active').forEach(menu => {
+            menu.classList.remove('active');
+            const toggleBtn = menu.previousElementSibling;
+            if (toggleBtn) toggleBtn.setAttribute('aria-expanded', 'false');
+          });
         }
       });
     }
