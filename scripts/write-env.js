@@ -3,6 +3,9 @@ const path = require("node:path");
 const { loadDotEnv } = require("./load-env");
 
 const PUBLIC_DIR = path.join(process.cwd(), "public");
+// Every JS file referenced via <script src="..."> in HTML must be listed here,
+// otherwise it won't be copied to public/ and will 404 in production.
+// See deployment-config.test.js for automated checks that enforce this.
 const STATIC_FILES = [
   "dashboard.html",
   "glassmorphic.html",
@@ -12,9 +15,11 @@ const STATIC_FILES = [
   "app.js",
   "barcode.js",
   "chime.js",
+  "cubesync-autocomplete.js",
   "cubesync-form-data.js",
   "cubesync-form-markup.js",
   "cubesync-export.js",
+  "cubesync-table-manager.js",
   "dashboard.js",
   "firestore.js",
   "rpa-dashboard.js",

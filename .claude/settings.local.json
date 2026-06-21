@@ -5,7 +5,8 @@
       "Bash(npx eslint *)",
       "Bash(grep -E \"\\\\.\\(js|rules|json\\)$\")",
       "Bash(grep -n \"extraFields\\\\|customFields\\\\|rpaStatus\\\\|erpStatus\\\\|attemptCount\" /c/Users/Yangu/Documents/GitHub/CubeSync/*.js)",
-      "Bash(grep -A 5 \"const mockCubeRequest\\\\|const testData\\\\|const payload\" /c/Users/Yangu/Documents/GitHub/CubeSync/*.test.js)"
+      "Bash(grep -A 5 \"const mockCubeRequest\\\\|const testData\\\\|const payload\" /c/Users/Yangu/Documents/GitHub/CubeSync/*.test.js)",
+      "Bash(node --test deployment-config.test.js)"
     ]
   }
 }

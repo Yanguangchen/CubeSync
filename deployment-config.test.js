@@ -45,6 +45,76 @@ test("Vercel deployment serves generated public output", () => {
   assert.match(gitignore, /public\//);
 });
 
+test("every script referenced in HTML is included in build STATIC_FILES", () => {
+  const buildScript = fs.readFileSync("scripts/write-env.js", "utf8");
+
+  const htmlFiles = ["index.html", "dashboard.html", "glassmorphic.html"];
+  const missingScripts = [];
+
+  for (const htmlFile of htmlFiles) {
+    const html = fs.readFileSync(htmlFile, "utf8");
+    const scriptRe = /<script\b[^>]*\bsrc="([^"]+\.js)"[^>]*>/g;
+    let match;
+    while ((match = scriptRe.exec(html)) !== null) {
+      const src = match[1];
+      if (src.startsWith("http")) continue;
+      if (src === "env.js") continue;
+      if (!buildScript.includes(`"${src}"`)) {
+        missingScripts.push({ htmlFile, src });
+      }
+    }
+  }
+
+  assert.deepEqual(
+    missingScripts,
+    [],
+    `Scripts referenced in HTML but missing from build STATIC_FILES: ${missingScripts.map((m) => `${m.htmlFile} -> ${m.src}`).join(", ")}`
+  );
+});
+
+test("build copies HTML-referenced scripts to public output", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "cubesync-scripts-"));
+
+  const htmlFiles = ["index.html", "dashboard.html", "glassmorphic.html"];
+  const allScripts = new Set();
+
+  for (const htmlFile of htmlFiles) {
+    const html = fs.readFileSync(htmlFile, "utf8");
+    const scriptRe = /<script\b[^>]*\bsrc="([^"]+\.js)"[^>]*>/g;
+    let match;
+    while ((match = scriptRe.exec(html)) !== null) {
+      const src = match[1];
+      if (!src.startsWith("http")) allScripts.add(src);
+    }
+  }
+
+  const buildScript = fs.readFileSync("scripts/write-env.js", "utf8");
+  const listMatch = buildScript.match(/STATIC_FILES\s*=\s*\[([\s\S]*?)\]/);
+  assert.ok(listMatch, "Could not find STATIC_FILES array in build script");
+  const fileRe = /"([^"]+)"/g;
+  let m;
+  const staticFiles = [];
+  while ((m = fileRe.exec(listMatch[1])) !== null) staticFiles.push(m[1]);
+
+  staticFiles.forEach((file) => writeFile(root, file, file));
+  writeFile(root, "css/styles.css", "");
+  writeFile(root, "css/glassmorphic.css", "");
+  writeFile(root, "css/dashboard.css", "");
+  writeFile(root, ".env.local", "CUBESYNC_RECAPTCHA_SITE_KEY=test\n");
+
+  childProcess.execFileSync(process.execPath, [path.resolve("scripts/write-env.js")], {
+    cwd: root,
+    stdio: "pipe"
+  });
+
+  for (const src of allScripts) {
+    assert.ok(
+      fs.existsSync(path.join(root, "public", src)),
+      `Script "${src}" referenced in HTML but not found in public/ after build`
+    );
+  }
+});
+
 test("build script uses .env.local and emits non-empty public env output", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "cubesync-build-"));
   const staticFiles = [
@@ -56,9 +126,11 @@ test("build script uses .env.local and emits non-empty public env output", () =>
     "app.js",
     "barcode.js",
     "chime.js",
+    "cubesync-autocomplete.js",
     "cubesync-form-data.js",
     "cubesync-form-markup.js",
     "cubesync-export.js",
+    "cubesync-table-manager.js",
     "dashboard.js",
     "firestore.js",
     "rpa-dashboard.js",
