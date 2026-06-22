@@ -83,13 +83,70 @@ async function localZipEntries(blob) {
   return entries;
 }
 
+test("result date fields (resultDateOfCast, dateOfTest) are normalized to YYYY-MM-DD", () => {
+  const csv = buildFormCsv(sampleForm({
+    raw: {
+      results: [
+        {
+          specimenRef: "T-DATE",
+          resultDateOfCast: "22-06-2026",
+          dateOfTest: "29/06/2026"
+        }
+      ]
+    }
+  }));
+  const rows = csv.trimEnd().split("\r\n");
+  const dataRow = rows[CSV_TEST_DATA_START_ROW - 1];
+  assert.match(dataRow, /2026-06-22/, "resultDateOfCast must be YYYY-MM-DD");
+  assert.match(dataRow, /2026-06-29/, "dateOfTest must be YYYY-MM-DD");
+});
+
+test("formatDate normalizes DD-MM-YYYY, DD/MM/YYYY, and YYYY/MM/DD to YYYY-MM-DD", () => {
+  // Each of these formats must export as YYYY-MM-DD regardless of how it was stored
+  const forms = [
+    { raw: { dateOfCast: "22-06-2026",   results: [] } },
+    { raw: { dateOfCast: "22/06/2026",   results: [] } },
+    { raw: { dateOfCast: "2026/06/22",   results: [] } },
+    { raw: { dateOfCast: "2026-06-22",   results: [] } },
+    { raw: { dateOfCast: "2026-06-22T10:00:00.000Z", results: [] } }
+  ].map((f) => ({ id: "x", reportNo: "X", raw: f.raw }));
+
+  for (const form of forms) {
+    const csv = buildFormCsv(form);
+    assert.match(
+      csv,
+      /Date of cast,2026-06-22/,
+      `expected YYYY-MM-DD for input "${form.raw.dateOfCast}"`
+    );
+  }
+});
+
+test("result header is always at row 50 regardless of how many request fields exist", () => {
+  // Blank padding rows must be inserted so the result section always starts at a
+  // predictable row, making it easy to reference in Excel formulas/macros.
+  const csv = buildFormCsv(sampleForm());
+  const rows = csv.trimEnd().split("\r\n");
+
+  assert.equal(CSV_RESULT_HEADER_ROW, 50, "result header must be pinned to row 50");
+  assert.equal(CSV_TEST_DATA_START_ROW, 51, "test data must start at row 51");
+  assert.equal(
+    rows[CSV_RESULT_HEADER_ROW - 1],
+    RESULT_FIELDS.map((f) => f.label).join(","),
+    "row 50 must be the result header"
+  );
+  // Rows between request fields and result header must be blank
+  for (let i = 36; i < CSV_RESULT_HEADER_ROW - 1; i++) {
+    assert.equal(rows[i], "", `row ${i + 1} should be blank padding`);
+  }
+});
+
 test("CSV export keeps test result data on a fixed row", () => {
   const csv = buildFormCsv(sampleForm());
   const rows = csv.trimEnd().split("\r\n");
   const resultHeader = RESULT_FIELDS.map((field) => field.label).join(",");
 
-  assert.equal(CSV_RESULT_HEADER_ROW, 36);
-  assert.equal(CSV_TEST_DATA_START_ROW, 37);
+  assert.equal(CSV_RESULT_HEADER_ROW, 50);
+  assert.equal(CSV_TEST_DATA_START_ROW, 51);
   assert.equal(rows[0], "CubeSync Concrete Cube Request");
   assert.equal(rows[1], "Request field,Value");
   assert.equal(rows[2], "Document ID,doc-1");

@@ -11,8 +11,8 @@
   // Constants
   // ─────────────────────────────────────────────────────────────────────────────
 
-  const CSV_RESULT_HEADER_ROW = 36;
-  const CSV_TEST_DATA_START_ROW = 37;
+  const CSV_RESULT_HEADER_ROW = 50;
+  const CSV_TEST_DATA_START_ROW = 51;
 
   const REQUEST_FIELDS = [
     // ── Metadata ──────────────────────────────────────────────────
@@ -33,7 +33,6 @@
     { key: "cubeJobNumber",            label: "Cube job #" },
     { key: "quote",                    label: "Quote" },
     { key: "testItem",                 label: "Test item" },
-    { key: "method",                   label: "Method" },
     // ── Supplier and location (form section 3) ─────────────────────
     { key: "supplier",                 label: "Supplier" },
     { key: "supplierDisplay",          label: "Supplier (display)" },
@@ -79,12 +78,24 @@
     return String(value == null ? "" : value).trim();
   }
 
+  function normalizeDate(str) {
+    // DD-MM-YYYY or DD/MM/YYYY → YYYY-MM-DD
+    const dmy = /^(\d{2})[-/](\d{2})[-/](\d{4})/.exec(str);
+    if (dmy) return `${dmy[3]}-${dmy[2]}-${dmy[1]}`;
+    // YYYY/MM/DD → YYYY-MM-DD
+    const ymdSlash = /^(\d{4})\/(\d{2})\/(\d{2})/.exec(str);
+    if (ymdSlash) return `${ymdSlash[1]}-${ymdSlash[2]}-${ymdSlash[3]}`;
+    // ISO or YYYY-MM-DD — already correct, just drop any time component
+    if (/^\d{4}-\d{2}-\d{2}/.test(str)) return str.slice(0, 10);
+    return str;
+  }
+
   function formatDate(value) {
     if (!value) return "";
-    if (typeof value === "string") return value;
-    if (typeof value.toDate === "function") return value.toDate().toISOString();
-    if (value instanceof Date) return value.toISOString();
-    if (typeof value.seconds === "number") return new Date(value.seconds * 1000).toISOString();
+    if (typeof value === "string") return normalizeDate(value);
+    if (typeof value.toDate === "function") return value.toDate().toISOString().slice(0, 10);
+    if (value instanceof Date) return value.toISOString().slice(0, 10);
+    if (typeof value.seconds === "number") return new Date(value.seconds * 1000).toISOString().slice(0, 10);
     return "";
   }
 
@@ -117,12 +128,14 @@
     reportNo:                 (form) => form.raw?.reportNo || form.raw?.reportNumber || form.reportNo,
     status:                   (form) => form.raw?.status || form.status,
     template:                 (form) => form.raw?.template || form.template,
-    internalDate:             (form) => form.raw?.internalDate || form.raw?.dateOfCast,
+    internalDate:             (form) => formatDate(form.raw?.internalDate || form.raw?.dateOfCast),
+    dateOfCast:               (form) => formatDate(form.raw?.dateOfCast || form.raw?.internalDate),
+    dateTimeSampled:          (form) => formatDate(form.raw?.dateTimeSampled || form.raw?.dateOfCast),
     projectCode:              (form) => form.raw?.projectCode || form.raw?.projectErp,
     customerBilling:          (form) => form.raw?.customerBilling || form.raw?.client,
     projectNameOnReport:      (form) => form.raw?.projectNameOnReport || form.raw?.project,
     clientNameOnReport:       (form) => form.raw?.clientNameOnReport || form.raw?.client,
-    method:                   (form) => form.raw?.method || form.raw?.testItem,
+    testItem:                 (form) => form.raw?.testItem || form.raw?.method,
     concreteGrade:            (form) => form.raw?.concreteGrade || form.raw?.grade || form.grade,
     locationRepresented:      (form) => form.raw?.locationRepresented || form.raw?.location || form.location,
     additionalInformation:    (form) => form.raw?.additionalInformation || form.raw?.notes || form.notes,
@@ -148,13 +161,24 @@
     const resultHeader = RESULT_FIELDS.map((field) => field.label);
     const results = form.raw?.results || [];
 
+    // Rows 1-2: header + label. Rows 3-(2+n): request fields. Then blank padding
+    // so the result header always lands on CSV_RESULT_HEADER_ROW (row 50).
+    const fixedRowsBeforeResults = 2 + requestRows.length;
+    const paddingCount = CSV_RESULT_HEADER_ROW - fixedRowsBeforeResults - 1;
+    const padding = Array.from({ length: Math.max(0, paddingCount) }, () => []);
+
     const rows = [
       headerRow,
       labelRow,
       ...requestRows,
-      [],
+      ...padding,
       resultHeader,
-      ...results.map((result) => RESULT_FIELDS.map((field) => result[field.key]))
+      ...results.map((result) => RESULT_FIELDS.map((field) => {
+        const v = result[field.key];
+        return (field.key === "resultDateOfCast" || field.key === "dateOfTest")
+          ? formatDate(v)
+          : v;
+      }))
     ];
 
     return `${rows.map(csvRow).join("\r\n")}\r\n`;
