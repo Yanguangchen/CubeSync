@@ -557,6 +557,130 @@ test("queue uses reportNo when available, falls back to form id", async () => {
   assert.ok(cells[1].textContent.includes("fallback-id-form"));
 });
 
+test("export button is disabled when the viewed date has no forms, even if other dates do", async () => {
+  const yesterdayDate = new Date();
+  yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+  const yesterday = getSGTDate(yesterdayDate);
+  const yesterdayIso = new Date(`${yesterday}T10:00:00+08:00`).toISOString();
+
+  const { window } = await bootDashboard({
+    firestore: {
+      listCubeRequests: async () => [
+        {
+          id: "yesterday-only-form",
+          reportNo: "YO-001",
+          client: "Client",
+          project: "Project",
+          status: "Ready",
+          createdAt: yesterdayIso,
+          results: []
+        }
+      ],
+      updateCubeRequest: async () => {}
+    }
+  });
+
+  // Default view is today — the only form is from yesterday, so export must be disabled
+  const exportBtn = window.document.getElementById("exportAllButton");
+  assert.ok(exportBtn.disabled, "export button should be disabled when the viewed date has no eligible forms");
+});
+
+test("export only includes forms from the currently viewed date, not all dates", async () => {
+  const today = getTodaySgt();
+  const yesterdayDate = new Date();
+  yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+  const yesterday = getSGTDate(yesterdayDate);
+  const todayIso = new Date(`${today}T10:00:00+08:00`).toISOString();
+  const yesterdayIso = new Date(`${yesterday}T10:00:00+08:00`).toISOString();
+
+  let capturedForms = null;
+
+  const { window } = await bootDashboard({
+    firestore: {
+      listCubeRequests: async () => [
+        {
+          id: "today-form",
+          reportNo: "TD-001",
+          client: "Client",
+          project: "Project",
+          status: "Ready",
+          createdAt: todayIso,
+          results: []
+        },
+        {
+          id: "yesterday-form",
+          reportNo: "YD-001",
+          client: "Client",
+          project: "Project",
+          status: "Ready",
+          createdAt: yesterdayIso,
+          results: []
+        }
+      ],
+      updateCubeRequest: async () => {}
+    }
+  });
+
+  window.CubeSyncExport = {
+    buildExportFiles: (forms) => { capturedForms = forms; return []; },
+    downloadFilesAsZip: () => {}
+  };
+
+  // Navigate to yesterday so only that day's form should be exported
+  window.document.getElementById("prevDay").click();
+  window.document.getElementById("exportAllButton").click();
+
+  assert.ok(capturedForms !== null, "export should have been triggered");
+  assert.equal(capturedForms.length, 1, "only the viewed date's form should be exported");
+  assert.equal(capturedForms[0].id, "yesterday-form", "exported form must be from yesterday, not today");
+});
+
+test("export archive name uses the currently viewed date, not today's date", async () => {
+  const today = getTodaySgt();
+  const yesterdayDate = new Date();
+  yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+  const yesterday = getSGTDate(yesterdayDate);
+  const yesterdayIso = new Date(`${yesterday}T10:00:00+08:00`).toISOString();
+
+  let capturedArchiveName = null;
+
+  const { window } = await bootDashboard({
+    firestore: {
+      listCubeRequests: async () => [
+        {
+          id: "archive-name-form",
+          reportNo: "AN-001",
+          client: "Client",
+          project: "Project",
+          status: "Ready",
+          createdAt: yesterdayIso,
+          results: []
+        }
+      ],
+      updateCubeRequest: async () => {}
+    }
+  });
+
+  window.CubeSyncExport = {
+    buildExportFiles: () => [],
+    downloadFilesAsZip: (files, name) => { capturedArchiveName = name; }
+  };
+
+  window.document.getElementById("prevDay").click();
+  window.document.getElementById("exportAllButton").click();
+
+  assert.ok(capturedArchiveName !== null, "export should have been triggered");
+  assert.ok(
+    capturedArchiveName.includes(yesterday),
+    `archive name should contain the viewed date (${yesterday}), got: ${capturedArchiveName}`
+  );
+  assert.equal(
+    capturedArchiveName.includes(today),
+    false,
+    `archive name must not use today's date (${today}) when viewing a different day`
+  );
+});
+
 test("missing Firebase Auth shows error message", async () => {
   const dom = new JSDOM(rpaDashboardHtml, {
     runScripts: "dangerously",

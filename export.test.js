@@ -88,8 +88,8 @@ test("CSV export keeps test result data on a fixed row", () => {
   const rows = csv.trimEnd().split("\r\n");
   const resultHeader = RESULT_FIELDS.map((field) => field.label).join(",");
 
-  assert.equal(CSV_RESULT_HEADER_ROW, 21);
-  assert.equal(CSV_TEST_DATA_START_ROW, 22);
+  assert.equal(CSV_RESULT_HEADER_ROW, 36);
+  assert.equal(CSV_TEST_DATA_START_ROW, 37);
   assert.equal(rows[0], "CubeSync Concrete Cube Request");
   assert.equal(rows[1], "Request field,Value");
   assert.equal(rows[2], "Document ID,doc-1");
@@ -131,8 +131,8 @@ test("CSV export escapes commas, quotes, and newlines", () => {
     }
   }));
 
-  assert.match(csv, /Client,"Acme, ""North""\nDivision"/);
-  assert.match(csv, /Project,"Tower, Phase 2"/);
+  assert.match(csv, /Customer \(Billing\),"Acme, ""North""\nDivision"/);
+  assert.match(csv, /Project name on report,"Tower, Phase 2"/);
   assert.match(csv, /,,"Shear, ""angled""\nline",ESCAPE-001,,,,,,,/);
 });
 

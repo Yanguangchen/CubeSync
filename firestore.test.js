@@ -155,6 +155,43 @@ test("Firestore rules allow current CubeSync dashboard save payloads", () => {
   assert.match(rules, /value is string && value\.size\(\) <= 64/);
 });
 
+test("Firestore rules permit submittedAt and attemptCount injected by dashboard saves", () => {
+  const rules = fs.readFileSync("firestore.rules", "utf8");
+  const js = fs.readFileSync("firestore.js", "utf8");
+
+  // updateCubeRequest silently appends submittedAt:serverTimestamp() whenever
+  // status is set to "Ready". If the rules don't list that field in the update
+  // allowlist, Firestore rejects the write with "Missing or insufficient
+  // permissions" for every user who saves a form as Ready from the dashboard.
+  assert.match(
+    js,
+    /updates\.status\s*===\s*["']Ready["'][\s\S]{0,200}submittedAt\s*=\s*serverTimestamp\(\)/,
+    "updateCubeRequest must inject submittedAt when status is set to Ready"
+  );
+
+  // Extract just the isValidCubeRequestUpdate body so we verify the field is
+  // in that specific function's hasOnly list, not somewhere else in the file.
+  const updateFn = rules.match(/function isValidCubeRequestUpdate\(\)[\s\S]*?(?=\n {4}(?:function|match))/);
+  assert.ok(updateFn, "isValidCubeRequestUpdate function must exist in rules");
+  assert.match(
+    updateFn[0],
+    /'submittedAt'/,
+    "submittedAt must be in isValidCubeRequestUpdate allowlist — omitting it blocks every 'Save as Ready' write"
+  );
+  assert.match(
+    updateFn[0],
+    /'attemptCount'/,
+    "attemptCount must be in isValidCubeRequestUpdate allowlist — omitting it blocks writes that include attempt tracking"
+  );
+
+  // Both fields must also appear in cubeRequestDataKeys so create-time writes
+  // that include them are not rejected either.
+  const dataKeysFn = rules.match(/function cubeRequestDataKeys\(\)[\s\S]*?(?=\n {4}(?:function|match))/);
+  assert.ok(dataKeysFn, "cubeRequestDataKeys function must exist in rules");
+  assert.match(dataKeysFn[0], /'submittedAt'/, "submittedAt must be in cubeRequestDataKeys");
+  assert.match(dataKeysFn[0], /'attemptCount'/, "attemptCount must be in cubeRequestDataKeys");
+});
+
 test("public submission API verifies reCAPTCHA v2 before Admin SDK writes", () => {
   const api = fs.readFileSync("api/cube-request-submit.js", "utf8");
 

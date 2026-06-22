@@ -8,7 +8,8 @@
       "Bash(grep -A 5 \"const mockCubeRequest\\\\|const testData\\\\|const payload\" /c/Users/Yangu/Documents/GitHub/CubeSync/*.test.js)",
       "Bash(node --test deployment-config.test.js)",
       "Bash(node --test api-handler.test.js)",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(git stash *)"
     ]
   }
 }

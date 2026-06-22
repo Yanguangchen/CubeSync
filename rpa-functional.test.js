@@ -175,16 +175,18 @@ test("rpa-dashboard.js handles auth and loads queue", async () => {
   assert.equal(exportButton.disabled, false);
   exportButton.click();
 
-  assert.match(exported.filename, /^cubesync-rpa-test-data-\d{4}-\d{2}-\d{2}\.zip$/);
+  assert.match(exported.filename, /^cubesync-rpa-\d{4}-\d{2}-\d{2}\.zip$/);
+  // Only today's non-disabled form should be exported; the 2020 form is
+  // filtered out by the viewed date and the Disabled form is excluded by rpaStatus.
   assert.deepEqual(exported.files.map((file) => file.name), [
-    "001-RPA-001.csv",
-    "002-RPA-OLD.csv"
+    "001-RPA-001.csv"
   ]);
   assert.match(
     exported.files[0].content,
     /1,,T-001,BC-RPA-001,,,,,7,2026-06-17,/
   );
-  assert.match(exported.files[1].content, /,,T-OLD,BC-OLD-001,/);
+  assert.doesNotMatch(JSON.stringify(exported.files), /RPA-OLD/);
+  assert.doesNotMatch(JSON.stringify(exported.files), /BC-OLD-001/);
   assert.doesNotMatch(JSON.stringify(exported.files), /RPA-DISABLED/);
   assert.doesNotMatch(JSON.stringify(exported.files), /BC-DISABLED-001/);
 });

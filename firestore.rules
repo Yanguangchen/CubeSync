@@ -132,12 +132,10 @@ service cloud.firestore {
     // Hard-coded bootstrap master(s). Lets the initial owner become admin and
     // create their profile + the appConfig/access doc on first Google sign-in,
     // before any masterEmails list exists. Keep in sync with
-    // src/lib/firebase/auth.ts (BOOTSTRAP_ADMIN_EMAILS). Some of these users
-    // intentionally overlap with CubeSync staff because both apps are operated
-    // by the same organization.
+    // src/lib/firebase/auth.ts (BOOTSTRAP_ADMIN_EMAILS).
     function isHardcodedMaster() {
       return isVerifiedEmail() &&
-        request.auth.token.email in [
+				request.auth.token.email in [
           'yanguangchensp@gmail.com',
           'yanguangchen@outlook.com',
           'mushfiqsiddqiue@gmail.com',
@@ -153,11 +151,22 @@ service cloud.firestore {
           'oakkar@rakmat.com.sg',
           'agga@rakmat.com.sg',
           'ma@rakmat.com.sg',
+          'yuxin@rakmat.com.sg',
           'khun@rakmat.com.sg',
           'yanguangchen@webwizardsg.com',
           'santofokir605@gmail.com',
           'nckeyong@gmail.com',
-          'nck@rakmat.com.sg'
+          'nck@rakmat.com.sg',
+          'nabiullahnabin@gmail.com',
+          'amirkhan3273@gmail.com',
+          'Pradeeprajtfw595@gmail.com',
+          'Saifulmal90@gmail.com',
+          'diaheard2@gmail.com',
+          'balki221195@gmail.com',
+          'mr8890085@gmail.com',
+          'Naythulin731@gmail.com',
+          'tasinahamedshahadat03@gmail.com',
+          'parbjitsingh718@gmil.com'
         ];
     }
 
@@ -348,8 +357,8 @@ service cloud.firestore {
         isValidNotificationSubscription(request.resource.data) &&
         request.resource.data.userId == request.auth.uid;
       allow update: if isActiveUser() &&
-        resource.data.userId == request.auth.uid &&
         isValidNotificationSubscription(request.resource.data) &&
+        resource.data.userId == request.auth.uid &&
         request.resource.data.userId == request.auth.uid;
       allow delete: if isSignedIn() &&
         (resource.data.userId == request.auth.uid || isAdmin());
@@ -838,8 +847,7 @@ service cloud.firestore {
     //
     // Staff direct client access requires verified Firebase Auth email on the
     // CubeSync allowlist (keep in sync with CUBESYNC_ALLOWED_EMAILS in
-    // firestore.js). Some organization admins intentionally overlap with
-    // WorkGrid masters; CubeSync-only users belong here only — not WorkGrid.
+    // firestore.js). CubeSync-only users belong here only — not WorkGrid.
     // ---------------------------------------------------------------
     function isCubeSyncAllowedEmail() {
       return request.auth.token.email.lower() in [
@@ -1019,6 +1027,8 @@ service cloud.firestore {
         'template',
         'status',
         'results',
+        'submittedAt',
+        'attemptCount',
         'createdAt',
         'updatedAt'
       ];
@@ -1065,6 +1075,9 @@ service cloud.firestore {
         (!('status' in data) ||
           data.status in ['Draft', 'Ready', 'Archived']) &&
         (!('results' in data) || isValidCubeResults(data.results)) &&
+        optCubeSyncTimestamp(data, 'submittedAt') &&
+        (!('attemptCount' in data) ||
+          (data.attemptCount is int && data.attemptCount >= 0 && data.attemptCount <= 10000)) &&
         optCubeSyncTimestamp(data, 'createdAt') &&
         optCubeSyncTimestamp(data, 'updatedAt');
     }
@@ -1111,6 +1124,8 @@ service cloud.firestore {
           'template',
           'status',
           'results',
+          'submittedAt',
+          'attemptCount',
           'updatedAt'
         ]) &&
         (!cubeRequestChanged('template') ||
@@ -1184,7 +1199,13 @@ service cloud.firestore {
         (!cubeRequestChanged('erpStatus') ||
           optStrWithin(request.resource.data, 'erpStatus', 80)) &&
         (!cubeRequestChanged('rpaStatus') ||
-          optStrWithin(request.resource.data, 'rpaStatus', 80));
+          optStrWithin(request.resource.data, 'rpaStatus', 80)) &&
+        (!cubeRequestChanged('submittedAt') ||
+          isCubeSyncTimestamp(request.resource.data.submittedAt)) &&
+        (!cubeRequestChanged('attemptCount') ||
+          (request.resource.data.attemptCount is int &&
+            request.resource.data.attemptCount >= 0 &&
+            request.resource.data.attemptCount <= 10000));
     }
 
     match /cubeRequests/{requestId} {

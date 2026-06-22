@@ -100,7 +100,11 @@
   }
 
   function getExportableForms() {
-    return state.forms.filter((form) => isRpaEligible(form) && rpaStatus(form) !== "Disabled");
+    return state.forms.filter((form) =>
+      isRpaEligible(form) &&
+      rpaStatus(form) !== "Disabled" &&
+      getSGTDate(queueDate(form)) === state.viewDate
+    );
   }
 
   function getStatusClass(status) {
@@ -306,7 +310,7 @@
   }
 
   function exportArchiveName() {
-    return `cubesync-rpa-test-data-${new Date().toISOString().slice(0, 10)}.zip`;
+    return `cubesync-rpa-${state.viewDate}.zip`;
   }
 
   function exportAllForms() {

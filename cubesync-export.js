@@ -11,27 +11,50 @@
   // Constants
   // ─────────────────────────────────────────────────────────────────────────────
 
-  const CSV_RESULT_HEADER_ROW = 21;
-  const CSV_TEST_DATA_START_ROW = 22;
+  const CSV_RESULT_HEADER_ROW = 36;
+  const CSV_TEST_DATA_START_ROW = 37;
 
   const REQUEST_FIELDS = [
-    { key: "documentId", label: "Document ID" },
-    { key: "reportNo", label: "Report no." },
-    { key: "status", label: "Status" },
-    { key: "template", label: "Template" },
-    { key: "internalDate", label: "Internal date" },
-    { key: "projectCode", label: "Project code" },
-    { key: "client", label: "Client" },
-    { key: "method", label: "Method" },
-    { key: "project", label: "Project" },
-    { key: "concreteGrade", label: "Concrete grade" },
-    { key: "supplier", label: "Supplier" },
-    { key: "locationRepresented", label: "Location represented" },
-    { key: "additionalInformation", label: "Additional information" },
-    { key: "dateTimeSampled", label: "Date/time sampled" },
-    { key: "slumpMeasured", label: "Slump measured" },
-    { key: "specimenSize", label: "Specimen size" },
-    { key: "slumpSpecified", label: "Slump specified" }
+    // ── Metadata ──────────────────────────────────────────────────
+    { key: "documentId",               label: "Document ID" },
+    { key: "reportNo",                 label: "Report no." },
+    { key: "status",                   label: "Status" },
+    { key: "template",                 label: "Template" },
+    { key: "internalDate",             label: "Internal date" },
+    { key: "projectCode",              label: "Project code" },
+    // ── Client / project (form section 1) ─────────────────────────
+    { key: "projectErp",               label: "Project (ERP)" },
+    { key: "customerBilling",          label: "Customer (Billing)" },
+    { key: "projectNameOnReport",      label: "Project name on report" },
+    { key: "clientNameOnReport",       label: "Client name on report" },
+    { key: "contact",                  label: "Contact" },
+    // ── Job info (form section 2) ──────────────────────────────────
+    { key: "enableManualCubeJobNumber", label: "Enable manual cube job #" },
+    { key: "cubeJobNumber",            label: "Cube job #" },
+    { key: "quote",                    label: "Quote" },
+    { key: "testItem",                 label: "Test item" },
+    { key: "method",                   label: "Method" },
+    // ── Supplier and location (form section 3) ─────────────────────
+    { key: "supplier",                 label: "Supplier" },
+    { key: "supplierDisplay",          label: "Supplier (display)" },
+    { key: "locationRepresented",      label: "Location represented" },
+    { key: "additionalInformation",    label: "Additional information" },
+    // ── Cast and specimen (form section 4) ────────────────────────
+    { key: "dateOfCast",               label: "Date of cast" },
+    { key: "dateTimeSampled",          label: "Date/time sampled" },
+    { key: "concreteGrade",            label: "Concrete grade" },
+    { key: "reportGrade",              label: "Report grade" },
+    { key: "specimenSize",             label: "Specimen size" },
+    { key: "slumpMeasured",            label: "Slump measured" },
+    { key: "slumpSpecified",           label: "Slump specified" },
+    // ── Personnel (form section 5) ────────────────────────────────
+    { key: "personInCharge",           label: "Person in charge" },
+    { key: "managerInCharge",          label: "Manager in charge" },
+    // ── Workflow ──────────────────────────────────────────────────
+    { key: "erpStatus",                label: "ERP status" },
+    { key: "rpaStatus",                label: "RPA status" },
+    // ── Custom / extra fields ─────────────────────────────────────
+    { key: "extraFields",              label: "Extra fields" }
   ];
 
   const RESULT_FIELDS = [
@@ -90,13 +113,28 @@
   // ─────────────────────────────────────────────────────────────────────────────
 
   const FIELD_ALIASES = {
-    documentId: (form) => form.id,
-    reportNo: (form) => form.raw?.reportNo || form.raw?.reportNumber || form.reportNo,
-    status: (form) => form.raw?.status || form.status,
-    template: (form) => form.raw?.template || form.template,
-    concreteGrade: (form) => form.raw?.concreteGrade || form.raw?.grade || form.grade,
-    locationRepresented: (form) => form.raw?.locationRepresented || form.raw?.location || form.location,
-    additionalInformation: (form) => form.raw?.additionalInformation || form.raw?.notes || form.notes
+    documentId:               (form) => form.id,
+    reportNo:                 (form) => form.raw?.reportNo || form.raw?.reportNumber || form.reportNo,
+    status:                   (form) => form.raw?.status || form.status,
+    template:                 (form) => form.raw?.template || form.template,
+    internalDate:             (form) => form.raw?.internalDate || form.raw?.dateOfCast,
+    projectCode:              (form) => form.raw?.projectCode || form.raw?.projectErp,
+    customerBilling:          (form) => form.raw?.customerBilling || form.raw?.client,
+    projectNameOnReport:      (form) => form.raw?.projectNameOnReport || form.raw?.project,
+    clientNameOnReport:       (form) => form.raw?.clientNameOnReport || form.raw?.client,
+    method:                   (form) => form.raw?.method || form.raw?.testItem,
+    concreteGrade:            (form) => form.raw?.concreteGrade || form.raw?.grade || form.grade,
+    locationRepresented:      (form) => form.raw?.locationRepresented || form.raw?.location || form.location,
+    additionalInformation:    (form) => form.raw?.additionalInformation || form.raw?.notes || form.notes,
+    enableManualCubeJobNumber:(form) => {
+      const v = form.raw?.enableManualCubeJobNumber;
+      return v == null ? "" : (v ? "Yes" : "No");
+    },
+    extraFields: (form) => {
+      const ef = form.raw?.extraFields;
+      if (!ef || typeof ef !== "object" || !Object.keys(ef).length) return "";
+      return JSON.stringify(ef);
+    }
   };
 
   function rawValue(form, key) {
