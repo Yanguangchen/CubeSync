@@ -14,46 +14,58 @@
   const CSV_RESULT_HEADER_ROW = 50;
   const CSV_TEST_DATA_START_ROW = 51;
 
+  // Each field carries a `row` number (1-indexed CSV row).
+  // That number is a permanent contract — never change or reuse a row number.
+  // Add new fields by assigning a previously-unused row in the 3–49 range.
+  // Remove fields by deleting the entry; do NOT renumber anything else.
   const REQUEST_FIELDS = [
-    // ── Metadata ──────────────────────────────────────────────────
-    { key: "documentId",               label: "Document ID" },
-    { key: "reportNo",                 label: "Report no." },
-    { key: "status",                   label: "Status" },
-    { key: "template",                 label: "Template" },
-    { key: "internalDate",             label: "Internal date" },
-    { key: "projectCode",              label: "Project code" },
-    // ── Client / project (form section 1) ─────────────────────────
-    { key: "projectErp",               label: "Project (ERP)" },
-    { key: "customerBilling",          label: "Customer (Billing)" },
-    { key: "projectNameOnReport",      label: "Project name on report" },
-    { key: "clientNameOnReport",       label: "Client name on report" },
-    { key: "contact",                  label: "Contact" },
-    // ── Job info (form section 2) ──────────────────────────────────
-    { key: "enableManualCubeJobNumber", label: "Enable manual cube job #" },
-    { key: "cubeJobNumber",            label: "Cube job #" },
-    { key: "quote",                    label: "Quote" },
-    { key: "testItem",                 label: "Test item" },
-    // ── Supplier and location (form section 3) ─────────────────────
-    { key: "supplier",                 label: "Supplier" },
-    { key: "supplierDisplay",          label: "Supplier (display)" },
-    { key: "locationRepresented",      label: "Location represented" },
-    { key: "additionalInformation",    label: "Additional information" },
-    // ── Cast and specimen (form section 4) ────────────────────────
-    { key: "dateOfCast",               label: "Date of cast" },
-    { key: "dateTimeSampled",          label: "Date/time sampled" },
-    { key: "concreteGrade",            label: "Concrete grade" },
-    { key: "reportGrade",              label: "Report grade" },
-    { key: "specimenSize",             label: "Specimen size" },
-    { key: "slumpMeasured",            label: "Slump measured" },
-    { key: "slumpSpecified",           label: "Slump specified" },
-    // ── Personnel (form section 5) ────────────────────────────────
-    { key: "personInCharge",           label: "Person in charge" },
-    { key: "managerInCharge",          label: "Manager in charge" },
-    // ── Workflow ──────────────────────────────────────────────────
-    { key: "erpStatus",                label: "ERP status" },
-    { key: "rpaStatus",                label: "RPA status" },
-    // ── Custom / extra fields ─────────────────────────────────────
-    { key: "extraFields",              label: "Extra fields" }
+    // ── Metadata (rows 3–8) ───────────────────────────────────────
+    { row:  3, key: "documentId",                label: "Document ID" },
+    { row:  4, key: "reportNo",                  label: "Report no." },
+    { row:  5, key: "status",                    label: "Status" },
+    { row:  6, key: "template",                  label: "Template" },
+    { row:  7, key: "internalDate",              label: "Internal date" },
+    { row:  8, key: "projectCode",               label: "Project code" },
+    // row 9 intentionally blank (section gap)
+    // ── Client / project (rows 10–14) ────────────────────────────
+    { row: 10, key: "projectErp",                label: "Project (ERP)" },
+    { row: 11, key: "customerBilling",           label: "Customer (Billing)" },
+    { row: 12, key: "projectNameOnReport",       label: "Project name on report" },
+    { row: 13, key: "clientNameOnReport",        label: "Client name on report" },
+    { row: 14, key: "contact",                   label: "Contact" },
+    // row 15 intentionally blank (section gap)
+    // ── Job info (rows 16–19) ─────────────────────────────────────
+    { row: 16, key: "enableManualCubeJobNumber", label: "Enable manual cube job #" },
+    { row: 17, key: "cubeJobNumber",             label: "Cube job #" },
+    { row: 18, key: "quote",                     label: "Quote" },
+    { row: 19, key: "testItem",                  label: "Test item" },
+    // row 20 intentionally blank (section gap)
+    // ── Supplier and location (rows 21–24) ───────────────────────
+    { row: 21, key: "supplier",                  label: "Supplier" },
+    { row: 22, key: "supplierDisplay",           label: "Supplier (display)" },
+    { row: 23, key: "locationRepresented",       label: "Location represented" },
+    { row: 24, key: "additionalInformation",     label: "Additional information" },
+    // row 25 intentionally blank (section gap)
+    // ── Cast and specimen (rows 26–32) ───────────────────────────
+    { row: 26, key: "dateOfCast",                label: "Date of cast" },
+    { row: 27, key: "dateTimeSampled",           label: "Date/time sampled" },
+    { row: 28, key: "concreteGrade",             label: "Concrete grade" },
+    { row: 29, key: "reportGrade",               label: "Report grade" },
+    { row: 30, key: "specimenSize",              label: "Specimen size" },
+    { row: 31, key: "slumpMeasured",             label: "Slump measured" },
+    { row: 32, key: "slumpSpecified",            label: "Slump specified" },
+    // row 33 intentionally blank (section gap)
+    // ── Personnel (rows 34–35) ────────────────────────────────────
+    { row: 34, key: "personInCharge",            label: "Person in charge" },
+    { row: 35, key: "managerInCharge",           label: "Manager in charge" },
+    // row 36 intentionally blank (section gap)
+    // ── Workflow (rows 37–38) ─────────────────────────────────────
+    { row: 37, key: "erpStatus",                 label: "ERP status" },
+    { row: 38, key: "rpaStatus",                 label: "RPA status" },
+    // row 39 intentionally blank (section gap)
+    // ── Custom / extra fields (row 40) ───────────────────────────
+    { row: 40, key: "extraFields",               label: "Extra fields" },
+    // rows 41–49 reserved for future fields
   ];
 
   const RESULT_FIELDS = [
@@ -155,23 +167,29 @@
   }
 
   function buildFormCsv(form) {
-    const headerRow = ["CubeSync Concrete Cube Request"];
-    const labelRow = ["Request field", "Value"];
-    const requestRows = REQUEST_FIELDS.map((field) => [field.label, rawValue(form, field.key)]);
+    // Build a lookup from pinned row number → [label, value].
+    const fieldByRow = new Map(
+      REQUEST_FIELDS.map((field) => [
+        field.row,
+        [field.label, rawValue(form, field.key)]
+      ])
+    );
+
+    // Rows 3 to (CSV_RESULT_HEADER_ROW - 1): fields at their pinned rows; every
+    // other row in that range is blank so that adding or removing a field never
+    // shifts any other field.
+    const requestSection = [];
+    for (let row = 3; row < CSV_RESULT_HEADER_ROW; row++) {
+      requestSection.push(fieldByRow.get(row) || []);
+    }
+
     const resultHeader = RESULT_FIELDS.map((field) => field.label);
     const results = form.raw?.results || [];
 
-    // Rows 1-2: header + label. Rows 3-(2+n): request fields. Then blank padding
-    // so the result header always lands on CSV_RESULT_HEADER_ROW (row 50).
-    const fixedRowsBeforeResults = 2 + requestRows.length;
-    const paddingCount = CSV_RESULT_HEADER_ROW - fixedRowsBeforeResults - 1;
-    const padding = Array.from({ length: Math.max(0, paddingCount) }, () => []);
-
     const rows = [
-      headerRow,
-      labelRow,
-      ...requestRows,
-      ...padding,
+      ["CubeSync Concrete Cube Request"],
+      ["Request field", "Value"],
+      ...requestSection,
       resultHeader,
       ...results.map((result) => RESULT_FIELDS.map((field) => {
         const v = result[field.key];
