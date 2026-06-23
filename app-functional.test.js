@@ -145,6 +145,56 @@ test("glassmorphic final step saves to Firestore instead of printing", async () 
   delete require.cache[require.resolve("./app.js")];
 });
 
+test("save button shows a throbber while the submission is in flight", async () => {
+  installDom(glassHtml, "http://localhost/glassmorphic.html");
+
+  global.window.CubeSyncEnv = { RECAPTCHA_SITE_KEY: "test-site-key" };
+  global.window.grecaptcha = {
+    render: () => 0,
+    getResponse: () => "test-recaptcha-token",
+    reset: () => {}
+  };
+  global.window.CubeSyncAuth = {
+    currentUser: () => null,
+    isAllowedUser: () => false
+  };
+
+  // Hold the API response open so we can observe the in-flight busy state.
+  let resolveSave;
+  global.window.CubeSyncFirestore = {
+    savePublicCubeRequest: () => new Promise((resolve) => { resolveSave = resolve; })
+  };
+
+  dispatchDOMContentLoaded();
+  fillRequiredRequestFields(global.document);
+  global.document.querySelector('[name="specimenRef1"]').value = "T-001";
+  global.document.querySelector('[name="barcode1"]').value = "BC-GLASS-001";
+
+  const form = global.document.getElementById("cubeRequestForm");
+  const saveButton = global.document.getElementById("saveFormButton");
+
+  form.dispatchEvent(new global.Event("submit", { bubbles: true, cancelable: true }));
+
+  // Let the handler run up to the awaited savePublicCubeRequest.
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.ok(saveButton.classList.contains("is-busy"), "throbber should be visible while saving");
+  assert.equal(saveButton.getAttribute("aria-busy"), "true");
+  assert.equal(saveButton.disabled, true);
+  assert.equal(global.document.getElementById("saveStatus").textContent, "Saving...");
+
+  // Resolve the pending API call.
+  resolveSave("saved-form-1");
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.ok(!saveButton.classList.contains("is-busy"), "throbber should clear after the response");
+  assert.equal(saveButton.getAttribute("aria-busy"), "false");
+  assert.equal(saveButton.disabled, false);
+  assert.equal(global.document.getElementById("saveStatus").textContent, "Saved");
+
+  delete require.cache[require.resolve("./app.js")];
+});
+
 test("app.js renders barcodes and handles dynamic rows", async () => {
   installDom(glassHtml);
   dispatchDOMContentLoaded();
@@ -207,6 +257,30 @@ test("app.js loads autocomplete options for ERP and billing fields", async () =>
       assert.match(options[2].textContent, /Option C/);
     });
   });
+
+  delete require.cache[require.resolve("./app.js")];
+});
+
+test("app.js merges shared Firestore options into the autocomplete suggestions", async () => {
+  installDom(glassHtml);
+  global.window.fetch = async () => ({
+    ok: true,
+    text: async () => "Option A\nOption B"
+  });
+  global.window.CubeSyncFirestore = {
+    getDropdownOptions: async () => ({ customerBilling: ["Shared Client"] })
+  };
+
+  dispatchDOMContentLoaded();
+  await new Promise((resolve) => setTimeout(resolve, 50));
+
+  const input = global.document.querySelector('input[name="customerBilling"]');
+  const dropdown = input.parentElement.querySelector(".erp-dropdown");
+  input.dispatchEvent(new global.Event("focus"));
+
+  const options = Array.from(dropdown.querySelectorAll("li.erp-dropdown-item"), (li) => li.textContent);
+  assert.ok(options.some((text) => /Shared Client/.test(text)), "shared option should appear");
+  assert.ok(options.some((text) => /Option A/.test(text)), "file option should still appear");
 
   delete require.cache[require.resolve("./app.js")];
 });
@@ -370,8 +444,37 @@ test("app.js initializes correctly on index.html", async () => {
   dispatchDOMContentLoaded();
 
   assert.ok(global.document.getElementById("cubeRequestForm"));
-  
+
   delete require.cache[require.resolve("./app.js")];
+});
+
+test("save/print/recaptcha live in a footer at the bottom of the form on both templates", () => {
+  for (const markup of [indexHtml, glassHtml]) {
+    const dom = new JSDOM(markup);
+    const document = dom.window.document;
+    const form = document.getElementById("cubeRequestForm");
+
+    // The command controls now sit inside the form, in a .form-actions footer.
+    const footer = form.querySelector(".form-actions");
+    assert.ok(footer, "form should have a .form-actions footer");
+    ["recaptchaContainer", "saveStatus", "saveFormButton", "printButton"].forEach((id) => {
+      const el = document.getElementById(id);
+      assert.ok(el, `${id} should exist`);
+      assert.ok(footer.contains(el), `${id} should live in the bottom footer`);
+    });
+
+    // The footer comes after the request fields in document order (natural flow).
+    const grid = form.querySelector(".request-grid");
+    assert.ok(grid);
+    assert.ok(
+      grid.compareDocumentPosition(footer) & dom.window.Node.DOCUMENT_POSITION_FOLLOWING,
+      "footer should appear after the request grid"
+    );
+
+    // The top toolbar no longer carries the command buttons.
+    const topRight = document.querySelector(".page-tools .tool-section.right");
+    assert.equal(topRight, null, "top toolbar should no longer have the command group");
+  }
 });
 
 test("app.js loads existing form from ?id= param", async () => {

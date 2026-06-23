@@ -1235,6 +1235,44 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ---------------------------------------------------------------
+    // settings/dropdownOptions
+    // Shared, dynamic autocomplete suggestions for the customer forms.
+    // PUBLIC READ is intentional and not a leak: the deployed
+    // dropdown-options/*.txt files are already served publicly, so this doc
+    // exposes the same class of data. Writes remain staff-only.
+    // ---------------------------------------------------------------
+    function isValidDropdownOptions(data) {
+      return data.keys().hasOnly([
+          'projectErp',
+          'customerBilling',
+          'supplier',
+          'concreteGrade',
+          'personInCharge',
+          'managerInCharge',
+          'testItem',
+          'specimenSize',
+          'updatedAt'
+        ]) &&
+        (!('projectErp' in data) || (data.projectErp is list && data.projectErp.size() <= 5000)) &&
+        (!('customerBilling' in data) || (data.customerBilling is list && data.customerBilling.size() <= 5000)) &&
+        (!('supplier' in data) || (data.supplier is list && data.supplier.size() <= 5000)) &&
+        (!('concreteGrade' in data) || (data.concreteGrade is list && data.concreteGrade.size() <= 5000)) &&
+        (!('personInCharge' in data) || (data.personInCharge is list && data.personInCharge.size() <= 5000)) &&
+        (!('managerInCharge' in data) || (data.managerInCharge is list && data.managerInCharge.size() <= 5000)) &&
+        (!('testItem' in data) || (data.testItem is list && data.testItem.size() <= 5000)) &&
+        (!('specimenSize' in data) || (data.specimenSize is list && data.specimenSize.size() <= 5000)) &&
+        optCubeSyncTimestamp(data, 'updatedAt');
+    }
+
+    match /settings/dropdownOptions {
+      allow get: if true;
+      allow list: if false;
+      allow create, update: if isCubeSyncStaff() &&
+        isValidDropdownOptions(request.resource.data);
+      allow delete: if false;
+    }
+
     // Default deny everything else.
     match /{document=**} {
       allow read, write: if false;

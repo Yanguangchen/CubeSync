@@ -1,5 +1,6 @@
 @import url("shared/tokens-rakmat-base.css");
 @import url("shared/barcode.css");
+@import url("shared/throbber.css");
 
 /* ==========================================================================
    Original PDF-style form — semantic tokens
@@ -169,6 +170,26 @@ button:hover,
   display: flex;
   justify-content: flex-end;
   margin-top: 18px;
+}
+
+/* Form commands moved to the foot of the form so they follow the natural
+   top-to-bottom fill order. */
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px 18px;
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 2px solid var(--line);
+}
+
+.form-actions-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
 }
 
 .mode-toggle {
@@ -547,7 +568,8 @@ select:focus {
     background: #ffffff;
   }
 
-  .page-tools {
+  .page-tools,
+  .form-actions {
     display: none;
   }
 

@@ -320,6 +320,90 @@
     return normalizeCustomFields(flagged);
   }
 
+  // For a form being promoted (e.g. set to "Ready"), return the free-text values
+  // that should be added to the shared/canonical option lists, keyed by field.
+  // A field is included only when it is currently flagged as free text and has a
+  // non-empty value — i.e. a novel value worth promoting to a suggestion.
+  function collectFlaggedDropdownValues(data, optionsByField, metadataFields) {
+    const flagged = resolveFreeTextDropdownFields(data, optionsByField, metadataFields);
+    const values = {};
+
+    flagged.forEach((field) => {
+      const value = normalizeText(getCubeRequestFormValue(data, field));
+      if (value) {
+        values[field] = value;
+      }
+    });
+
+    return values;
+  }
+
+  // --- Shared dropdown option normalization ------------------------------
+  // These back the get/add/save dropdown-option store in firestore.js so the
+  // normalization rules are unit-testable. Trim, drop blanks, de-duplicate
+  // case-insensitively (first occurrence wins, order preserved).
+  function normalizeDropdownOptionList(list) {
+    const seen = new Set();
+    const result = [];
+    (Array.isArray(list) ? list : []).forEach((entry) => {
+      const value = normalizeText(entry);
+      const key = value.toLowerCase();
+      if (value && !seen.has(key)) {
+        seen.add(key);
+        result.push(value);
+      }
+    });
+    return result;
+  }
+
+  // Read path: keep only known fields whose value is an array; normalize each.
+  function readSharedDropdownOptions(data) {
+    const options = {};
+    if (!data || typeof data !== "object") {
+      return options;
+    }
+    DROPDOWN_OPTION_FIELDS.forEach((field) => {
+      if (Array.isArray(data[field])) {
+        options[field] = normalizeDropdownOptionList(data[field]);
+      }
+    });
+    return options;
+  }
+
+  // Append path: whitelist fields, accept a single value or an array, drop
+  // fields that normalize to nothing. Returns { field: string[] }.
+  function buildSharedDropdownAddValues(valuesByField) {
+    const additions = {};
+    if (!valuesByField || typeof valuesByField !== "object") {
+      return additions;
+    }
+    DROPDOWN_OPTION_FIELDS.forEach((field) => {
+      if (!(field in valuesByField)) {
+        return;
+      }
+      const raw = valuesByField[field];
+      const values = normalizeDropdownOptionList(Array.isArray(raw) ? raw : [raw]);
+      if (values.length) {
+        additions[field] = values;
+      }
+    });
+    return additions;
+  }
+
+  // Replace path: whitelist fields with array values; normalize each list.
+  function buildSharedDropdownSaveValues(optionsByField) {
+    const clean = {};
+    if (!optionsByField || typeof optionsByField !== "object") {
+      return clean;
+    }
+    DROPDOWN_OPTION_FIELDS.forEach((field) => {
+      if (Array.isArray(optionsByField[field])) {
+        clean[field] = normalizeDropdownOptionList(optionsByField[field]);
+      }
+    });
+    return clean;
+  }
+
   function isRequestFieldFilled(field, value) {
     if (NUMBER_FIELDS.has(field)) {
       return typeof value === "number" && Number.isFinite(value);
@@ -1403,6 +1487,11 @@
     deriveFreeTextDropdownFields,
     mergeFreeTextDropdownFields,
     resolveFreeTextDropdownFields,
+    collectFlaggedDropdownValues,
+    normalizeDropdownOptionList,
+    readSharedDropdownOptions,
+    buildSharedDropdownAddValues,
+    buildSharedDropdownSaveValues,
     collectCustomFields,
     isRequestFieldFilled,
     validateCubeRequestForm,

@@ -9,7 +9,11 @@
       "Bash(node --test deployment-config.test.js)",
       "Bash(node --test api-handler.test.js)",
       "Bash(npm run *)",
-      "Bash(git stash *)"
+      "Bash(git stash *)",
+      "PowerShell(npx eslint dashboard-functional.test.js 2>&1 | Select-Object -First 20; if \\($LASTEXITCODE -eq 0\\) { \"ESLINT OK\" })",
+      "Bash(node --test app-functional.test.js)",
+      "Bash(Select-String -Pattern \"^# pass|^# fail\")",
+      "Bash(git add *)"
     ]
   }
 }

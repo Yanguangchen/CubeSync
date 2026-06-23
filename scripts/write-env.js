@@ -20,6 +20,8 @@ const STATIC_FILES = [
   "cubesync-form-markup.js",
   "cubesync-export.js",
   "cubesync-table-manager.js",
+  "cubesync-dashboard-filters.js",
+  "cubesync-today-toggle.js",
   "dashboard.js",
   "firestore.js",
   "rpa-dashboard.js",

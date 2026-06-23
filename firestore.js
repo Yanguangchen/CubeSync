@@ -9,6 +9,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js";
 import {
   addDoc,
+  arrayUnion,
   collection,
   deleteDoc,
   doc,
@@ -23,6 +24,19 @@ import {
 const COLLECTION_NAME = "cubeRequests";
 const SETTINGS_COLLECTION = "settings";
 const FORM_FIELD_CONFIG_DOC_ID = "formFieldConfig";
+const DROPDOWN_OPTIONS_DOC_ID = "dropdownOptions";
+// Dropdown-backed fields whose suggestion lists are shared in Firestore.
+// Keep in sync with DROPDOWN_OPTION_FIELDS in cubesync-form-data.js.
+const DROPDOWN_OPTION_FIELDS = [
+  "projectErp",
+  "customerBilling",
+  "supplier",
+  "concreteGrade",
+  "personInCharge",
+  "managerInCharge",
+  "testItem",
+  "specimenSize"
+];
 const firebaseConfig = {
   apiKey: "AIzaSyDovmjClkov6q1qRQkkgCExH31rEbX0X2M",
   authDomain: "crewhub-43647.firebaseapp.com",
@@ -251,10 +265,79 @@ async function saveFormFieldConfig(config) {
   return FORM_FIELD_CONFIG_DOC_ID;
 }
 
+// Normalization for the shared option store lives in cubesync-form-data.js so
+// the rules are unit-testable. That UMD module is loaded before this one on
+// every page that calls these functions.
+function formDataHelper() {
+  return (typeof globalThis !== "undefined" && globalThis.CubeSyncFormData) || null;
+}
+
+function requireFormDataHelper() {
+  const helper = formDataHelper();
+  if (!helper) {
+    throw new Error("CubeSyncFormData must load before dropdown option writes.");
+  }
+  return helper;
+}
+
+// Shared, dynamic autocomplete suggestions. The doc is public-readable (the
+// deployed dropdown-options/*.txt files are already public), so the customer
+// forms can read it, but only authenticated staff may write.
+async function getDropdownOptions() {
+  const snapshot = await getDoc(settingsDocument(DROPDOWN_OPTIONS_DOC_ID));
+  if (!snapshot.exists()) {
+    return {};
+  }
+
+  const data = snapshot.data() || {};
+  const helper = formDataHelper();
+  if (helper && typeof helper.readSharedDropdownOptions === "function") {
+    return helper.readSharedDropdownOptions(data);
+  }
+
+  // Read-only fallback if the helper somehow has not loaded.
+  const options = {};
+  DROPDOWN_OPTION_FIELDS.forEach((field) => {
+    if (Array.isArray(data[field])) {
+      options[field] = data[field];
+    }
+  });
+  return options;
+}
+
+// Append values to the shared lists without duplicates (arrayUnion). Used when
+// a flagged form is promoted to "Ready". Accepts a { field: value } or
+// { field: [values] } map.
+async function addDropdownOptions(valuesByField) {
+  const additions = requireFormDataHelper().buildSharedDropdownAddValues(valuesByField);
+  const update = {};
+  Object.keys(additions).forEach((field) => {
+    update[field] = arrayUnion(...additions[field]);
+  });
+
+  if (!Object.keys(update).length) {
+    return null;
+  }
+
+  update.updatedAt = serverTimestamp();
+  await setDoc(settingsDocument(DROPDOWN_OPTIONS_DOC_ID), update, { merge: true });
+  return DROPDOWN_OPTIONS_DOC_ID;
+}
+
+// Replace the shared lists wholesale (used by the manage-lists GUI).
+async function saveDropdownOptions(optionsByField) {
+  const clean = requireFormDataHelper().buildSharedDropdownSaveValues(optionsByField);
+  clean.updatedAt = serverTimestamp();
+  await setDoc(settingsDocument(DROPDOWN_OPTIONS_DOC_ID), clean);
+  return DROPDOWN_OPTIONS_DOC_ID;
+}
+
 window.CubeSyncFirestore = {
   COLLECTION_NAME,
   SETTINGS_COLLECTION,
   FORM_FIELD_CONFIG_DOC_ID,
+  DROPDOWN_OPTIONS_DOC_ID,
+  DROPDOWN_OPTION_FIELDS,
   firebaseConfig,
   listCubeRequests,
   getCubeRequest,
@@ -263,7 +346,10 @@ window.CubeSyncFirestore = {
   updateCubeRequest,
   deleteCubeRequest,
   getFormFieldConfig,
-  saveFormFieldConfig
+  saveFormFieldConfig,
+  getDropdownOptions,
+  addDropdownOptions,
+  saveDropdownOptions
 };
 
 window.CubeSyncAuth = {

@@ -36,13 +36,6 @@
           <a href="index.html" class="active">Original</a>
         </div>
       </nav>
-      <div class="tool-section right" role="group" aria-label="Form commands">
-        <div id="recaptchaContainer"></div>
-        <span id="saveStatus" class="save-status" role="status" aria-live="polite"></span>
-        <button type="submit" form="cubeRequestForm" id="saveFormButton">Save</button>
-        <button type="button" id="printButton">Print</button>
-        <button type="reset" form="cubeRequestForm">Clear</button>
-      </div>
     </header>
 
     <main class="sheet" aria-labelledby="formTitle">
@@ -237,6 +230,16 @@
             </table>
           </div>
         </section>
+
+        <footer class="form-actions" role="group" aria-label="Form commands">
+          <div id="recaptchaContainer"></div>
+          <div class="form-actions-buttons">
+            <span id="saveStatus" class="save-status" role="status" aria-live="polite"></span>
+            <button type="submit" form="cubeRequestForm" id="saveFormButton">Save</button>
+            <button type="button" id="printButton">Print</button>
+            <button type="reset" form="cubeRequestForm">Clear</button>
+          </div>
+        </footer>
       </form>
     </main>
     <script>if("serviceWorker"in navigator){navigator.serviceWorker.register("./sw.js").catch(()=>{});}</script>

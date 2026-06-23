@@ -1,0 +1,47 @@
+/**
+ * Throbber / loading spinner.
+ *
+ * Shared across the public request forms for async feedback (e.g. while a
+ * submission waits on the API). Use the `.throbber` element anywhere, or add
+ * `.is-busy` to a button to render a spinner before its label.
+ */
+@keyframes cubesync-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.throbber {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  vertical-align: -2px;
+  animation: cubesync-spin 0.6s linear infinite;
+}
+
+button.is-busy {
+  cursor: progress;
+}
+
+button.is-busy::before {
+  content: "";
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  margin-right: 8px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  vertical-align: -2px;
+  animation: cubesync-spin 0.6s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .throbber,
+  button.is-busy::before {
+    animation-duration: 1.5s;
+  }
+}

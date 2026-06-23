@@ -14,7 +14,12 @@ const {
   normalizeCubeRequestForDashboard,
   deriveFreeTextDropdownFields,
   mergeFreeTextDropdownFields,
-  resolveFreeTextDropdownFields
+  resolveFreeTextDropdownFields,
+  collectFlaggedDropdownValues,
+  normalizeDropdownOptionList,
+  readSharedDropdownOptions,
+  buildSharedDropdownAddValues,
+  buildSharedDropdownSaveValues
 } = require("./cubesync-form-data");
 
 function formFieldNames(html) {
@@ -470,4 +475,94 @@ test("resolveFreeTextDropdownFields ignores metadata for fields that have option
   const data = { supplier: "ABC Concrete", testItem: "Typed Test" };
   const resolved = resolveFreeTextDropdownFields(data, optionsByField, ["supplier", "testItem"]);
   assert.deepEqual(resolved, ["testItem"]);
+});
+
+test("collectFlaggedDropdownValues returns flagged field values for promotion", () => {
+  const optionsByField = {
+    supplier: ["ABC Concrete"],
+    customerBilling: ["Acme Pte Ltd"],
+    concreteGrade: ["C32/40"]
+  };
+  const data = {
+    supplier: "Brand New Supplier",     // flagged -> promote
+    customerBilling: "Acme Pte Ltd",    // matches option -> not promoted
+    concreteGrade: "C50/60"             // flagged -> promote
+  };
+
+  const values = collectFlaggedDropdownValues(data, optionsByField, []);
+  assert.deepEqual(values, {
+    supplier: "Brand New Supplier",
+    concreteGrade: "C50/60"
+  });
+});
+
+test("collectFlaggedDropdownValues skips empty values and resolves canonical aliases", () => {
+  const optionsByField = { projectErp: ["ERP-001"], supplier: ["ABC"] };
+  // projectCode is the legacy alias for projectErp; supplier has no value.
+  const data = { projectCode: "Typed ERP", supplier: "" };
+
+  const values = collectFlaggedDropdownValues(data, optionsByField, []);
+  assert.deepEqual(values, { projectErp: "Typed ERP" });
+});
+
+test("collectFlaggedDropdownValues returns empty when nothing is flagged", () => {
+  const optionsByField = { supplier: ["ABC Concrete"] };
+  const data = { supplier: "ABC Concrete" };
+  assert.deepEqual(collectFlaggedDropdownValues(data, optionsByField, []), {});
+});
+
+/* ---- Shared dropdown option normalization (backs firestore.js) ---------- */
+
+test("normalizeDropdownOptionList trims, drops blanks, and de-duplicates case-insensitively", () => {
+  const input = ["  Acme  ", "acme", "", "   ", "Beta Co", "BETA CO", null, undefined, 42];
+  // First occurrence wins; order preserved; non-strings stringified.
+  assert.deepEqual(normalizeDropdownOptionList(input), ["Acme", "Beta Co", "42"]);
+});
+
+test("normalizeDropdownOptionList tolerates non-array input", () => {
+  assert.deepEqual(normalizeDropdownOptionList(null), []);
+  assert.deepEqual(normalizeDropdownOptionList("nope"), []);
+});
+
+test("readSharedDropdownOptions keeps only known fields with array values, normalized", () => {
+  const data = {
+    supplier: ["ABC", "abc", " ABC "],
+    customerBilling: ["Acme"],
+    bogusField: ["nope"],     // unknown -> dropped
+    projectErp: "not-an-array", // non-array -> dropped
+    updatedAt: "2026-06-24"
+  };
+  assert.deepEqual(readSharedDropdownOptions(data), {
+    supplier: ["ABC"],
+    customerBilling: ["Acme"]
+  });
+  assert.deepEqual(readSharedDropdownOptions(null), {});
+});
+
+test("buildSharedDropdownAddValues whitelists fields and accepts single values or arrays", () => {
+  const result = buildSharedDropdownAddValues({
+    supplier: "New Supplier",                 // single value
+    customerBilling: ["Acme", "acme", ""],    // array, de-duped + blanks dropped
+    concreteGrade: "   ",                       // normalizes to nothing -> dropped
+    bogusField: "ignored"                       // unknown -> dropped
+  });
+  assert.deepEqual(result, {
+    supplier: ["New Supplier"],
+    customerBilling: ["Acme"]
+  });
+  assert.deepEqual(buildSharedDropdownAddValues(null), {});
+});
+
+test("buildSharedDropdownSaveValues normalizes each known list and ignores unknown fields", () => {
+  const result = buildSharedDropdownSaveValues({
+    supplier: ["A", "a", "B"],
+    customerBilling: [],
+    bogusField: ["nope"],
+    testItem: "not-an-array"  // non-array -> omitted
+  });
+  assert.deepEqual(result, {
+    supplier: ["A", "B"],
+    customerBilling: []
+  });
+  assert.deepEqual(buildSharedDropdownSaveValues(undefined), {});
 });

@@ -6,9 +6,14 @@
     selectedId: null,
     search: "",
     status: "all",
+    client: "all",
+    project: "all",
+    sort: "date-desc",
+    todayOnly: false,
     loading: false,
     fieldConfig: null,
-    dropdownOptions: {}
+    dropdownOptions: {},
+    pendingDetailStatus: null
   };
 
   const DROPDOWN_OPTION_SOURCES = [
@@ -55,6 +60,25 @@
       }
     }));
 
+    // Merge the shared, dynamic Firestore options on top of the deployed files
+    // so promoted values count as canonical (and stop being flagged as free
+    // text). Still excludes browser-local suggestions on purpose.
+    const store = formStore();
+    if (store && typeof store.getDropdownOptions === "function") {
+      try {
+        const shared = (await store.getDropdownOptions()) || {};
+        Object.keys(shared).forEach((field) => {
+          if (!Array.isArray(shared[field]) || !shared[field].length) {
+            return;
+          }
+          const existing = Array.isArray(options[field]) ? options[field] : [];
+          options[field] = Array.from(new Set([...existing, ...shared[field]]));
+        });
+      } catch {
+        // Shared options are optional; fall back to deployed files only.
+      }
+    }
+
     state.dropdownOptions = options;
   }
 
@@ -65,6 +89,80 @@
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;")
       .replace(/'/g, "&#39;");
+  }
+
+  function setSurfaceStatus(element, message, tone) {
+    if (!element) {
+      return;
+    }
+
+    if (!message) {
+      element.textContent = "";
+      element.hidden = true;
+      element.removeAttribute("data-tone");
+      return;
+    }
+
+    element.textContent = message;
+    element.hidden = false;
+    element.setAttribute("data-tone", tone || "info");
+  }
+
+  function clearSurfaceStatus(element) {
+    setSurfaceStatus(element, "", "");
+  }
+
+  function queueDetailStatus(message, tone) {
+    state.pendingDetailStatus = message ? { message, tone: tone || "info" } : null;
+  }
+
+  function classifyActionError(error, fallbackMessage) {
+    const code = String(error && error.code || "").trim();
+    const message = String(error && error.message || "").trim();
+    const lowerCode = code.toLowerCase();
+    const lowerMessage = message.toLowerCase();
+
+    if (lowerCode === "permission-denied" || lowerCode === "unauthenticated") {
+      return {
+        tone: "warning",
+        message: "Access denied. Sign in with an allowed account and try again."
+      };
+    }
+
+    if (
+      lowerCode === "unavailable" ||
+      lowerCode === "deadline-exceeded" ||
+      lowerCode === "internal" ||
+      lowerCode === "resource-exhausted" ||
+      lowerMessage.includes("network") ||
+      lowerMessage.includes("offline") ||
+      lowerMessage.includes("failed to fetch") ||
+      lowerMessage.includes("firestore") ||
+      lowerMessage.includes("service unavailable")
+    ) {
+      return {
+        tone: "error",
+        message: "Service issue. The request did not complete. Retry in a moment."
+      };
+    }
+
+    if (
+      lowerMessage.includes("required") ||
+      lowerMessage.includes("invalid") ||
+      lowerMessage.includes("complete") ||
+      lowerMessage.includes("choose") ||
+      lowerMessage.includes("fix")
+    ) {
+      return {
+        tone: "warning",
+        message: message || fallbackMessage
+      };
+    }
+
+    return {
+      tone: "error",
+      message: message || fallbackMessage
+    };
   }
 
   function formatDashboardDate(value) {
@@ -110,7 +208,26 @@
       .filter(Boolean);
   }
 
+  function dashboardFilters() {
+    return window.CubeSyncDashboardFilters;
+  }
+
   function filteredForms() {
+    const helper = dashboardFilters();
+    if (helper && typeof helper.applyDashboardFilters === "function") {
+      const today = typeof helper.currentIsoDate === "function" ? helper.currentIsoDate() : undefined;
+      return helper.applyDashboardFilters(state.forms, {
+        search: state.search,
+        status: state.status,
+        client: state.client,
+        project: state.project,
+        sort: state.sort,
+        todayOnly: state.todayOnly,
+        today: today
+      });
+    }
+
+    // Fallback (helper script unavailable): legacy search + status only.
     const query = state.search.trim().toLowerCase();
 
     return state.forms.filter(function (form) {
@@ -127,6 +244,45 @@
     });
   }
 
+  // Repopulate the Client/Project filter dropdowns from the loaded forms,
+  // preserving the current selection when it still exists.
+  function refreshFilterOptions() {
+    const helper = dashboardFilters();
+    if (!helper || typeof helper.collectFilterOptions !== "function") {
+      return;
+    }
+
+    const options = helper.collectFilterOptions(state.forms);
+    populateFilterSelect(elements.clientFilter, options.clients, state.client, "All clients");
+    populateFilterSelect(elements.projectFilter, options.projects, state.project, "All projects");
+
+    // Drop selections that no longer match any loaded form.
+    if (state.client !== "all" && !optionsContain(options.clients, state.client)) {
+      state.client = "all";
+      if (elements.clientFilter) elements.clientFilter.value = "all";
+    }
+    if (state.project !== "all" && !optionsContain(options.projects, state.project)) {
+      state.project = "all";
+      if (elements.projectFilter) elements.projectFilter.value = "all";
+    }
+  }
+
+  function optionsContain(values, target) {
+    const wanted = String(target).trim().toLowerCase();
+    return values.some((value) => String(value).trim().toLowerCase() === wanted);
+  }
+
+  function populateFilterSelect(select, values, selected, allLabel) {
+    if (!select) {
+      return;
+    }
+
+    const allOption = `<option value="all">${escapeHtml(allLabel)}</option>`;
+    const valueOptions = values.map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join("");
+    select.innerHTML = allOption + valueOptions;
+    select.value = optionsContain(values, selected) ? selected : "all";
+  }
+
   function setListMessage(message) {
     elements.formList.innerHTML = `<tr><td colspan="7">${escapeHtml(message)}</td></tr>`;
   }
@@ -140,6 +296,20 @@
     ].forEach((button) => {
       button.disabled = !enabled;
     });
+  }
+
+  // Toggle the detail panel's visibility. On desktop it is hidden until a form
+  // is selected, then eases in from behind the list panel (see `.has-detail`
+  // in css/dashboard.css). On mobile the panel simply stacks below the list.
+  function setDetailPanelVisible(visible) {
+    const panel = elements.detailPanel;
+    if (!panel) return;
+
+    const workspace = (panel.closest && panel.closest(".workspace")) || panel.parentElement;
+    if (workspace) {
+      workspace.classList.toggle("has-detail", Boolean(visible));
+    }
+    panel.setAttribute("aria-hidden", visible ? "false" : "true");
   }
 
   function selectedForm() {
@@ -278,6 +448,7 @@
   }
 
   function viewForm(id) {
+    clearSurfaceStatus(elements.detailStatus);
     state.selectedId = id;
     const form = selectedForm();
 
@@ -285,6 +456,7 @@
       elements.detailTitle.textContent = "No form selected";
       elements.detailContent.innerHTML = "<p>Select a form from the dashboard to view its request details and barcode labels.</p>";
       setDetailButtons(false);
+      setDetailPanelVisible(false);
       renderForms();
       return;
     }
@@ -331,6 +503,7 @@
       ${renderBarcodeList(form)}
     `;
     setDetailButtons(true);
+    setDetailPanelVisible(true);
     renderForms();
   }
 
@@ -341,6 +514,7 @@
     if (!store || !helper) {
       state.forms = [];
       renderForms();
+      setSurfaceStatus(elements.detailStatus, "Dashboard services are unavailable.", "error");
       elements.detailContent.innerHTML = "<p>Firestore is not available yet. Check the Firebase SDK scripts and network access.</p>";
       return;
     }
@@ -368,6 +542,7 @@
         return form;
       });
       state.loading = false;
+      refreshFilterOptions();
       renderForms();
 
       if (state.selectedId && selectedForm()) {
@@ -375,10 +550,16 @@
       } else {
         viewForm(null);
       }
+
+      if (state.pendingDetailStatus) {
+        setSurfaceStatus(elements.detailStatus, state.pendingDetailStatus.message, state.pendingDetailStatus.tone);
+        state.pendingDetailStatus = null;
+      }
     } catch (error) {
       state.loading = false;
       state.forms = [];
       renderForms();
+      setSurfaceStatus(elements.detailStatus, "Unable to load requests. Retry after the connection or Firestore access is restored.", "error");
       elements.detailTitle.textContent = "Firestore error";
       elements.detailContent.innerHTML = `<p>${escapeHtml(error.message || "Unable to load forms from Firestore.")}</p>`;
       setDetailButtons(false);
@@ -527,8 +708,18 @@
     if (store && typeof store.getFormFieldConfig === "function") {
       try {
         config = await store.getFormFieldConfig();
-      } catch (error) {
-        window.alert(error.message || "Unable to load form field settings.");
+        clearSurfaceStatus(elements.fieldConfigStatus);
+      } catch {
+        setSurfaceStatus(
+          elements.topbarStatus,
+          "Field settings could not be loaded. Using cached or default settings for now.",
+          "warning"
+        );
+        setSurfaceStatus(
+          elements.fieldConfigStatus,
+          "Field settings could not be loaded. You can keep working with cached or default settings, but changes should wait until the service recovers.",
+          "warning"
+        );
       }
     }
 
@@ -538,6 +729,9 @@
   }
 
   function openFieldConfigDialog() {
+    if (!elements.fieldConfigStatus.hidden && elements.fieldConfigStatus.getAttribute("data-tone") === "success") {
+      clearSurfaceStatus(elements.fieldConfigStatus);
+    }
     renderFieldConfigEditor(state.fieldConfig);
     elements.fieldConfigDialog.showModal();
   }
@@ -558,14 +752,99 @@
     const config = helper.readFormFieldConfigFromEditor(elements.fieldConfigForm);
     const submitButton = elements.fieldConfigForm.querySelector('button[type="submit"]');
     if (submitButton) submitButton.disabled = true;
+    setSurfaceStatus(elements.fieldConfigStatus, "Saving field settings...", "info");
 
     try {
       await store.saveFormFieldConfig(config);
       state.fieldConfig = helper.normalizeFormFieldConfig(config);
       cacheFieldConfig(state.fieldConfig);
+      clearSurfaceStatus(elements.topbarStatus);
+      setSurfaceStatus(elements.fieldConfigStatus, "Field settings saved.", "success");
       elements.fieldConfigDialog.close();
     } catch (error) {
-      window.alert(error.message || "Unable to save form field settings.");
+      const detail = classifyActionError(error, "Unable to save form field settings.");
+      setSurfaceStatus(elements.fieldConfigStatus, detail.message, detail.tone);
+    } finally {
+      if (submitButton) submitButton.disabled = false;
+    }
+  }
+
+  const DROPDOWN_OPTION_FIELD_LABELS = {
+    projectErp: "Project (ERP)",
+    customerBilling: "Customer (Billing)",
+    supplier: "Supplier of concrete",
+    concreteGrade: "Concrete Grade",
+    personInCharge: "Person In Charge",
+    managerInCharge: "Manager In Charge",
+    testItem: "Test Item",
+    specimenSize: "Size"
+  };
+
+  function renderOptionsManager(shared) {
+    if (!elements.optionsGroups) return;
+    elements.optionsGroups.innerHTML = Object.keys(DROPDOWN_OPTION_FIELD_LABELS).map((field) => {
+      const values = Array.isArray(shared[field]) ? shared[field] : [];
+      return `
+        <label class="options-group">
+          <span>${escapeHtml(DROPDOWN_OPTION_FIELD_LABELS[field])}</span>
+          <textarea name="${escapeHtml(field)}" rows="5" placeholder="One value per line">${escapeHtml(values.join("\n"))}</textarea>
+        </label>
+      `;
+    }).join("");
+  }
+
+  async function openOptionsManager() {
+    const store = formStore();
+    if (!store || typeof store.getDropdownOptions !== "function" || !elements.optionsDialog) {
+      return;
+    }
+
+    clearSurfaceStatus(elements.optionsStatus);
+    let shared = {};
+    try {
+      shared = (await store.getDropdownOptions()) || {};
+    } catch {
+      shared = {};
+    }
+    renderOptionsManager(shared);
+
+    if (typeof elements.optionsDialog.showModal === "function") {
+      try {
+        elements.optionsDialog.showModal();
+      } catch {
+        // jsdom / unsupported environments: dialog still rendered in the DOM.
+      }
+    }
+  }
+
+  async function saveOptionsManager(event) {
+    event.preventDefault();
+    const store = formStore();
+    if (!store || typeof store.saveDropdownOptions !== "function" || !elements.optionsForm) {
+      return;
+    }
+
+    const map = {};
+    Object.keys(DROPDOWN_OPTION_FIELD_LABELS).forEach((field) => {
+      const control = elements.optionsForm.elements[field];
+      if (!control) return;
+      map[field] = String(control.value || "")
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean);
+    });
+
+    const submitButton = elements.optionsForm.querySelector('button[type="submit"]');
+    if (submitButton) submitButton.disabled = true;
+    setSurfaceStatus(elements.optionsStatus, "Saving suggestion lists...", "info");
+
+    try {
+      await store.saveDropdownOptions(map);
+      if (elements.optionsDialog) elements.optionsDialog.close();
+      await loadForms();
+    } catch (error) {
+      const detail = classifyActionError(error, "Unable to save the suggestion lists.");
+      setSurfaceStatus(elements.optionsStatus, detail.message, detail.tone);
     } finally {
       if (submitButton) submitButton.disabled = false;
     }
@@ -587,22 +866,27 @@
     if (!auth) {
       setDashboardLocked(true);
       authMessage.textContent = "Firebase Auth is not available. Check the Firebase SDK script.";
+      setSurfaceStatus(elements.authGateStatus, "Authentication services are unavailable.", "error");
       return;
     }
 
     elements.signInButton.addEventListener("click", async function () {
+      setSurfaceStatus(elements.authGateStatus, "Starting Google sign-in...", "info");
       try {
         await auth.signInWithGoogle();
       } catch (error) {
-        window.alert(error.message || "Unable to sign in with Google.");
+        const detail = classifyActionError(error, "Unable to sign in with Google.");
+        setSurfaceStatus(elements.authGateStatus, detail.message, detail.tone);
       }
     });
 
     elements.signOutButton.addEventListener("click", async function () {
+      setSurfaceStatus(elements.topbarStatus, "Signing out...", "info");
       try {
         await auth.signOutUser();
       } catch (error) {
-        window.alert(error.message || "Unable to sign out.");
+        const detail = classifyActionError(error, "Unable to sign out.");
+        setSurfaceStatus(elements.topbarStatus, detail.message, detail.tone);
       }
     });
 
@@ -610,6 +894,7 @@
       if (!user) {
         elements.authUser.textContent = "";
         authMessage.textContent = "Use your Google account to access Firestore-backed dashboards.";
+        clearSurfaceStatus(elements.topbarStatus);
         setDashboardLocked(true);
         clearDashboard();
         return;
@@ -618,6 +903,7 @@
       if (!auth.isAllowedUser(user)) {
         elements.authUser.textContent = "";
         authMessage.textContent = `${user.email || "This Google account"} is not allowed for CubeSync.`;
+        setSurfaceStatus(elements.authGateStatus, "This account does not have dashboard access.", "warning");
         setDashboardLocked(true);
         clearDashboard();
         auth.signOutUser().catch(() => {});
@@ -625,6 +911,7 @@
       }
 
       elements.authUser.textContent = user.email || user.displayName || "Signed in";
+      clearSurfaceStatus(elements.authGateStatus);
       setDashboardLocked(false);
       loadFieldConfig();
       loadDropdownOptionSets()
@@ -745,6 +1032,7 @@
   function openEditor(id) {
     const form = state.forms.find((item) => item.id === id);
     if (!form) return;
+    clearSurfaceStatus(elements.editFormStatus);
     const raw = form.raw || {};
     const existingCustomFields = new Set(customFields(form));
 
@@ -829,6 +1117,25 @@
     elements.editDialog.showModal();
   }
 
+  async function promoteFlaggedDropdownValues(store, helper, payload, existing) {
+    if (!store || typeof store.addDropdownOptions !== "function" ||
+        !helper || typeof helper.collectFlaggedDropdownValues !== "function") {
+      return;
+    }
+
+    try {
+      const metadata = (payload && payload.customFields) ||
+        (existing && existing.customFields) || [];
+      const values = helper.collectFlaggedDropdownValues(payload, state.dropdownOptions, metadata);
+      if (values && Object.keys(values).length) {
+        await store.addDropdownOptions(values);
+      }
+    } catch (error) {
+      // Promotion is best-effort and must never block saving the form.
+      console.warn("CubeSync: could not promote dropdown options", error);
+    }
+  }
+
   async function saveEditedForm(event) {
     event.preventDefault();
 
@@ -841,6 +1148,7 @@
 
     const submitButton = elements.editForm.querySelector('button[type="submit"]');
     if (submitButton) submitButton.disabled = true;
+    setSurfaceStatus(elements.editFormStatus, "Saving changes...", "info");
 
     try {
       // Sync legacy hidden fields from standard visible fields before serializing
@@ -891,15 +1199,24 @@
       }
 
       await store.updateCubeRequest(id, patch);
+
+      // Promote flagged free-text values to the shared option lists when a form
+      // is set to Ready, so the value becomes a suggestion for everyone. Refresh
+      // the option sets afterward so the reload below treats the promoted value
+      // as canonical and stops flagging it.
+      if (payload.status === "Ready") {
+        await promoteFlaggedDropdownValues(store, helper, payload, existing);
+        await loadDropdownOptionSets();
+      }
+
+      queueDetailStatus("Changes saved.", "success");
       elements.editDialog.close();
       state.selectedId = id;
       await loadForms();
     } catch (error) {
       console.error("CubeSync dashboard save failed", error);
-      const detail = error && error.code
-        ? `${error.code}: ${error.message || "Unable to save changes to Firestore."}`
-        : (error.message || "Unable to save changes to Firestore.");
-      window.alert(detail);
+      const detail = classifyActionError(error, "Unable to save changes to Firestore.");
+      setSurfaceStatus(elements.editFormStatus, detail.message, detail.tone);
     } finally {
       if (submitButton) submitButton.disabled = false;
     }
@@ -916,10 +1233,12 @@
 
     try {
       await store.deleteCubeRequest(id);
+      queueDetailStatus(`${form.reportNo || form.id} deleted.`, "success");
       if (state.selectedId === id) state.selectedId = null;
       await loadForms();
     } catch (error) {
-      window.alert(error.message || "Unable to delete this Firestore form.");
+      const detail = classifyActionError(error, "Unable to delete this Firestore form.");
+      setSurfaceStatus(elements.detailStatus, detail.message, detail.tone);
     }
   }
 
@@ -989,11 +1308,15 @@
   function bindElements() {
     [
       "authGate", "dashboardShell", "signInButton", "signOutButton", "authUser",
-      "formList", "detailPanel", "detailContent", "detailTitle", "searchInput",
-      "statusFilter", "editDialog", "editForm", "closeEditorButton", "cancelEditButton",
-      "detailViewButton", "detailEditButton", "detailPrintButton", "detailDeleteButton",
+      "authGateStatus", "topbarStatus", "formList", "detailPanel", "detailContent", "detailTitle", "detailStatus", "searchInput",
+      "statusFilter", "clientFilter", "projectFilter", "sortOrder",
+      "todayToggle", "todayOnlyToggle",
+      "editDialog", "editForm", "editFormStatus", "closeEditorButton", "cancelEditButton",
+      "detailViewButton", "detailEditButton", "detailPrintButton", "detailDeleteButton", "detailHideButton",
       "printArea", "fieldSettingsButton", "fieldConfigDialog", "fieldConfigForm",
-      "fieldConfigGroups", "closeFieldConfigButton", "cancelFieldConfigButton",
+      "manageOptionsButton", "optionsDialog", "optionsForm", "optionsGroups", "optionsStatus",
+      "closeOptionsButton", "cancelOptionsButton",
+      "fieldConfigStatus", "fieldConfigGroups", "closeFieldConfigButton", "cancelFieldConfigButton",
       "resetFieldConfigButton", "addCustomFieldButton",
       "menuToggle", "dropdownMenu", "editAddRowButton", "editResultsBody", 
       "editPrevStep", "editNextStep", "editStepIndicator1", "editStepIndicator2"
@@ -1048,11 +1371,42 @@
       state.status = elements.statusFilter.value;
       renderForms();
     });
+    if (elements.clientFilter) {
+      elements.clientFilter.addEventListener("change", function () {
+        state.client = elements.clientFilter.value;
+        renderForms();
+      });
+    }
+    if (elements.projectFilter) {
+      elements.projectFilter.addEventListener("change", function () {
+        state.project = elements.projectFilter.value;
+        renderForms();
+      });
+    }
+    if (elements.sortOrder) {
+      elements.sortOrder.addEventListener("change", function () {
+        state.sort = elements.sortOrder.value;
+        renderForms();
+      });
+    }
+    if (elements.todayOnlyToggle) {
+      elements.todayOnlyToggle.addEventListener("change", function () {
+        state.todayOnly = elements.todayOnlyToggle.checked;
+        renderForms();
+      });
+    }
+    if (elements.todayToggle && window.CubeSyncTodayToggle &&
+        typeof window.CubeSyncTodayToggle.setup === "function") {
+      window.CubeSyncTodayToggle.setup(elements.todayToggle);
+    }
 
     elements.detailViewButton.addEventListener("click", () => openEditor(state.selectedId));
     elements.detailEditButton.addEventListener("click", () => openEditor(state.selectedId));
     elements.detailPrintButton.addEventListener("click", () => printForm(state.selectedId));
     elements.detailDeleteButton.addEventListener("click", () => deleteForm(state.selectedId));
+    if (elements.detailHideButton) {
+      elements.detailHideButton.addEventListener("click", () => viewForm(null));
+    }
 
     elements.editForm.addEventListener("submit", saveEditedForm);
     elements.closeEditorButton.addEventListener("click", () => elements.editDialog.close());
@@ -1111,6 +1465,19 @@
     }
     if (elements.resetFieldConfigButton) {
       elements.resetFieldConfigButton.addEventListener("click", resetFieldConfigEditor);
+    }
+
+    if (elements.manageOptionsButton) {
+      elements.manageOptionsButton.addEventListener("click", openOptionsManager);
+    }
+    if (elements.optionsForm) {
+      elements.optionsForm.addEventListener("submit", saveOptionsManager);
+    }
+    if (elements.closeOptionsButton) {
+      elements.closeOptionsButton.addEventListener("click", () => elements.optionsDialog.close());
+    }
+    if (elements.cancelOptionsButton) {
+      elements.cancelOptionsButton.addEventListener("click", () => elements.optionsDialog.close());
     }
 
     if (elements.menuToggle && elements.dropdownMenu) {

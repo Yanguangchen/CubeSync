@@ -61,6 +61,15 @@
     element.classList.toggle("is-error", Boolean(isError));
   }
 
+  // Toggle a button's busy/throbber state so users get feedback while an
+  // async request (e.g. a slow submission API) is in flight.
+  function setButtonBusy(button, isBusy) {
+    if (!button) return;
+    button.disabled = Boolean(isBusy);
+    button.classList.toggle("is-busy", Boolean(isBusy));
+    button.setAttribute("aria-busy", isBusy ? "true" : "false");
+  }
+
   function focusFirstMissingRequestField(form, missingFieldKeys, navigateToStep) {
     if (!form || !Array.isArray(missingFieldKeys)) return;
 
@@ -231,14 +240,34 @@
       typeof window.CubeSyncAutocomplete.setupAutocomplete === "function"
       ? window.CubeSyncAutocomplete.setupAutocomplete
       : function () {};
-    setupAutocomplete('projectErp', 'dropdown-options/project erp.txt', 'savedProjectErps');
-    setupAutocomplete('customerBilling', 'dropdown-options/customer billing.txt', 'savedCustomerBillings');
-    setupAutocomplete('supplier', 'dropdown-options/supplier.txt', 'savedSuppliers');
-    setupAutocomplete('concreteGrade', 'dropdown-options/Grade.txt', 'savedGrades');
-    setupAutocomplete('personInCharge', 'dropdown-options/person-in-charge.txt', 'savedPersonsInCharge');
-    setupAutocomplete('managerInCharge', 'dropdown-options/manager-in-charge.txt', 'savedManagersInCharge');
-    setupAutocomplete('testItem', 'dropdown-options/testitem.txt', 'savedTestItems');
-    setupAutocomplete('specimenSize', 'dropdown-options/size.txt', 'savedSizes');
+    const autocompleteFields = [
+      { name: "projectErp", url: "dropdown-options/project erp.txt", storageKey: "savedProjectErps" },
+      { name: "customerBilling", url: "dropdown-options/customer billing.txt", storageKey: "savedCustomerBillings" },
+      { name: "supplier", url: "dropdown-options/supplier.txt", storageKey: "savedSuppliers" },
+      { name: "concreteGrade", url: "dropdown-options/Grade.txt", storageKey: "savedGrades" },
+      { name: "personInCharge", url: "dropdown-options/person-in-charge.txt", storageKey: "savedPersonsInCharge" },
+      { name: "managerInCharge", url: "dropdown-options/manager-in-charge.txt", storageKey: "savedManagersInCharge" },
+      { name: "testItem", url: "dropdown-options/testitem.txt", storageKey: "savedTestItems" },
+      { name: "specimenSize", url: "dropdown-options/size.txt", storageKey: "savedSizes" }
+    ];
+
+    // Pull shared (Firestore) suggestions first so a value promoted by staff
+    // shows up for every visitor, then wire each field. Falls back to file +
+    // local options if the shared store is unavailable.
+    (async function initAutocomplete() {
+      let shared = {};
+      try {
+        const store = window.CubeSyncFirestore;
+        if (store && typeof store.getDropdownOptions === "function") {
+          shared = (await store.getDropdownOptions()) || {};
+        }
+      } catch {
+        // Shared options are optional; degrade to file + local options.
+      }
+      autocompleteFields.forEach(function (field) {
+        setupAutocomplete(field.name, field.url, field.storageKey, shared[field.name] || []);
+      });
+    })();
     const form = document.getElementById("cubeRequestForm");
     const printButton = document.getElementById("printButton");
     const saveButton = document.getElementById("saveFormButton");
@@ -295,9 +324,7 @@
           return;
         }
 
-        if (saveButton) {
-          saveButton.disabled = true;
-        }
+        setButtonBusy(saveButton, true);
         setSaveStatus(saveStatus, "Saving...", false);
 
         try {
@@ -332,9 +359,7 @@
           setSaveStatus(saveStatus, error.message || "Save failed", true);
           resetRecaptcha(recaptchaContainer);
         } finally {
-          if (saveButton) {
-            saveButton.disabled = false;
-          }
+          setButtonBusy(saveButton, false);
         }
       });
     }

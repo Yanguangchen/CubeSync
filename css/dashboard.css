@@ -1,5 +1,6 @@
 @import url("dashboard/tokens.css");
 @import url("dashboard/field-config.css");
+@import url("dashboard/today-toggle.css");
 
 /* ==========================================================================
    Base
@@ -63,6 +64,25 @@ a {
   transition: background-color 1s ease;
 }
 
+.bg-blobs::before {
+  content: "";
+  position: absolute;
+  inset: -18%;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.12) 24%, transparent 56%),
+    radial-gradient(circle at 22% 16%, rgba(255, 255, 255, 0.24) 0%, transparent 34%),
+    radial-gradient(circle at 78% 72%, rgba(255, 255, 255, 0.18) 0%, transparent 30%),
+    radial-gradient(circle at 18% 22%, rgba(66, 213, 187, 0.22) 0%, transparent 42%),
+    radial-gradient(circle at 82% 18%, rgba(82, 160, 252, 0.2) 0%, transparent 40%),
+    radial-gradient(circle at 30% 78%, rgba(139, 207, 251, 0.18) 0%, transparent 38%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.4) 0%, rgba(66, 213, 187, 0.08) 22%, rgba(255, 255, 255, 0.22) 48%, rgba(82, 160, 252, 0.1) 70%, rgba(255, 255, 255, 0.18) 100%);
+  background-size: 155% 155%, 125% 125%, 130% 130%, 140% 140%, 135% 135%, 145% 145%, 160% 160%;
+  background-position: 50% 50%, 18% 14%, 82% 76%, 0% 0%, 100% 0%, 20% 100%, 0% 50%;
+  opacity: 0.98;
+  animation: gradient-drift 24s infinite alternate ease-in-out;
+  pointer-events: none;
+}
+
 .blob {
   position: absolute;
   width: min(700px, 90vw);
@@ -117,12 +137,46 @@ a {
   100% { transform: translate(6%, -12%) scale(1.1) rotate(360deg); }
 }
 
+@keyframes gradient-drift {
+  0% {
+    transform: translate3d(-2%, -1%, 0) scale(1);
+    background-position: 50% 50%, 18% 14%, 82% 76%, 0% 0%, 100% 0%, 20% 100%, 0% 50%;
+  }
+  50% {
+    transform: translate3d(2%, 1%, 0) scale(1.04);
+    background-position: 46% 48%, 26% 18%, 74% 68%, 16% 12%, 84% 10%, 28% 88%, 100% 50%;
+  }
+  100% {
+    transform: translate3d(-1%, 2%, 0) scale(1.02);
+    background-position: 54% 54%, 14% 22%, 86% 74%, 8% 18%, 92% 18%, 14% 82%, 0% 50%;
+  }
+}
+
 [data-theme="dark"] .bg-blobs {
   background-color: #020617;
 }
 
+[data-theme="dark"] .bg-blobs::before {
+  background:
+    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.03) 24%, transparent 56%),
+    radial-gradient(circle at 22% 16%, rgba(255, 255, 255, 0.06) 0%, transparent 34%),
+    radial-gradient(circle at 78% 72%, rgba(255, 255, 255, 0.04) 0%, transparent 30%),
+    radial-gradient(circle at 18% 22%, rgba(66, 213, 187, 0.14) 0%, transparent 42%),
+    radial-gradient(circle at 82% 18%, rgba(82, 160, 252, 0.16) 0%, transparent 40%),
+    radial-gradient(circle at 30% 78%, rgba(139, 207, 251, 0.12) 0%, transparent 38%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.06) 0%, rgba(15, 23, 42, 0.2) 20%, rgba(255, 255, 255, 0.04) 46%, rgba(30, 41, 59, 0.12) 62%, rgba(8, 47, 73, 0.16) 100%);
+  opacity: 0.9;
+}
+
 [data-theme="dark"] .blob {
   opacity: 0.3;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bg-blobs::before,
+  .blob {
+    animation: none;
+  }
 }
 
 /* ==========================================================================
@@ -179,6 +233,79 @@ a {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.surface-status {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(0, 51, 153, 0.16);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.55);
+  color: var(--ink);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.surface-status[hidden] {
+  display: none !important;
+}
+
+.surface-status[data-tone="info"] {
+  border-color: rgba(0, 51, 153, 0.2);
+  background: rgba(219, 234, 254, 0.55);
+  color: #1d4ed8;
+}
+
+.surface-status[data-tone="success"] {
+  border-color: rgba(34, 197, 94, 0.28);
+  background: rgba(220, 252, 231, 0.62);
+  color: #166534;
+}
+
+.surface-status[data-tone="warning"] {
+  border-color: rgba(245, 158, 11, 0.34);
+  background: rgba(254, 243, 199, 0.64);
+  color: #92400e;
+}
+
+.surface-status[data-tone="error"] {
+  border-color: rgba(220, 38, 38, 0.28);
+  background: rgba(254, 226, 226, 0.72);
+  color: #991b1b;
+}
+
+.surface-status-compact {
+  margin: 0;
+  max-width: 340px;
+  padding: 8px 10px;
+}
+
+[data-theme="dark"] .surface-status {
+  background: rgba(15, 23, 42, 0.78);
+}
+
+[data-theme="dark"] .surface-status[data-tone="info"] {
+  border-color: rgba(96, 165, 250, 0.3);
+  background: rgba(30, 41, 59, 0.86);
+  color: #bfdbfe;
+}
+
+[data-theme="dark"] .surface-status[data-tone="success"] {
+  border-color: rgba(74, 222, 128, 0.26);
+  background: rgba(20, 83, 45, 0.34);
+  color: #bbf7d0;
+}
+
+[data-theme="dark"] .surface-status[data-tone="warning"] {
+  border-color: rgba(251, 191, 36, 0.28);
+  background: rgba(120, 53, 15, 0.34);
+  color: #fde68a;
+}
+
+[data-theme="dark"] .surface-status[data-tone="error"] {
+  border-color: rgba(248, 113, 113, 0.28);
+  background: rgba(127, 29, 29, 0.34);
+  color: #fecaca;
 }
 
 /* ==========================================================================
@@ -345,6 +472,40 @@ button:disabled {
   padding: 22px 0 36px;
 }
 
+/* On-load entrance: panels ease in with a gentle rise + fade once the
+   dashboard shell is revealed after authentication. The detail panel is
+   intentionally excluded — it has its own selection-driven reveal. */
+@keyframes dashboard-ease-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.dashboard-shell:not(.is-hidden) .topbar {
+  animation: dashboard-ease-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.dashboard-shell:not(.is-hidden) .list-panel {
+  animation: dashboard-ease-in 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.1s both;
+}
+
+.dashboard-shell:not(.is-hidden) .auth-user {
+  animation: dashboard-ease-in 0.5s ease 0.2s both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-shell:not(.is-hidden) .topbar,
+  .dashboard-shell:not(.is-hidden) .list-panel,
+  .dashboard-shell:not(.is-hidden) .auth-user {
+    animation: none;
+  }
+}
+
 .topbar {
   position: relative;
   z-index: 100;
@@ -428,20 +589,76 @@ button:disabled {
   min-width: 0;
 }
 
+/* Desktop master–detail reveal: the detail panel stays hidden until a form is
+   selected (`.has-detail` is added by dashboard.js), then eases in from behind
+   the list panel. Scoped with :has(.detail-panel) so the RPA workspace — which
+   has no detail panel — keeps its full-width single-panel layout. */
+@media (min-width: 981px) {
+  .workspace:has(.detail-panel) {
+    transition: grid-template-columns 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .workspace:has(.detail-panel):not(.has-detail) {
+    grid-template-columns: minmax(0, 1fr) 0px;
+    gap: 0;
+  }
+
+  .workspace:has(.detail-panel) .list-panel {
+    position: relative;
+    z-index: 2;
+  }
+
+  .workspace:has(.detail-panel) .detail-panel {
+    z-index: 1;
+    transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.4s ease;
+  }
+
+  .workspace:has(.detail-panel):not(.has-detail) .detail-panel {
+    transform: translateX(-64px);
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .workspace:has(.detail-panel),
+    .workspace:has(.detail-panel) .detail-panel {
+      transition: none;
+    }
+  }
+}
+
 .panel-heading {
   display: flex;
+  flex-wrap: wrap;
   align-items: end;
   justify-content: space-between;
-  gap: 16px;
+  gap: 14px 16px;
   padding: 18px;
   border-bottom: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.05);
 }
 
+/* Filters drop onto their own full-width toolbar row below the title and
+   reflow into as many equal columns as the panel can fit, so the five
+   controls never crowd the heading. */
 .filters {
+  flex: 1 1 100%;
   display: grid;
-  grid-template-columns: 270px 150px;
-  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px 12px;
+  align-items: end;
+}
+
+.filters label {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.filters input,
+.filters select {
+  width: 100%;
+  min-width: 0;
 }
 
 .export-button {
@@ -755,6 +972,29 @@ textarea:focus {
   padding: 18px;
 }
 
+/* Small re-hide button — only shown once a form is selected. */
+.detail-hide {
+  display: none;
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  min-height: 30px;
+  height: 30px;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--muted);
+  z-index: 3;
+}
+
+.workspace.has-detail .detail-hide {
+  display: inline-flex;
+}
+
 .detail-content {
   margin: 16px 0;
   color: var(--muted);
@@ -776,6 +1016,25 @@ textarea:focus {
   border-radius: 10px;
   background: rgba(249, 115, 22, 0.2);
   box-shadow: inset 5px 0 0 #f97316;
+  /* Looped pulse to draw attention to custom free-text fields. */
+  animation: custom-field-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes custom-field-pulse {
+  0%, 100% {
+    box-shadow: inset 5px 0 0 #f97316, 0 0 0 0 rgba(249, 115, 22, 0);
+    border-color: rgba(249, 115, 22, 0.72);
+  }
+  50% {
+    box-shadow: inset 5px 0 0 #f97316, 0 0 0 5px rgba(249, 115, 22, 0.28);
+    border-color: rgba(249, 115, 22, 1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .detail-list .detail-field.is-custom-field {
+    animation: none;
+  }
 }
 
 .detail-list dt {
@@ -856,6 +1115,51 @@ textarea:focus {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+
+.edit-dialog footer {
+  margin-top: 12px;
+}
+
+/* Free text entry highlight (orange) — when the admin types a custom value
+   into a dropdown-backed field instead of picking a suggestion, mark the
+   input so it matches the orange "custom free text" cue in the detail view. */
+.edit-dialog input[data-free-text-entry="true"]:not([type="checkbox"]),
+.edit-dialog textarea[data-free-text-entry="true"] {
+  border-color: rgba(249, 115, 22, 0.72);
+  background-color: rgba(249, 115, 22, 0.16);
+  box-shadow: inset 3px 0 0 #f97316;
+}
+
+.edit-dialog input[data-free-text-entry="true"]:not([type="checkbox"]):focus,
+.edit-dialog textarea[data-free-text-entry="true"]:focus {
+  border-color: #f97316;
+  box-shadow: inset 3px 0 0 #f97316, 0 0 0 3px rgba(249, 115, 22, 0.25);
+}
+
+/* Custom field highlight (indigo) — fields the admin added in Field Settings.
+   A distinct colour (not the orange free-text cue) tells the admin these are
+   extra dashboard-only fields, not built-in ERP fields. */
+.edit-dialog .custom-field-row {
+  padding: 10px 12px;
+  border: 1px solid rgba(99, 102, 241, 0.55);
+  border-left: 4px solid #6366f1;
+  border-radius: 10px;
+  background: rgba(99, 102, 241, 0.1);
+}
+
+.edit-dialog .custom-field-row > span {
+  color: #4338ca;
+}
+
+.edit-dialog .custom-field-row input:not([type="checkbox"]),
+.edit-dialog .custom-field-row textarea,
+.edit-dialog .custom-field-row select {
+  border-color: rgba(99, 102, 241, 0.55);
+}
+
+[data-theme="dark"] .edit-dialog .custom-field-row > span {
+  color: #c7d2fe;
 }
 
 /* ==========================================================================

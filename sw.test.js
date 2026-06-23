@@ -54,6 +54,11 @@ describe("sw.js", () => {
     await waitUntilPromise;
     assert.ok(addAllCalledWith, "addAll was called");
     assert.ok(addAllCalledWith.includes("./index.html"), "precaches index.html");
+    assert.ok(addAllCalledWith.includes("./cubesync-autocomplete.js"), "precaches autocomplete helper");
+    assert.ok(addAllCalledWith.includes("./cubesync-table-manager.js"), "precaches table manager");
+    assert.ok(addAllCalledWith.includes("./cubesync-dashboard-filters.js"), "precaches dashboard filters");
+    assert.ok(addAllCalledWith.includes("./chime.js"), "precaches chime helper");
+    assert.ok(addAllCalledWith.includes("./dropdown-options/supplier.txt"), "precaches dropdown option files");
   });
 
   test("activate event deletes old caches", async () => {
@@ -89,5 +94,78 @@ describe("sw.js", () => {
     listeners.fetch(event);
     
     assert.strictEqual(matchCalled, false);
+  });
+
+  test("fetch event ignores non-GET requests", async () => {
+    let respondWithCalled = false;
+    const event = {
+      request: { url: "http://localhost/dashboard.html", method: "POST" },
+      respondWith: () => { respondWithCalled = true; }
+    };
+
+    listeners.fetch(event);
+
+    assert.strictEqual(respondWithCalled, false);
+  });
+
+  test("fetch event serves same-origin static assets from cache and revalidates", async () => {
+    let respondWithPromise = null;
+    let waitUntilPromise = null;
+    let fetchCalled = false;
+
+    global.caches.match = () => Promise.resolve("cached-response");
+    global.fetch = () => {
+      fetchCalled = true;
+      return Promise.resolve({
+        status: 200,
+        type: "basic",
+        clone: () => ({})
+      });
+    };
+
+    const event = {
+      request: { url: "http://localhost/cubesync-autocomplete.js", method: "GET", destination: "script" },
+      respondWith: (p) => { respondWithPromise = p; },
+      waitUntil: (p) => { waitUntilPromise = p; }
+    };
+
+    listeners.fetch(event);
+
+    const response = await respondWithPromise;
+    await waitUntilPromise;
+
+    assert.strictEqual(response, "cached-response");
+    assert.strictEqual(fetchCalled, true);
+  });
+
+  test("fetch event caches dropdown option files", async () => {
+    let cachedRequest = null;
+
+    global.caches.match = () => Promise.resolve(null);
+    global.caches.open = () => Promise.resolve({
+      addAll: () => Promise.resolve(),
+      put: (request) => {
+        cachedRequest = request;
+        return Promise.resolve();
+      }
+    });
+    global.fetch = () => Promise.resolve({
+      status: 200,
+      type: "basic",
+      clone: () => ({})
+    });
+
+    let respondWithPromise = null;
+    const event = {
+      request: { url: "http://localhost/dropdown-options/supplier.txt", method: "GET", destination: "" },
+      respondWith: (p) => { respondWithPromise = p; },
+      waitUntil: () => {}
+    };
+
+    listeners.fetch(event);
+    await respondWithPromise;
+
+    assert.ok(cachedRequest, "dropdown option request should be cached");
+    assert.strictEqual(cachedRequest.url, "http://localhost/dropdown-options/supplier.txt");
   });
 });

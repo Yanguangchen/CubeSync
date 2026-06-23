@@ -18,7 +18,7 @@
     delete input.dataset.freeTextEntry;
   }
 
-  async function setupAutocomplete(inputName, fetchUrl, storageKey) {
+  async function setupAutocomplete(inputName, fetchUrl, storageKey, extraOptions) {
     try {
       const fetchFn = typeof window !== "undefined" && window.fetch ? window.fetch : (typeof fetch !== "undefined" ? fetch : null);
       
@@ -45,7 +45,10 @@
         // Ignore parsing errors or storage restrictions.
       }
       
-      const allOptions = Array.from(new Set([...fileOptions, ...localOptions]));
+      // Merge order: deployed file options, shared Firestore options, then this
+      // browser's locally saved entries. The Set de-duplicates across sources.
+      const sharedOptions = Array.isArray(extraOptions) ? extraOptions : [];
+      const allOptions = Array.from(new Set([...fileOptions, ...sharedOptions, ...localOptions]));
       
       document.querySelectorAll(`input[name="${inputName}"]`).forEach(input => {
         input.setAttribute('autocomplete', 'off');
@@ -197,8 +200,8 @@
         style.textContent = `
           .erp-autocomplete-wrapper { position: relative; display: inline-block; width: 100%; }
           .erp-autocomplete-wrapper input:focus { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
-          .erp-dropdown { position: absolute; top: 100%; left: 0; right: 0; background: #fff; border: 1px solid #dfe1e5; border-top: none; border-radius: 0 0 24px 24px; box-shadow: 0 4px 6px rgba(32, 33, 36, 0.28); z-index: 1000; list-style: none; padding: 10px 0 20px 0; margin: 0; display: none; max-height: 350px; overflow-y: auto; text-align: left; }
-          .erp-dropdown-item { padding: 4px 20px; cursor: pointer; display: flex; align-items: center; font-family: Arial, sans-serif; font-size: 16px; color: #212124; line-height: 24px; }
+          .erp-dropdown { position: absolute; top: 100%; left: 0; right: auto; min-width: 100%; width: max-content; max-width: min(620px, 92vw); background: #fff; border: 1px solid #dfe1e5; border-top: none; border-radius: 0 0 24px 24px; box-shadow: 0 4px 6px rgba(32, 33, 36, 0.28); z-index: 1000; list-style: none; padding: 10px 0 20px 0; margin: 0; display: none; max-height: 350px; overflow-y: auto; text-align: left; }
+          .erp-dropdown-item { padding: 4px 20px; cursor: pointer; display: flex; align-items: center; white-space: nowrap; font-family: Arial, sans-serif; font-size: 16px; color: #212124; line-height: 24px; }
           .erp-dropdown-item::before { content: "🔍"; margin-right: 14px; opacity: 0.4; font-size: 14px; }
           .erp-dropdown-item:hover, .erp-dropdown-item.selected { background-color: #f1f3f4; }
           .erp-dropdown-item strong { font-weight: 600; }

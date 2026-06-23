@@ -1,5 +1,6 @@
 @import url("shared/tokens-rakmat-base.css");
 @import url("shared/barcode.css");
+@import url("shared/throbber.css");
 
 /* ==========================================================================
    Glassmorphic form — semantic tokens
@@ -296,6 +297,26 @@ select:focus-visible {
 
 .step-controls .hidden {
   display: none;
+}
+
+/* Form commands moved to the foot of the form so they follow the natural
+   fill order (request details → results → submit). */
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  margin-top: var(--space-3);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--line);
+}
+
+.form-actions-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
 }
 
 /* ==========================================================================
@@ -719,7 +740,8 @@ h1 {
 
   .page-tools,
   .form-steps,
-  .step-controls {
+  .step-controls,
+  .form-actions {
     display: none;
   }
 

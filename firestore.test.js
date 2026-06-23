@@ -31,11 +31,22 @@ test("Firestore module initializes Firebase and exposes cube request CRUD", () =
     "updateCubeRequest",
     "deleteCubeRequest",
     "getFormFieldConfig",
-    "saveFormFieldConfig"
+    "saveFormFieldConfig",
+    "getDropdownOptions",
+    "addDropdownOptions",
+    "saveDropdownOptions"
   ]) {
     assert.match(js, new RegExp(`function ${operation}\\b`));
     assert.match(js, new RegExp(`CubeSyncFirestore[\\s\\S]*${operation}`));
   }
+
+  // Shared option store uses arrayUnion for de-duplicated appends and
+  // delegates normalization to the testable cubesync-form-data helpers.
+  assert.match(js, /arrayUnion/);
+  assert.match(js, /DROPDOWN_OPTIONS_DOC_ID\s*=\s*"dropdownOptions"/);
+  assert.match(js, /buildSharedDropdownAddValues/);
+  assert.match(js, /buildSharedDropdownSaveValues/);
+  assert.match(js, /readSharedDropdownOptions/);
 
   for (const operation of [
     "onAuthChange",
@@ -62,6 +73,10 @@ test("Firestore rules enforce CubeSync staff allowlist for direct client access"
   assert.match(rules, /jlee\.j\.m9382@gmail\.com/);
   assert.match(rules, /match \/settings\/formFieldConfig/);
   assert.match(rules, /isValidFormFieldConfig/);
+  // Shared dropdown options: public read, staff-only writes.
+  assert.match(rules, /match \/settings\/dropdownOptions/);
+  assert.match(rules, /isValidDropdownOptions/);
+  assert.match(rules, /allow create, update: if isCubeSyncStaff\(\) &&\s*isValidDropdownOptions/);
   assert.match(rules, /customRequestFields/);
   assert.match(rules, /isValidExtraFields/);
   assert.match(rules, /'extraFields'/);
