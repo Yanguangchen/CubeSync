@@ -40,10 +40,10 @@ This document is a working target list for CubeSync. It is intentionally audit-f
 
 ## Documentation Goals
 
-- [ ] Keep architecture, design, RPA selector, schema, and operational documents aligned with implementation.
-- [ ] Document behavior that automation depends on before changing it.
-- [ ] Record postmortems and design decisions when defects reveal reusable lessons.
-- [ ] Keep README links current and useful for onboarding, deployment, and testing.
+- [x] Keep architecture, design, RPA selector, schema, and operational documents aligned with implementation.
+- [x] Document behavior that automation depends on before changing it.
+- [x] Record postmortems and design decisions when defects reveal reusable lessons.
+- [x] Keep README links current and useful for onboarding, deployment, and testing.
 
 ## Quality Gates
 

@@ -51,8 +51,10 @@ The repo root keeps a short [README.md](../README.md) that links here.
 |--------|--------|---------|
 | `window.CubeSyncBarcode` | `barcode.js` | `encodeCode128B`, `renderBarcodeSvg`, `sanitizeBarcodeText` |
 | `window.CubeSyncFormData` | `cubesync-form-data.js` | Schema, validation, serialization, field config, free-text helpers (`collectCustomFields`, `deriveFreeTextDropdownFields`, `mergeFreeTextDropdownFields`), patch updates (`buildCubeRequestUpdatePatch`), `normalizeCubeRequestForDashboard` |
+| `window.CubeSyncDashboardFilters` | `cubesync-dashboard-filters.js` | Dashboard list sort/filter — `parseDateKey`, `currentIsoDate`, `collectFilterOptions`, `applyDashboardFilters` (see [dashboard-sort-and-filter.md](dashboard-sort-and-filter.md)) |
+| `window.CubeSyncTodayToggle` | `cubesync-today-toggle.js` | Glass "Today only" tactile switch — `setup(container)` binds it to the source-of-truth checkbox (see [dashboard-sort-and-filter.md](dashboard-sort-and-filter.md)) |
 | `window.CubeSyncExport` | `cubesync-export.js` | `buildExportFiles`, `buildFormCsv`, `createZipBlob`, `downloadFilesAsZip` |
-| `window.CubeSyncFirestore` | `firestore.js` | `savePublicCubeRequest`, `listCubeRequests`, `getCubeRequest`, `saveCubeRequest`, `updateCubeRequest`, `deleteCubeRequest`, `getFormFieldConfig`, `saveFormFieldConfig` |
+| `window.CubeSyncFirestore` | `firestore.js` | `savePublicCubeRequest`, `listCubeRequests`, `getCubeRequest`, `saveCubeRequest`, `updateCubeRequest`, `deleteCubeRequest`, `getFormFieldConfig`, `saveFormFieldConfig`, `getDropdownOptions`, `addDropdownOptions`, `saveDropdownOptions` (see [dynamic-dropdown-options.md](dynamic-dropdown-options.md)) |
 | `window.CubeSyncAuth` | `firestore.js` | `onAuthChange`, `currentUser`, `isAllowedEmail`, `isAllowedUser`, `signInWithGoogle`, `signOutUser` |
 
 ## reCAPTCHA v2 Integration
@@ -154,6 +156,7 @@ Barcodes are stored as **text only** — SVGs are rendered client-side via Code 
 | Document | Path | Purpose |
 |----------|------|---------|
 | Form field config | `settings/formFieldConfig` | Org-wide form UI configuration (single document, not per request) |
+| Dropdown options | `settings/dropdownOptions` | Shared autocomplete suggestions (merged with static files) |
 
 | Config key | Type | Purpose |
 |------------|------|---------|
@@ -163,6 +166,8 @@ Barcodes are stored as **text only** — SVGs are rendered client-side via Code 
 | `resultLabels` | map (optional) | Custom label overrides for public form result columns |
 | `customRequestFields` | array (optional) | Staff-defined custom field definitions (`id`, `label`, `type`, `required`, `enabled`, `formLabel`) |
 | `updatedAt` | timestamp | Last save from dashboard field settings |
+
+Dropdown option arrays (`projectErp`, `customerBilling`, `supplier`, etc.) are stored in the `dropdownOptions` document.
 
 Staff manage this from **Field settings** on `dashboard.html`. Forms cache the config in `localStorage` under `cubesync-form-field-config`.
 
@@ -194,7 +199,7 @@ Several request fields show a typeahead dropdown as the user types (`setupAutoco
 | `testItem` | `dropdown-options/testitem.txt` | `savedTestItems` |
 | `specimenSize` | `dropdown-options/size.txt` | `savedSizes` |
 
-Options are merged from the static file (via `fetch`) and prior user entries in `localStorage`. **`reportGrade` is free text only** — no autocomplete.
+Options are merged from three sources in order: the static deployed file, shared Firestore options (`settings/dropdownOptions`), and prior user entries in `localStorage`. **`reportGrade` is free text only** — no autocomplete.
 
 These files live under `dropdown-options/`. They are the selector options for the dropdown menu/autocomplete inputs on the request form. For production (Vercel), `npm run build` copies the whole `dropdown-options/` folder into `public/`. If dropdowns are empty in production, confirm those files exist under the deployed site root (e.g. `/dropdown-options/supplier.txt`).
 
@@ -225,6 +230,8 @@ Visual indicators (see `css/dashboard.css`):
 | Row badge | `.custom-field-count` — e.g. “2 free-text fields” |
 | Detail legend | `.custom-field-legend` |
 | Highlighted value | `.highlight-custom` inside `.detail-field.is-custom-field` |
+
+**Promotion:** When a flagged form is set to `Ready` (RPA-ready), any flagged free-text values are automatically promoted to the shared Firestore option lists (`settings/dropdownOptions`) so they become suggestions for everyone and stop being flagged on the dashboard. Staff can also manually edit the shared lists via **Field settings** → **Manage options**.
 
 See [free-text-dropdown-highlighting.md](free-text-dropdown-highlighting.md) for TDD history and implementation notes.
 
@@ -279,6 +286,15 @@ npm test
 # Lint with ESLint
 npm run lint
 ```
+
+### Offline PWA Support (Service Worker)
+
+CubeSync registers a service worker (`sw.js`) on the app pages. The strategy is:
+- **Pre-cache** the entire static app shell (HTML, CSS, JS, images, dropdown option files) on install.
+- **Stale-while-revalidate** for all same-origin static assets so the app updates in the background.
+- **Bypass cache entirely** for live endpoints (Firebase database, Google APIs, Vercel API, `env.js`).
+
+This ensures the forms load instantly and tolerate brief network drops, while keeping dynamic data and auth requests strictly live.
 
 ### Local API Testing
 
@@ -339,6 +355,9 @@ Known WorkGrid permission-policy watch items:
 | `architecture.md` | UML diagrams: class, sequence, component, state, and data model |
 | `project-uml.md` | Comprehensive project-wide UML diagrams for current modules, data, flows, and security boundaries |
 | `free-text-dropdown-highlighting.md` | Free-text review flags, capture vs review semantics, regression tests |
+| `dashboard-sort-and-filter.md` | Dashboard list sort and filter logic |
+| `dashboard-ux-animations.md` | Dashboard UX animations and master-detail reveal logic |
+| `form-submission-throbber.md` | Form submission save button spinner behavior |
 | `RPA_SELECTOR_REFERENCE.md` | Stable CSS selectors and field names for RPA automation |
 | `mobile-responsiveness-postmortem.md` | Postmortem: mobile responsiveness issues, root causes, and fixes — read when adding CSS grids or flex layouts |
 | `security-audit.md` | Security & test-coverage audit: public-API hardening (done) and outstanding gaps (CORS, rules emulator tests, rules validation, allowlist sync) |

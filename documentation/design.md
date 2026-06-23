@@ -395,12 +395,15 @@ Avoid animating layout properties on data-heavy views (tables).
 | `css/shared/` | Shared tokens and barcode styles |
 | `css/dashboard/` | Dashboard tokens and field-config dialog |
 | `css/rpa/` | Windows XP theme for RPA pages |
+| `cubesync-dashboard-filters.js` | Dashboard list sort and filter (`applyDashboardFilters`) |
 | `cubesync-form-data.js` | Schema, validation, field config, dashboard normalization |
 | `app.js` | Form UX: steps, autocomplete, barcodes, save flow |
 | `scripts/write-env.js` | Build: `env.js` + copy static assets and autocomplete files to `public/` |
 | `documentation/design.md` | Source of truth for tokens, UI patterns, responsive layouts |
 | `documentation/README.md` | Project overview, schema, build/deploy, testing |
 | `documentation/free-text-dropdown-highlighting.md` | Free-text review flags — capture, derivation, UI |
+| `documentation/dashboard-sort-and-filter.md` | Dashboard list sort and filter logic |
+| `documentation/form-submission-throbber.md` | Save button spinner behavior |
 | `documentation/mobile-responsiveness-postmortem.md` | Root causes and fixes for 5 mobile responsiveness bugs (grid min-width, flex wrap, overflow containment) |
 | `form-field-config.test.js` | TDD coverage for field enable/disable, labels, custom fields |
 | `deployment-config.test.js` | Build output contract (including autocomplete files) |

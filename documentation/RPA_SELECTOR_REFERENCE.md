@@ -163,6 +163,9 @@ These selectors apply to `dashboard.html`.
 | Detail content | `#detailContent` |
 | Search input | `#searchInput` |
 | Status filter | `#statusFilter` |
+| Client filter | `#clientFilter` |
+| Project filter | `#projectFilter` |
+| Sort order | `#sortOrder` |
 | Selected row | `.form-table tbody tr.selected` |
 
 ### Free-text review indicators

@@ -27,6 +27,8 @@ CubeSync digitizes the paper concrete cube request process. It includes public s
 | `cubesync-table-manager.js` | Manages dynamic test results rows, age calculation, and field prefilling |
 | `cubesync-form-data.js` | Schema, validation, field config, serialization, dashboard normalization, free-text helpers, patch updates |
 | `cubesync-export.js` | CSV + ZIP export |
+| `cubesync-dashboard-filters.js` | Dashboard list sort and filter (`applyDashboardFilters`) |
+| `cubesync-today-toggle.js` | Glass "Today only" tactile switch logic |
 | `cubesync-form-markup.js` | Shared result-row HTML for forms and dashboard editor |
 | `firestore.js` | Firebase Auth + Firestore client (ES modules from CDN) |
 
@@ -70,4 +72,6 @@ Config document: `settings/formFieldConfig`. Cached locally as `cubesync-form-fi
 - [README.md](README.md) — schema, build, deploy, testing
 - [design.md](design.md) — design tokens and UI patterns
 - [free-text-dropdown-highlighting.md](free-text-dropdown-highlighting.md) — free-text review flags
+- [dashboard-sort-and-filter.md](dashboard-sort-and-filter.md) — dashboard list sort and filter logic
+- [form-submission-throbber.md](form-submission-throbber.md) — save button spinner behavior
 - [RPA_SELECTOR_REFERENCE.md](RPA_SELECTOR_REFERENCE.md) — stable selectors for automation

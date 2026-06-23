@@ -70,9 +70,33 @@ Resolution rules (`resolveFreeTextDropdownFields`):
 
 Dark mode overrides live under `[data-theme="dark"]`.
 
-## Dashboard edit behavior
+### Edit dialog highlighting (`css/dashboard.css`)
 
-When staff open the edit dialog, `applyFreeTextFlags(editForm, customFields(form))` restores `dataset.freeTextEntry` on flagged inputs so a save does not accidentally clear metadata. Patch updates only send `customFields` when the flag set actually changes.
+The edit form (`#editDialog`) uses **two distinct colours** so the admin can tell, at a glance, what each highlighted field means:
+
+| Colour | Selector | Meaning |
+|--------|----------|---------|
+| **Orange** (`#f97316`) | `.edit-dialog input[data-free-text-entry="true"]` | A dropdown-backed field whose value was **typed as free text** instead of picked from the suggestion list. Matches the orange cue used in the detail view. |
+| **Indigo** (`#6366f1`) | `.edit-dialog .custom-field-row` | A **custom field** added by the admin in Field Settings (`#fieldConfigDialog`). |
+
+The two colours are intentionally different: orange = "this value was free-typed and may need review"; indigo = "this is an extra, admin-defined field". A CSS regression test (`dashboard-functional.test.js`) asserts the indigo rule never reuses the orange accent.
+
+## Custom fields (Field Settings)
+
+**Business logic.** Custom fields let the admin store **extra information in the human ERP dashboard that is not necessarily transferred to the downstream ERP software.** They are a place for notes/metadata that staff want kept alongside a request without polluting the canonical ERP payload. The indigo highlight in the edit dialog signals "this is dashboard-only custom data, not a built-in ERP field."
+
+- Defined and managed in the Field Settings dialog (`#fieldConfigDialog`, `.field-config-dialog`).
+- Persisted in `customRequestFields` on the form field config; each def has `{ id, label, type, formLabel, required, enabled }`.
+- Rendered into the edit form's `#customRequestFields` container by `applyCustomRequestFields()` (`cubesync-form-data.js`), where each control becomes a `.custom-field-row` carrying `data-custom-field-row="<id>"` and `data-custom-field-id="<id>"`.
+- Values are collected back via `collectExtraFields()` and stored under `extraFields` on the request.
+
+> **Custom fields (indigo) vs free-text dropdown flags (orange) are unrelated mechanisms.** Free-text flags are review markers on built-in dropdown fields; custom fields are entirely new admin-defined fields. A field can be one or the other, not a blend.
+
+## Dashboard edit and promotion behavior
+
+When staff open the edit dialog, `applyFreeTextFlags(editForm, customFields(form))` restores `dataset.freeTextEntry` on flagged inputs so a save does not accidentally clear metadata. Patch updates only send `customFields` when the flag set actually changes. `applyCustomRequestFields()` then renders any admin-defined custom fields into `#customRequestFields`.
+
+**Automatic promotion:** If a staff member reviews the form and sets its status to `Ready` (meaning it's ready for RPA and the free-text values are considered valid), `dashboard.js` automatically promotes the flagged values to the shared Firestore dropdown lists (`settings/dropdownOptions` via `addDropdownOptions`). This ensures that the value becomes an autocomplete suggestion for all future users and is immediately un-flagged in the dashboard.
 
 ## Firestore
 
@@ -91,6 +115,7 @@ Dedicated regression suite: **`free-text-dropdown.test.js`** (run with `npm test
 | Integration | `free-text-dropdown.test.js`, `dashboard-functional.test.js` | End-to-end list badges with mocked option files |
 | Unit helpers | `form-data.test.js` | `deriveFreeTextDropdownFields`, `collectCustomFields`, `applyFreeTextFlags` |
 | API | `api-handler.test.js` | `customFields` persisted through submit API |
+| Edit-dialog CSS | `dashboard-functional.test.js` | Orange free-text input rule, indigo `.custom-field-row` rule (distinct colours), and the DOM hooks both rules target |
 
 ### Regression scenarios (`free-text-dropdown.test.js`)
 

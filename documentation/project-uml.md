@@ -31,6 +31,7 @@ flowchart LR
             FormMarkup["CubeSyncFormMarkup<br/>cubesync-form-markup.js"]
             Autocomplete["CubeSyncAutocomplete<br/>cubesync-autocomplete.js"]
             TableManager["CubeSyncTableManager<br/>cubesync-table-manager.js"]
+            DashboardFilters["CubeSyncDashboardFilters<br/>cubesync-dashboard-filters.js"]
             Barcode["CubeSyncBarcode<br/>barcode.js"]
             Exporter["CubeSyncExport<br/>cubesync-export.js"]
             Chime["CubeSyncChime<br/>chime.js"]
@@ -58,6 +59,7 @@ flowchart LR
     subgraph Data["Firestore documents"]
         CubeRequests[("cubeRequests/{id}")]
         FieldConfig[("settings/formFieldConfig")]
+        DropdownOptions[("settings/dropdownOptions")]
         WorkGridDocs[("WorkGrid collections<br/>users, teams, bookings,<br/>collisions, appConfig/access")]
     end
 
@@ -97,6 +99,7 @@ flowchart LR
     DashboardJs --> FormData
     DashboardJs --> FormMarkup
     DashboardJs --> Autocomplete
+    DashboardJs --> DashboardFilters
     DashboardJs --> Barcode
     DashboardJs --> FirestoreClient
     DashboardJs --> AuthClient
@@ -121,6 +124,7 @@ flowchart LR
     Rules --> FirestoreDb
     FirestoreDb --> CubeRequests
     FirestoreDb --> FieldConfig
+    FirestoreDb --> DropdownOptions
     FirestoreDb --> WorkGridDocs
 
     AppJs --> SubmitApi
@@ -147,7 +151,6 @@ flowchart LR
     Index --> Manifest
     Glass --> Manifest
     Dashboard --> Manifest
-    RpaDash --> Manifest
 ```
 
 ## 2. Class And Module Diagram
@@ -237,6 +240,12 @@ classDiagram
         +deriveFreeTextDropdownFields(data, optionsByField)
         +resolveFreeTextDropdownFields(data, optionsByField, metadataFields)
         +applyFreeTextFlags(form, customFieldNames)
+    }
+
+    class CubeSyncDashboardFilters {
+        +parseDateKey(value)
+        +collectFilterOptions(forms)
+        +applyDashboardFilters(forms, criteria)
     }
 
     class CubeSyncFormMarkup {
@@ -340,6 +349,7 @@ classDiagram
     DashboardController ..> CubeSyncAuth : gates staff access
     DashboardController ..> CubeSyncFirestore : CRUD and field settings
     DashboardController ..> CubeSyncFormData : normalize, edit, patch
+    DashboardController ..> CubeSyncDashboardFilters : list filtering and sort
     DashboardController ..> CubeSyncFormMarkup : editor rows
     DashboardController ..> CubeSyncAutocomplete : editor dropdowns
     DashboardController ..> CubeSyncBarcode : detail and editor previews
@@ -619,8 +629,9 @@ flowchart TB
 
     StaffUser --> ClientFirestore["CubeSyncFirestore direct client access"]
     ClientFirestore --> CubeRules["isCubeSyncStaff()<br/>verified email + CubeSync allowlist"]
-    CubeRules --> CubeRequests
+    CubeRules --> CubeRequests["cubeRequests"]
     CubeRules --> FieldConfig["settings/formFieldConfig"]
+    CubeRules --> DropdownOptions["settings/dropdownOptions"]
 
     WorkGridAdmin --> WorkGridRules["isAdmin()<br/>hardcoded master, configured master,<br/>or active profile admin"]
     WorkGridRules --> WorkGridData["WorkGrid collections"]

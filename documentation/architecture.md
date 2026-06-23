@@ -29,6 +29,7 @@ graph TB
         BC["barcode.js<br/>CubeSyncBarcode"]
         FD["cubesync-form-data.js<br/>CubeSyncFormData"]
         EX["cubesync-export.js<br/>CubeSyncExport"]
+        DF["cubesync-dashboard-filters.js<br/>CubeSyncDashboardFilters"]
     end
 
     subgraph Firebase["Firebase (ES Module)"]
@@ -52,6 +53,7 @@ graph TB
     APP --> FS
     DSHJS --> BC
     DSHJS --> FD
+    DSHJS --> DF
     DSHJS --> FS
     RPAJS --> BC
     RPAJS --> FD
@@ -96,6 +98,12 @@ classDiagram
         +deriveFreeTextDropdownFields(data: Object, optionsByField: Object) Array~String~
         +mergeFreeTextDropdownFields(...lists) Array~String~
         +applyFreeTextFlags(form: HTMLForm, customFieldNames: Array) void
+    }
+
+    class CubeSyncDashboardFilters {
+        +parseDateKey(value: String) Number
+        +collectFilterOptions(forms: Array) Object
+        +applyDashboardFilters(forms: Array, criteria: Object) Array
     }
 
     class CubeSyncExport {
@@ -186,6 +194,7 @@ classDiagram
 
     DashboardController --> CubeSyncBarcode : uses
     DashboardController --> CubeSyncFormData : uses
+    DashboardController --> CubeSyncDashboardFilters : uses
     DashboardController --> CubeSyncFirestore : uses
     DashboardController --> CubeSyncAuth : uses
 
@@ -528,11 +537,18 @@ erDiagram
         timestamp updatedAt "Last saved from dashboard"
     }
 
+    DROPDOWN_OPTIONS {
+        array projectErp "List of strings"
+        array customerBilling "List of strings"
+        array supplier "List of strings"
+        timestamp updatedAt "Last saved from dashboard or auto-promoted"
+    }
+
     CUBE_REQUEST ||--o{ TEST_RESULT : "results[]"
     FORM_FIELD_CONFIG ||..|| CUBE_REQUEST : "configures UI for"
 ```
 
-Settings document path: `settings/formFieldConfig` (single org-wide config, not per request).
+Settings document paths: `settings/formFieldConfig` and `settings/dropdownOptions` (single org-wide configs, not per request).
 
 ---
 
@@ -561,6 +577,7 @@ graph LR
         B[barcode.js]
         F[cubesync-form-data.js]
         E[cubesync-export.js]
+        DF[cubesync-dashboard-filters.js]
         G[firestore.js]
         C1[app.js]
         C2[dashboard.js]
@@ -573,14 +590,14 @@ graph LR
     A2 --- S2
     A2 --- B & F & G & C1
     A3 --- S3
-    A3 --- B & F & G & C2
+    A3 --- B & F & DF & G & C2
     A4 --- S3 & S4
     A4 --- B & F & E & G & C3
     A5 --- S3
     A5 --- B & F & G & C4
 
     C1 -.->|uses| B & F & G
-    C2 -.->|uses| B & F & G
+    C2 -.->|uses| B & F & DF & G
     C3 -.->|uses| B & F & E & G
     C4 -.->|uses| B & G
 ```
