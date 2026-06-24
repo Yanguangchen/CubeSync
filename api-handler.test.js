@@ -558,7 +558,7 @@ test("submission API accepts empty disabled required fields when formFieldConfig
       collection(name) {
         if (name === "settings") {
           return {
-            doc(id) {
+            doc() {
               return { get: async () => ({ exists: true, data: () => fieldConfig }) };
             }
           };

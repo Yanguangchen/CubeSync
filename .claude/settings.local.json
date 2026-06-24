@@ -29,7 +29,8 @@
       "Bash(vercel ls *)",
       "Bash(curl *)",
       "Bash(git commit *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(firebase deploy *)"
     ]
   }
 }
