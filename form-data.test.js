@@ -130,8 +130,6 @@ test("shared schema maps Firestore cube requests into dashboard records", () => 
     "concreteGrade",
     "reportGrade",
     "specimenSize",
-    "slumpMeasured",
-    "slumpSpecified",
     "personInCharge",
     "managerInCharge"
   ]);
@@ -302,8 +300,8 @@ test("validateCubeRequestPayload rejects empty numeric request fields", () => {
 
   const result = validateCubeRequestPayload(payload);
 
-  assert.equal(result.valid, false);
-  assert.deepEqual(result.missingFieldKeys, ["slumpMeasured", "slumpSpecified"]);
+  // slumpMeasured and slumpSpecified are optional — empty values are valid.
+  assert.equal(result.valid, true);
 });
 
 test("form serialization stores barcode text, not generated barcode images", () => {

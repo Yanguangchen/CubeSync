@@ -44,8 +44,6 @@
     "concreteGrade",
     "reportGrade",
     "specimenSize",
-    "slumpMeasured",
-    "slumpSpecified",
     "personInCharge",
     "managerInCharge"
   ];

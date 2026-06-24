@@ -31,6 +31,11 @@ const {
   FIXED_TEST_ITEM_VALUE
 } = require("./cubesync-form-data");
 
+test("slumpMeasured and slumpSpecified are not required fields", () => {
+  assert.ok(!REQUIRED_FORM_FIELDS.includes("slumpMeasured"), "slumpMeasured should be optional");
+  assert.ok(!REQUIRED_FORM_FIELDS.includes("slumpSpecified"), "slumpSpecified should be optional");
+});
+
 test("defaultFormFieldConfig enables every request and result field", () => {
   const config = defaultFormFieldConfig();
 

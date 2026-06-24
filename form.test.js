@@ -25,8 +25,8 @@ function assertConcreteForm(html) {
   assert.match(html, /CONCRETE CUBE TEST REQUEST FORM/);
   assert.match(html, /TEST RESULTS/);
   assert.match(html, /Size \*/);
-  assert.match(html, /Mean Slump \*/);
-  assert.match(html, /Specified Slump \*/);
+  assert.match(html, /Mean Slump/);
+  assert.match(html, /Specified Slump/);
   assert.match(html, /assets\/logo\.png/);
   assert.match(html, /barcode\.js/);
   assert.match(html, /app\.js/);
@@ -81,6 +81,19 @@ test("barcode cells keep compact entry fields and bounded previews in both style
   assert.match(glassCss, /\.barcode-preview[\s\S]*height:\s*52px/);
   assert.match(glassCss, /\.barcode-preview[\s\S]*overflow-x:\s*auto/);
   assert.match(glassCss, /\.barcode-preview svg[\s\S]*width:\s*auto/);
+});
+
+test("slump fields are not marked required in either HTML form", () => {
+  const fs = require("node:fs");
+  const index = fs.readFileSync("index.html", "utf8");
+  const glass = fs.readFileSync("glassmorphic.html", "utf8");
+
+  for (const html of [index, glass]) {
+    assert.doesNotMatch(html, /name="slumpMeasured"[^>]*required/,
+      "slumpMeasured must not have required attribute");
+    assert.doesNotMatch(html, /name="slumpSpecified"[^>]*required/,
+      "slumpSpecified must not have required attribute");
+  }
 });
 
 test("both form stylesheets enforce [hidden] with !important so author display rules cannot reveal disabled fields", () => {
