@@ -27,6 +27,7 @@ const nodeGlobals = {
   __dirname: "readonly",
   __filename: "readonly",
   console: "readonly",
+  FormData: "readonly",
   module: "readonly",
   process: "readonly",
   require: "readonly",

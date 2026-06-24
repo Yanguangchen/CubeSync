@@ -393,6 +393,16 @@ select:focus-visible {
   text-transform: uppercase;
 }
 
+/* Inline guidance under a field (e.g. the after-6pm next-day rule). */
+.field-hint {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.35;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
 .title-band {
   margin: var(--space-4) 0 var(--space-3);
 }
