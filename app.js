@@ -243,6 +243,17 @@
   window.addEventListener("DOMContentLoaded", function () {
     seedInitialResultRows();
 
+    // Pre-fill dateOfCast based on the after-6pm next-day rule (Singapore time).
+    // Only fills when the field is empty — does not override a loaded/saved value.
+    const formData = window.CubeSyncFormData;
+    const formEl = document.getElementById("cubeRequestForm");
+    if (formEl && formData && typeof formData.getDefaultCastDate === "function") {
+      const dateInput = formEl.elements["dateOfCast"];
+      if (dateInput && !dateInput.value) {
+        dateInput.value = formData.getDefaultCastDate();
+      }
+    }
+
     const setupAutocomplete = window.CubeSyncAutocomplete &&
       typeof window.CubeSyncAutocomplete.setupAutocomplete === "function"
       ? window.CubeSyncAutocomplete.setupAutocomplete

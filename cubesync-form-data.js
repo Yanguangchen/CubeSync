@@ -76,6 +76,22 @@
   // to this string and made read-only on every public form.
   const FIXED_TEST_ITEM_VALUE =
     "Civil - Hardened Concrete - Compressive strength of cube - BS EN 12390-3: 2019";
+
+  // Submissions after 6pm Singapore time (UTC+8) are for the next day's work:
+  // the lab does not process requests until the following morning, so the cast
+  // date defaults to tomorrow to avoid staff manually correcting it every time.
+  const SGT_OFFSET_MS = 8 * 60 * 60 * 1000; // Singapore Standard Time: UTC+8
+  const AFTER_HOURS_CUTOFF = 18; // 6pm
+
+  function getDefaultCastDate(now) {
+    const ts = (now != null) ? new Date(now).getTime() : Date.now();
+    const sgDate = new Date(ts + SGT_OFFSET_MS);
+    if (sgDate.getUTCHours() >= AFTER_HOURS_CUTOFF) {
+      sgDate.setUTCDate(sgDate.getUTCDate() + 1);
+    }
+    return sgDate.toISOString().slice(0, 10);
+  }
+
   const RESULT_FIELD_LABELS = {
     setNo: "Set No",
     size: "Size",
@@ -1543,6 +1559,7 @@
     collectCustomFields,
     isRequestFieldFilled,
     FIXED_TEST_ITEM_VALUE,
+    getDefaultCastDate,
     validateCubeRequestForm,
     validateCubeRequestPayload,
     buildCubeRequestFromForm,

@@ -484,6 +484,8 @@ test("app.js uses custom validation instead of native hidden-step dateOfCast err
     submitEventFired = true;
   });
 
+  // Clear the auto-filled dateOfCast so custom validation reports it missing
+  form.elements.dateOfCast.value = "";
   global.document.getElementById("saveFormButton").click();
   await new Promise((resolve) => setTimeout(resolve, 30));
 

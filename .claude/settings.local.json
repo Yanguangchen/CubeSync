@@ -22,7 +22,14 @@
       "Bash(node --test form-field-config.test.js firestore.test.js dashboard.test.js app-unit.test.js form-data.test.js)",
       "Bash(node --test form-field-config.test.js form.test.js)",
       "Bash(node --test form-field-config.test.js form.test.js firestore.test.js dashboard.test.js app-unit.test.js form-data.test.js)",
-      "Bash(node --test form-field-config.test.js form.test.js firestore.test.js dashboard.test.js app-unit.test.js form-data.test.js app-functional.test.js)"
+      "Bash(node --test form-field-config.test.js form.test.js firestore.test.js dashboard.test.js app-unit.test.js form-data.test.js app-functional.test.js)",
+      "Bash(node --test form.test.js)",
+      "Bash(node *)",
+      "Bash(vercel env *)",
+      "Bash(vercel ls *)",
+      "Bash(curl *)",
+      "Bash(git commit *)",
+      "Bash(git push *)"
     ]
   }
 }

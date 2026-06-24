@@ -28,7 +28,8 @@ const {
   applyFreeTextFlags,
   collectCustomFields,
   FORM_FIELD_CONFIG_STORAGE_KEY,
-  FIXED_TEST_ITEM_VALUE
+  FIXED_TEST_ITEM_VALUE,
+  getDefaultCastDate
 } = require("./cubesync-form-data");
 
 test("slumpMeasured and slumpSpecified are not required fields", () => {
@@ -707,4 +708,42 @@ test("buildCubeRequestFromForm captures the locked testItem value", () => {
 
   const payload = buildCubeRequestFromForm(form);
   assert.equal(payload.testItem, FIXED_TEST_ITEM_VALUE);
+});
+
+// ---------------------------------------------------------------------------
+// After-6pm next-day date rule (Singapore Standard Time, UTC+8)
+//
+// Concrete test requests submitted after 6pm are for the next day's work:
+// the lab will not process them until the following morning, so the cast
+// date defaults to tomorrow to avoid staff having to correct it manually.
+// ---------------------------------------------------------------------------
+
+test("getDefaultCastDate returns today before 6pm SGT", () => {
+  // 09:59 UTC = 17:59 SGT (one minute before cutoff)
+  const result = getDefaultCastDate(new Date("2026-06-24T09:59:00Z"));
+  assert.equal(result, "2026-06-24");
+});
+
+test("getDefaultCastDate returns tomorrow at exactly 6pm SGT", () => {
+  // 10:00 UTC = 18:00 SGT (cutoff)
+  const result = getDefaultCastDate(new Date("2026-06-24T10:00:00Z"));
+  assert.equal(result, "2026-06-25");
+});
+
+test("getDefaultCastDate returns tomorrow after 6pm SGT", () => {
+  // 14:30 UTC = 22:30 SGT
+  const result = getDefaultCastDate(new Date("2026-06-24T14:30:00Z"));
+  assert.equal(result, "2026-06-25");
+});
+
+test("getDefaultCastDate returns today at midnight SGT (new day)", () => {
+  // 16:00 UTC = 00:00 SGT next day
+  const result = getDefaultCastDate(new Date("2026-06-24T16:00:00Z"));
+  assert.equal(result, "2026-06-25");
+});
+
+test("getDefaultCastDate rolls month boundary correctly", () => {
+  // 2026-06-30 at 22:00 SGT = 2026-06-30T14:00Z → tomorrow is 2026-07-01
+  const result = getDefaultCastDate(new Date("2026-06-30T14:00:00Z"));
+  assert.equal(result, "2026-07-01");
 });

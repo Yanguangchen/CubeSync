@@ -180,6 +180,7 @@ Validation is **custom JavaScript**, not native HTML5 constraint validation:
 - Both forms use `novalidate` on `#cubeRequestForm` so hidden step-1 fields (e.g. empty `dateOfCast` on step 2) do not trigger browser “not focusable” errors.
 - `validateCubeRequestForm()` / `validateCubeRequestPayload()` in `cubesync-form-data.js` enforce `REQUIRED_FORM_FIELDS`, excluding fields disabled in dashboard field settings.
 - If a DOM input has the `data-config-disabled="true"` attribute (applied synchronously when the form loads its config cache), it is excluded from validation. This prevents a race condition where a user submits the form before the async Firestore field config fully updates the `activeFieldConfig` state.
+- **Server-side validation parity:** The `/api/cube-request-submit` serverless endpoint also fetches `formFieldConfig` directly from Firestore before saving. This ensures that if staff disable a required field (like Customer Billing), the server correctly accepts the submission without throwing a 400 Bad Request error.
 - `syncNativeFormConstraints()` removes the `required` attribute from fields on inactive form steps when the user is on step 2.
 - On submit failure, `app.js` shows a message in `#saveStatus`, navigates back to the step containing the first missing field, and focuses it.
 

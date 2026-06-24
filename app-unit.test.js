@@ -424,3 +424,55 @@ test("new result row prefills values from request fields", async () => {
 
   delete require.cache[require.resolve("./app.js")];
 });
+
+test("app.js pre-fills dateOfCast with today when loaded before 6pm SGT", () => {
+  // 09:59 UTC = 17:59 SGT — still today; mock Node.js global Date
+  const RealDate = global.Date;
+  global.Date = class extends RealDate {
+    constructor(...args) {
+      if (args.length === 0) super("2026-06-24T09:59:00Z");
+      else super(...args);
+    }
+    static now() { return new RealDate("2026-06-24T09:59:00Z").getTime(); }
+  };
+  try {
+    installDom(glassHtml);
+    dispatchDOMContentLoaded();
+    const dateInput = global.document.querySelector('[name="dateOfCast"]');
+    assert.equal(dateInput.value, "2026-06-24");
+    delete require.cache[require.resolve("./app.js")];
+  } finally {
+    global.Date = RealDate;
+  }
+});
+
+test("app.js pre-fills dateOfCast with tomorrow when loaded at or after 6pm SGT", () => {
+  // 10:00 UTC = 18:00 SGT — next day
+  const RealDate = global.Date;
+  global.Date = class extends RealDate {
+    constructor(...args) {
+      if (args.length === 0) super("2026-06-24T10:00:00Z");
+      else super(...args);
+    }
+    static now() { return new RealDate("2026-06-24T10:00:00Z").getTime(); }
+  };
+  try {
+    installDom(glassHtml);
+    dispatchDOMContentLoaded();
+    const dateInput = global.document.querySelector('[name="dateOfCast"]');
+    assert.equal(dateInput.value, "2026-06-25");
+    delete require.cache[require.resolve("./app.js")];
+  } finally {
+    global.Date = RealDate;
+  }
+});
+
+test("app.js does not override dateOfCast when already populated", () => {
+  installDom(glassHtml);
+  const dateInput = global.document.querySelector('[name="dateOfCast"]');
+  dateInput.value = "2026-01-01";
+  dispatchDOMContentLoaded();
+  assert.equal(dateInput.value, "2026-01-01", "pre-existing value must not be overwritten");
+
+  delete require.cache[require.resolve("./app.js")];
+});
