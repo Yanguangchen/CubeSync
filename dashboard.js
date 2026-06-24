@@ -619,6 +619,8 @@
       return renderCustomFieldEditorRow(def, index, helper);
     }).join("");
 
+    const showResultsSectionChecked = normalized.showResultsSection !== false ? "checked" : "";
+
     elements.fieldConfigGroups.innerHTML = `
       <section class="field-config-group" aria-labelledby="requestFieldConfigTitle">
         <h3 id="requestFieldConfigTitle">Request details</h3>
@@ -626,6 +628,12 @@
       </section>
       <section class="field-config-group" aria-labelledby="resultFieldConfigTitle">
         <h3 id="resultFieldConfigTitle">Test results columns</h3>
+        <div class="field-config-item">
+          <label class="field-config-toggle">
+            <input type="checkbox" name="showResultsSection" ${showResultsSectionChecked}>
+            <span>Show test results section on public forms</span>
+          </label>
+        </div>
         <div class="field-config-list">${resultItems}</div>
       </section>
       <section class="field-config-group field-config-group-full" aria-labelledby="customFieldConfigTitle">

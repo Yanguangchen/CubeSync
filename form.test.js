@@ -82,3 +82,11 @@ test("barcode cells keep compact entry fields and bounded previews in both style
   assert.match(glassCss, /\.barcode-preview[\s\S]*overflow-x:\s*auto/);
   assert.match(glassCss, /\.barcode-preview svg[\s\S]*width:\s*auto/);
 });
+
+test("both form stylesheets enforce [hidden] with !important so author display rules cannot reveal disabled fields", () => {
+  const originalCss = readBundledCss("css/styles.css");
+  const glassCss = readBundledCss("css/glassmorphic.css");
+
+  assert.match(originalCss, /\[hidden\]\s*\{[^}]*display\s*:\s*none\s*!important/);
+  assert.match(glassCss, /\[hidden\]\s*\{[^}]*display\s*:\s*none\s*!important/);
+});

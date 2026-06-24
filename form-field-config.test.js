@@ -27,7 +27,8 @@ const {
   buildCubeRequestFromForm,
   applyFreeTextFlags,
   collectCustomFields,
-  FORM_FIELD_CONFIG_STORAGE_KEY
+  FORM_FIELD_CONFIG_STORAGE_KEY,
+  FIXED_TEST_ITEM_VALUE
 } = require("./cubesync-form-data");
 
 test("defaultFormFieldConfig enables every request and result field", () => {
@@ -475,4 +476,199 @@ test("formatCustomFieldDisplayValue renders checkbox values for dashboard detail
   const def = { id: "approved", label: "Approved", type: "checkbox" };
   assert.equal(formatCustomFieldDisplayValue(def, true), "Yes");
   assert.equal(formatCustomFieldDisplayValue(def, false), "No");
+});
+
+test("defaultFormFieldConfig includes showResultsSection: true", () => {
+  const config = defaultFormFieldConfig();
+  assert.equal(config.showResultsSection, true);
+});
+
+test("normalizeFormFieldConfig supports showResultsSection: false", () => {
+  const config = normalizeFormFieldConfig({ showResultsSection: false });
+  assert.equal(config.showResultsSection, false);
+});
+
+test("normalizeFormFieldConfig defaults showResultsSection to true when omitted", () => {
+  const config = normalizeFormFieldConfig({});
+  assert.equal(config.showResultsSection, true);
+});
+
+test("applyFormFieldConfig hides .results-section when showResultsSection is false", () => {
+  const dom = new JSDOM(`
+    <form id="cubeRequestForm">
+      <section class="results-section">
+        <table class="results-table"><thead><tr></tr></thead><tbody></tbody></table>
+      </section>
+    </form>
+  `);
+  const form = dom.window.document.getElementById("cubeRequestForm");
+  const config = normalizeFormFieldConfig({ showResultsSection: false });
+
+  applyFormFieldConfig(form, config, { activeStep: 1 });
+
+  const section = form.querySelector(".results-section");
+  assert.equal(section.hidden, true);
+});
+
+test("applyFormFieldConfig keeps .results-section visible when showResultsSection is true", () => {
+  const dom = new JSDOM(`
+    <form id="cubeRequestForm">
+      <section class="results-section">
+        <table class="results-table"><thead><tr></tr></thead><tbody></tbody></table>
+      </section>
+    </form>
+  `);
+  const form = dom.window.document.getElementById("cubeRequestForm");
+  const config = normalizeFormFieldConfig({ showResultsSection: true });
+
+  applyFormFieldConfig(form, config, { activeStep: 1 });
+
+  const section = form.querySelector(".results-section");
+  assert.equal(section.hidden, false);
+});
+
+test("applyFormFieldConfig hides form-step[data-step='2'], its step indicator, and the separator when showResultsSection is false", () => {
+  const dom = new JSDOM(`
+    <form id="cubeRequestForm">
+      <nav class="form-steps">
+        <button class="step-indicator active" data-step="1">1. Request Details</button>
+        <span class="step-separator">→</span>
+        <button class="step-indicator" data-step="2">2. Test Results</button>
+      </nav>
+      <div class="form-step active" data-step="1"></div>
+      <div class="form-step" data-step="2">
+        <section class="results-section">
+          <table class="results-table"><thead><tr></tr></thead><tbody></tbody></table>
+        </section>
+      </div>
+    </form>
+  `);
+  const form = dom.window.document.getElementById("cubeRequestForm");
+  const config = normalizeFormFieldConfig({ showResultsSection: false });
+
+  applyFormFieldConfig(form, config, { activeStep: 1 });
+
+  const step2 = form.querySelector('.form-step[data-step="2"]');
+  const step2Indicator = form.querySelector('.step-indicator[data-step="2"]');
+  const separator = form.querySelector('.step-separator');
+  assert.equal(step2.hidden, true);
+  assert.equal(step2Indicator.hidden, true);
+  assert.equal(separator.hidden, true);
+});
+
+test("applyFormFieldConfig keeps form-step[data-step='2'], step indicator, and separator visible when showResultsSection is true", () => {
+  const dom = new JSDOM(`
+    <form id="cubeRequestForm">
+      <nav class="form-steps">
+        <button class="step-indicator active" data-step="1">1. Request Details</button>
+        <span class="step-separator">→</span>
+        <button class="step-indicator" data-step="2">2. Test Results</button>
+      </nav>
+      <div class="form-step active" data-step="1"></div>
+      <div class="form-step" data-step="2">
+        <section class="results-section">
+          <table class="results-table"><thead><tr></tr></thead><tbody></tbody></table>
+        </section>
+      </div>
+    </form>
+  `);
+  const form = dom.window.document.getElementById("cubeRequestForm");
+  const config = normalizeFormFieldConfig({ showResultsSection: true });
+
+  applyFormFieldConfig(form, config, { activeStep: 1 });
+
+  const step2 = form.querySelector('.form-step[data-step="2"]');
+  const step2Indicator = form.querySelector('.step-indicator[data-step="2"]');
+  const separator = form.querySelector('.step-separator');
+  assert.equal(step2.hidden, false);
+  assert.equal(step2Indicator.hidden, false);
+  assert.equal(separator.hidden, false);
+});
+
+test("readFormFieldConfigFromEditor reads showResultsSection checkbox", () => {
+  const dom = new JSDOM(`
+    <form id="fieldConfigForm">
+      <input type="checkbox" name="showResultsSection" checked>
+    </form>
+  `);
+  const form = dom.window.document.getElementById("fieldConfigForm");
+  const config = readFormFieldConfigFromEditor(form);
+  assert.equal(config.showResultsSection, true);
+
+  form.querySelector('[name="showResultsSection"]').checked = false;
+  const configOff = readFormFieldConfigFromEditor(form);
+  assert.equal(configOff.showResultsSection, false);
+});
+
+// ------------------------------------------------------------
+// Test Item lock — BS EN 12390-3: 2019
+//
+// CubeSync issues one class of test certificate only: compressive
+// strength of hardened concrete cubes to BS EN 12390-3: 2019.
+// Allowing the customer to type a different value would produce
+// certificates with the wrong standard cited, which is a compliance
+// risk.  The field must always carry exactly this value and must
+// not be editable by the user.
+// ------------------------------------------------------------
+
+test("FIXED_TEST_ITEM_VALUE is the canonical BS EN 12390-3: 2019 test description", () => {
+  assert.equal(
+    FIXED_TEST_ITEM_VALUE,
+    "Civil - Hardened Concrete - Compressive strength of cube - BS EN 12390-3: 2019"
+  );
+});
+
+test("applyFormFieldConfig pre-fills testItem with FIXED_TEST_ITEM_VALUE", () => {
+  const dom = new JSDOM(`
+    <form id="cubeRequestForm">
+      <label class="field-row"><input type="text" name="testItem"></label>
+    </form>
+  `);
+  const form = dom.window.document.getElementById("cubeRequestForm");
+
+  applyFormFieldConfig(form, null, { activeStep: 1 });
+
+  assert.equal(form.elements.testItem.value, FIXED_TEST_ITEM_VALUE);
+});
+
+test("applyFormFieldConfig makes testItem readonly", () => {
+  const dom = new JSDOM(`
+    <form id="cubeRequestForm">
+      <label class="field-row"><input type="text" name="testItem"></label>
+    </form>
+  `);
+  const form = dom.window.document.getElementById("cubeRequestForm");
+
+  applyFormFieldConfig(form, null, { activeStep: 1 });
+
+  assert.equal(form.elements.testItem.readOnly, true);
+});
+
+test("applyFormFieldConfig overrides any existing testItem value with the fixed value", () => {
+  const dom = new JSDOM(`
+    <form id="cubeRequestForm">
+      <label class="field-row"><input type="text" name="testItem" value="Wrong standard"></label>
+    </form>
+  `);
+  const form = dom.window.document.getElementById("cubeRequestForm");
+
+  applyFormFieldConfig(form, null, { activeStep: 1 });
+
+  assert.equal(form.elements.testItem.value, FIXED_TEST_ITEM_VALUE);
+});
+
+test("buildCubeRequestFromForm captures the locked testItem value", () => {
+  const dom = new JSDOM(`
+    <form id="cubeRequestForm" data-template="Glassmorphic">
+      ${FORM_FIELDS.map((field) => `<input type="text" name="${field}">`).join("")}
+      <div id="customRequestFields" class="custom-request-fields"></div>
+      <table class="results-table"><tbody></tbody></table>
+    </form>
+  `);
+  const form = dom.window.document.getElementById("cubeRequestForm");
+
+  applyFormFieldConfig(form, null, { activeStep: 1 });
+
+  const payload = buildCubeRequestFromForm(form);
+  assert.equal(payload.testItem, FIXED_TEST_ITEM_VALUE);
 });

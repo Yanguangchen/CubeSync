@@ -448,6 +448,38 @@ test("app.js initializes correctly on index.html", async () => {
   delete require.cache[require.resolve("./app.js")];
 });
 
+test("app.js applies cached field config on index.html and hides disabled fields", async () => {
+  installDom(indexHtml, "http://localhost/index.html");
+
+  global.window.CubeSyncEnv = { RECAPTCHA_SITE_KEY: "test-site-key" };
+  global.window.grecaptcha = { render: () => 0, getResponse: () => "token", reset: () => {} };
+
+  const disabledConfig = global.window.CubeSyncFormData.normalizeFormFieldConfig({
+    requestFields: { quote: false, projectErp: false },
+    showResultsSection: false
+  });
+  global.localStorage.setItem(
+    global.window.CubeSyncFormData.FORM_FIELD_CONFIG_STORAGE_KEY,
+    JSON.stringify(disabledConfig)
+  );
+
+  global.window.CubeSyncFirestore = { getFormFieldConfig: async () => null };
+
+  require("./app.js");
+  dispatchDOMContentLoaded();
+  await new Promise((resolve) => setTimeout(resolve, 30));
+
+  const quoteRow = global.document.querySelector('[name="quote"]').closest(".field-row");
+  const erpRow = global.document.querySelector('[name="projectErp"]').closest(".field-row");
+  const resultsSection = global.document.querySelector(".results-section");
+
+  assert.equal(quoteRow.hidden, true, "disabled quote row should be hidden");
+  assert.equal(erpRow.hidden, true, "disabled projectErp row should be hidden");
+  assert.equal(resultsSection.hidden, true, "results section should be hidden when showResultsSection is false");
+
+  delete require.cache[require.resolve("./app.js")];
+});
+
 test("save/print/recaptcha live in a footer at the bottom of the form on both templates", () => {
   for (const markup of [indexHtml, glassHtml]) {
     const dom = new JSDOM(markup);

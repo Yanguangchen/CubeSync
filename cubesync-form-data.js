@@ -72,6 +72,12 @@
     "testItem",
     "specimenSize"
   ];
+  // CubeSync issues certificates only for compressive strength of hardened
+  // concrete cubes under BS EN 12390-3: 2019.  Any other value would cite
+  // the wrong standard on issued certificates, so the field is always locked
+  // to this string and made read-only on every public form.
+  const FIXED_TEST_ITEM_VALUE =
+    "Civil - Hardened Concrete - Compressive strength of cube - BS EN 12390-3: 2019";
   const RESULT_FIELD_LABELS = {
     setNo: "Set No",
     size: "Size",
@@ -418,7 +424,8 @@
       resultFields: Object.fromEntries(RESULT_FIELDS.map((field) => [field, true])),
       requestLabels: {},
       resultLabels: {},
-      customRequestFields: []
+      customRequestFields: [],
+      showResultsSection: true
     };
   }
 
@@ -558,7 +565,8 @@
       resultFields,
       requestLabels: normalizeLabelOverrides(raw.requestLabels, FORM_FIELDS, REQUEST_FIELD_LABELS),
       resultLabels: normalizeLabelOverrides(raw.resultLabels, RESULT_FIELDS, RESULT_FIELD_LABELS),
-      customRequestFields: normalizeCustomRequestFields(raw.customRequestFields)
+      customRequestFields: normalizeCustomRequestFields(raw.customRequestFields),
+      showResultsSection: raw.showResultsSection !== false
     };
   }
 
@@ -994,6 +1002,29 @@
       applyRequestFieldState(form, field, normalized.requestFields[field] !== false);
     });
 
+    const testItemControl = form.elements["testItem"];
+    if (testItemControl) {
+      testItemControl.value = FIXED_TEST_ITEM_VALUE;
+      testItemControl.readOnly = true;
+    }
+
+    const showResults = normalized.showResultsSection !== false;
+    const resultsStep = form.querySelector('.form-step[data-step="2"]');
+    if (resultsStep) {
+      resultsStep.hidden = !showResults;
+    }
+    const resultsStepIndicator = form.querySelector('.step-indicator[data-step="2"]');
+    if (resultsStepIndicator) {
+      resultsStepIndicator.hidden = !showResults;
+    }
+    form.querySelectorAll(".step-separator").forEach(function (sep) {
+      sep.hidden = !showResults;
+    });
+    const resultsSection = form.querySelector(".results-section");
+    if (resultsSection) {
+      resultsSection.hidden = !showResults;
+    }
+
     const table = form.querySelector(".results-table");
     if (table) {
       RESULT_FIELDS.forEach((field) => {
@@ -1032,6 +1063,11 @@
 
   function readFormFieldConfigFromEditor(editorForm) {
     const config = defaultFormFieldConfig();
+
+    const showResultsSectionControl = editorForm.elements["showResultsSection"];
+    if (showResultsSectionControl) {
+      config.showResultsSection = Boolean(showResultsSectionControl.checked);
+    }
 
     FORM_FIELDS.forEach((field) => {
       const control = editorForm.elements[`request-${field}`];
@@ -1494,6 +1530,7 @@
     buildSharedDropdownSaveValues,
     collectCustomFields,
     isRequestFieldFilled,
+    FIXED_TEST_ITEM_VALUE,
     validateCubeRequestForm,
     validateCubeRequestPayload,
     buildCubeRequestFromForm,

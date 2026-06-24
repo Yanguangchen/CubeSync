@@ -1218,18 +1218,20 @@ service cloud.firestore {
     }
 
     function isValidFormFieldConfig(data) {
-      return data.keys().hasOnly(['requestFields', 'resultFields', 'requestLabels', 'resultLabels', 'customRequestFields', 'updatedAt']) &&
+      return data.keys().hasOnly(['requestFields', 'resultFields', 'requestLabels', 'resultLabels', 'customRequestFields', 'showResultsSection', 'updatedAt']) &&
         data.requestFields is map &&
         data.resultFields is map &&
         (!data.keys().hasAny(['requestLabels']) || data.requestLabels is map) &&
         (!data.keys().hasAny(['resultLabels']) || data.resultLabels is map) &&
         (!data.keys().hasAny(['customRequestFields']) ||
           (data.customRequestFields is list && data.customRequestFields.size() <= 25)) &&
+        (!data.keys().hasAny(['showResultsSection']) || data.showResultsSection is bool) &&
         optCubeSyncTimestamp(data, 'updatedAt');
     }
 
     match /settings/formFieldConfig {
-      allow read: if isCubeSyncStaff();
+      allow get: if true;
+      allow list: if false;
       allow create, update: if isCubeSyncStaff() &&
         isValidFormFieldConfig(request.resource.data);
       allow delete: if false;

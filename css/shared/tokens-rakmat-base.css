@@ -1,6 +1,13 @@
 /**
  * Rakmat brand tokens shared by original (index) and glassmorphic forms.
  */
+
+/* Author display rules (display: grid/flex) override the UA stylesheet's bare
+   [hidden] { display: none } — this rule restores expected hide behaviour. */
+[hidden] {
+  display: none !important;
+}
+
 :root {
   --brand-blue: #003399;
   --brand-blue-strong: #002266;

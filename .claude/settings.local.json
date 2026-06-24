@@ -13,7 +13,16 @@
       "PowerShell(npx eslint dashboard-functional.test.js 2>&1 | Select-Object -First 20; if \\($LASTEXITCODE -eq 0\\) { \"ESLINT OK\" })",
       "Bash(node --test app-functional.test.js)",
       "Bash(Select-String -Pattern \"^# pass|^# fail\")",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(node --test form-field-config.test.js)",
+      "Bash(node --test form-field-config.test.js app-unit.test.js)",
+      "Bash(node --test form-field-config.test.js form-data.test.js app-unit.test.js)",
+      "Bash(node --test dashboard.test.js dashboard-functional.test.js)",
+      "Bash(node --test firestore.test.js)",
+      "Bash(node --test form-field-config.test.js firestore.test.js dashboard.test.js app-unit.test.js form-data.test.js)",
+      "Bash(node --test form-field-config.test.js form.test.js)",
+      "Bash(node --test form-field-config.test.js form.test.js firestore.test.js dashboard.test.js app-unit.test.js form-data.test.js)",
+      "Bash(node --test form-field-config.test.js form.test.js firestore.test.js dashboard.test.js app-unit.test.js form-data.test.js app-functional.test.js)"
     ]
   }
 }
