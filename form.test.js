@@ -71,14 +71,14 @@ test("barcode cells keep compact entry fields and bounded previews in both style
   assert.match(originalCss, /\.barcode-cell[\s\S]*overflow:\s*visible/);
   assert.match(originalCss, /\.barcode-preview[\s\S]*display:\s*none/);
   assert.match(originalCss, /\.barcode-cell\.has-barcode \.barcode-preview[\s\S]*display:\s*flex/);
-  assert.match(originalCss, /\.barcode-preview[\s\S]*height:\s*72px/);
+  assert.match(originalCss, /\.barcode-preview[\s\S]*height:\s*52px/);
   assert.match(originalCss, /\.barcode-preview[\s\S]*overflow-x:\s*auto/);
   assert.match(originalCss, /\.barcode-preview svg[\s\S]*width:\s*auto/);
   assert.match(glassCss, /\.results-table \.barcode-cell > input[\s\S]*max-width:\s*150px/);
   assert.match(glassCss, /\.barcode-cell[\s\S]*overflow:\s*visible/);
   assert.match(glassCss, /\.barcode-preview[\s\S]*display:\s*none/);
   assert.match(glassCss, /\.barcode-cell\.has-barcode \.barcode-preview[\s\S]*display:\s*flex/);
-  assert.match(glassCss, /\.barcode-preview[\s\S]*height:\s*72px/);
+  assert.match(glassCss, /\.barcode-preview[\s\S]*height:\s*52px/);
   assert.match(glassCss, /\.barcode-preview[\s\S]*overflow-x:\s*auto/);
   assert.match(glassCss, /\.barcode-preview svg[\s\S]*width:\s*auto/);
 });

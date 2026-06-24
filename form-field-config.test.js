@@ -303,6 +303,37 @@ test("validateCubeRequestForm respects active field config", () => {
   assert.equal(validation.valid, true, validation.message);
 });
 
+test("validateCubeRequestForm skips fields whose DOM input has data-config-disabled even when config enables them", () => {
+  // Simulates the race: Firestore applied the config to the DOM (setting
+  // data-config-disabled) but activeFieldConfig is still the default
+  // (all-enabled) because the async .then() hasn't fired yet.
+  const dom = new JSDOM(`
+    <form id="cubeRequestForm">
+      <input type="text" name="customerBilling" value="" data-config-disabled="true" disabled>
+      <input type="text" name="contact" value="" data-config-disabled="true" disabled>
+      <input type="text" name="personInCharge" value="" data-config-disabled="true" disabled>
+      <input type="text" name="managerInCharge" value="" data-config-disabled="true" disabled>
+      <input type="text" name="supplier" value="MixCo">
+      <input type="text" name="supplierDisplay" value="MixCo Display">
+      <input type="text" name="locationRepresented" value="Site A">
+      <input type="date" name="dateOfCast" value="2026-06-18">
+      <input type="text" name="concreteGrade" value="C35">
+      <input type="text" name="reportGrade" value="C35">
+      <input type="text" name="specimenSize" value="150 x 150 x 150">
+      <input type="number" name="slumpMeasured" value="100">
+      <input type="number" name="slumpSpecified" value="90">
+    </form>
+  `);
+  const form = dom.window.document.getElementById("cubeRequestForm");
+
+  // Pass default config (all fields enabled) — this is what activeFieldConfig
+  // holds during the race window before the Firestore .then() fires.
+  const defaultConfig = normalizeFormFieldConfig({});
+
+  const validation = validateCubeRequestForm(form, defaultConfig);
+  assert.equal(validation.valid, true, validation.message);
+});
+
 test("FORM_FIELD_CONFIG_STORAGE_KEY is stable for local cache", () => {
   assert.equal(FORM_FIELD_CONFIG_STORAGE_KEY, "cubesync-form-field-config");
 });

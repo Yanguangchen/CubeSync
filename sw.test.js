@@ -138,6 +138,17 @@ describe("sw.js", () => {
     assert.strictEqual(fetchCalled, true);
   });
 
+  test("CACHE_NAME has been bumped past cubesync-v3 to bust stale caches on deploy", () => {
+    assert.ok(!swContent.includes('"cubesync-v3"'), "old cubesync-v3 cache name must not be present — bump it to invalidate stale JS/CSS on next deploy");
+    assert.match(swContent, /CACHE_NAME = "cubesync-v\d+"/);
+  });
+
+  test("APP_SHELL includes shared CSS files so they are invalidated on version bump", () => {
+    assert.ok(swContent.includes("./css/shared/tokens-rakmat-base.css"), "tokens-rakmat-base.css must be precached");
+    assert.ok(swContent.includes("./css/shared/barcode.css"), "barcode.css must be precached");
+    assert.ok(swContent.includes("./css/shared/throbber.css"), "throbber.css must be precached");
+  });
+
   test("fetch event caches dropdown option files", async () => {
     let cachedRequest = null;
 

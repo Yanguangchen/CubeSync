@@ -198,7 +198,7 @@
 
 
 
-  async function loadAndApplyFormFieldConfig(form) {
+  async function loadAndApplyFormFieldConfig(form, onSyncApply) {
     const formData = window.CubeSyncFormData;
     if (!form || !formData) {
       return null;
@@ -216,6 +216,13 @@
     }
 
     let activeConfig = formData.applyFormFieldConfig(form, config, { activeStep: 1 });
+    // Notify the caller synchronously so activeFieldConfig is available before any
+    // Firestore await — prevents the race where a submit fires while the network
+    // call is still pending and validation sees null config.
+    if (typeof onSyncApply === "function") {
+      onSyncApply(activeConfig);
+    }
+
     const store = window.CubeSyncFirestore;
 
     if (store && typeof store.getFormFieldConfig === "function") {
@@ -391,7 +398,10 @@
     }
 
     if (form) {
-      loadAndApplyFormFieldConfig(form).then(function (config) {
+      loadAndApplyFormFieldConfig(form, function (syncConfig) {
+        activeFieldConfig = syncConfig;
+        applyManualCubeJobState();
+      }).then(function (config) {
         activeFieldConfig = config;
         applyManualCubeJobState();
       });

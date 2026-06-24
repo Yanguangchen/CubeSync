@@ -560,12 +560,14 @@ select:focus {
    ========================================================================== */
 @page {
   size: A4 landscape;
-  margin: 10mm;
+  margin: 5mm;
 }
 
 @media print {
   body {
     background: #ffffff;
+    /* Optionally zoom out slightly for browsers that support it */
+    zoom: 0.95;
   }
 
   .page-tools,
@@ -579,11 +581,51 @@ select:focus {
     padding: 0;
     border: 0;
     box-shadow: none;
+    /* Try to force everything inside one page */
+    page-break-inside: avoid;
+  }
+
+  /* Compact the header area */
+  .form-header {
+    min-height: 60px;
+    gap: 8px;
+  }
+
+  .contact-block {
+    padding-top: 0;
+  }
+
+  h1 {
+    margin: 4px 0 6px;
+    padding: 4px 0;
+    font-size: 16px;
+  }
+
+  /* Compact the request fields */
+  .field-row {
+    min-height: 24px;
+  }
+  
+  .field-row span {
+    padding: 4px 6px;
+    font-size: 10px;
+  }
+
+  .field-row input,
+  .field-row select,
+  .internal-use input {
+    min-height: 20px;
+    padding: 2px 4px;
   }
 
   input,
   select {
     background: #ffffff;
+  }
+
+  .results-header {
+    margin: 4px 0 0;
+    padding: 4px 8px;
   }
 
   .table-wrap {
@@ -594,23 +636,30 @@ select:focus {
     min-width: 0;
   }
 
+  .results-table th {
+    min-height: 28px;
+    padding: 4px;
+    font-size: 10px;
+  }
+
+  .results-table td {
+    height: 34px;
+  }
+
   .barcode-cell > input,
   .barcode-message {
     display: none;
   }
 
   .barcode-preview {
-    height: 72px;
-    min-height: 72px;
-    max-height: 72px;
+    height: 52px;
+    min-height: 52px;
+    max-height: 52px;
     border: 0;
+    margin-top: 0;
   }
 
   .barcode-preview svg {
-    height: 64px;
-  }
-
-  .results-table td {
-    height: 46px;
+    height: 44px;
   }
 }

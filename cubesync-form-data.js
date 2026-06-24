@@ -1157,7 +1157,21 @@
     }, {});
     payload.extraFields = collectExtraFields(form);
 
-    return validateCubeRequestPayload(payload, config);
+    // Merge DOM-disabled state into config: if applyFormFieldConfig already
+    // set data-config-disabled on an input (e.g. Firestore responded but the
+    // async .then() hasn't updated activeFieldConfig yet), treat that field as
+    // disabled for validation regardless of what config says.
+    const normalized = normalizeFormFieldConfig(config);
+    const requestFields = { ...normalized.requestFields };
+    FORM_FIELDS.forEach(function (field) {
+      const control = form.elements[field];
+      if (control && control.dataset.configDisabled === "true") {
+        requestFields[field] = false;
+      }
+    });
+    const effectiveConfig = normalizeFormFieldConfig({ ...normalized, requestFields });
+
+    return validateCubeRequestPayload(payload, effectiveConfig);
   }
 
   function buildCubeRequestFromForm(form) {

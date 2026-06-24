@@ -395,6 +395,62 @@ test("app.js applies cached field config and skips disabled required fields", as
   delete require.cache[require.resolve("./app.js")];
 });
 
+test("disabled required fields do not block submission when Firestore is still pending", async () => {
+  installDom(glassHtml, "http://localhost/glassmorphic.html");
+
+  global.window.CubeSyncEnv = { RECAPTCHA_SITE_KEY: "test-site-key" };
+  global.window.grecaptcha = {
+    render: () => 0,
+    getResponse: () => "test-recaptcha-token",
+    reset: () => {}
+  };
+
+  const disabledConfig = global.window.CubeSyncFormData.normalizeFormFieldConfig({
+    requestFields: {
+      customerBilling: false,
+      contact: false,
+      personInCharge: false,
+      managerInCharge: false
+    }
+  });
+  global.localStorage.setItem(
+    global.window.CubeSyncFormData.FORM_FIELD_CONFIG_STORAGE_KEY,
+    JSON.stringify(disabledConfig)
+  );
+
+  global.window.CubeSyncFirestore = {
+    // Firestore never responds — simulates slow network while user has already seen the form
+    getFormFieldConfig: () => new Promise(() => {}),
+    savePublicCubeRequest: async () => {
+      return "saved-pending-firestore";
+    }
+  };
+
+  dispatchDOMContentLoaded();
+  // Do NOT await Firestore — submit immediately while getFormFieldConfig is still pending
+
+  fillRequiredRequestFields(global.document);
+  global.document.querySelector('[name="customerBilling"]').value = "";
+  global.document.querySelector('[name="contact"]').value = "";
+  global.document.querySelector('[name="personInCharge"]').value = "";
+  global.document.querySelector('[name="managerInCharge"]').value = "";
+  global.document.querySelector('[name="specimenRef1"]').value = "T-003";
+  global.document.querySelector('[name="barcode1"]').value = "BC-003";
+
+  global.document.getElementById("nextStep").click();
+  global.document.getElementById("nextStep").click();
+  await new Promise((resolve) => setTimeout(resolve, 30));
+
+  const status = global.document.getElementById("saveStatus").textContent;
+  assert.ok(
+    !/Customer \(Billing\)|Contact|Person In Charge|Manager In Charge/.test(status),
+    `validation should not reject hidden disabled fields, got: "${status}"`
+  );
+  assert.equal(status, "Saved");
+
+  delete require.cache[require.resolve("./app.js")];
+});
+
 test("app.js uses custom validation instead of native hidden-step dateOfCast errors", async () => {
   installDom(glassHtml, "http://localhost/glassmorphic.html");
 

@@ -179,6 +179,7 @@ Validation is **custom JavaScript**, not native HTML5 constraint validation:
 
 - Both forms use `novalidate` on `#cubeRequestForm` so hidden step-1 fields (e.g. empty `dateOfCast` on step 2) do not trigger browser “not focusable” errors.
 - `validateCubeRequestForm()` / `validateCubeRequestPayload()` in `cubesync-form-data.js` enforce `REQUIRED_FORM_FIELDS`, excluding fields disabled in dashboard field settings.
+- If a DOM input has the `data-config-disabled="true"` attribute (applied synchronously when the form loads its config cache), it is excluded from validation. This prevents a race condition where a user submits the form before the async Firestore field config fully updates the `activeFieldConfig` state.
 - `syncNativeFormConstraints()` removes the `required` attribute from fields on inactive form steps when the user is on step 2.
 - On submit failure, `app.js` shows a message in `#saveStatus`, navigates back to the step containing the first missing field, and focuses it.
 
@@ -296,6 +297,9 @@ CubeSync registers a service worker (`sw.js`) on the app pages. The strategy is:
 
 This ensures the forms load instantly and tolerate brief network drops, while keeping dynamic data and auth requests strictly live.
 
+> [!WARNING]
+> **Cache Purging Required:** Because of this caching strategy, browsers aggressively hold onto the static app shell. **Every time you make new changes** to HTML, CSS, or JS files, you must either bump the `CACHE_NAME` variable in `sw.js` or manually purge your local service worker cache via Browser DevTools (Application > Service Workers > Unregister / Clear Storage) to see your updates. If you do not purge the cache or bump the version, you will continue seeing the old version of the app.
+
 ### Local API Testing
 
 Live Server can serve the static pages, but it cannot run Vercel serverless functions. The forms post to `/api/cube-request-submit`, so end-to-end form submission must be tested with Vercel:
@@ -358,6 +362,8 @@ Known WorkGrid permission-policy watch items:
 | `dashboard-sort-and-filter.md` | Dashboard list sort and filter logic |
 | `dashboard-ux-animations.md` | Dashboard UX animations and master-detail reveal logic |
 | `form-submission-throbber.md` | Form submission save button spinner behavior |
+| `print-layout.md` | CSS logic for enforcing single A4 landscape sheet form printing |
+| `test-item-lock.md` | Explanation of test item lockdown to BS EN 12390-3: 2019 standard |
 | `RPA_SELECTOR_REFERENCE.md` | Stable CSS selectors and field names for RPA automation |
 | `mobile-responsiveness-postmortem.md` | Postmortem: mobile responsiveness issues, root causes, and fixes — read when adding CSS grids or flex layouts |
 | `security-audit.md` | Security & test-coverage audit: public-API hardening (done) and outstanding gaps (CORS, rules emulator tests, rules validation, allowlist sync) |
