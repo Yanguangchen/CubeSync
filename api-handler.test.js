@@ -1,7 +1,86 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 const handler = require("./api/cube-request-submit");
+const { REQUIRED_FORM_FIELDS } = require("./cubesync-form-data");
 const { parseServiceAccount, stripWrappingQuotes } = handler._test;
+
+// ---------------------------------------------------------------------------
+// Shared helpers
+// ---------------------------------------------------------------------------
+
+// Minimal valid payload — all 13 required fields filled, no disabled config.
+function basePayload(overrides = {}) {
+  return {
+    customerBilling: "Acme Ltd",
+    contact: "Ada",
+    supplier: "MixCo",
+    supplierDisplay: "MixCo Display",
+    locationRepresented: "Site A",
+    dateOfCast: "2026-06-18",
+    concreteGrade: "C35",
+    reportGrade: "C35",
+    specimenSize: "150 x 150 x 150",
+    slumpMeasured: 100,
+    slumpSpecified: 90,
+    personInCharge: "PIC",
+    managerInCharge: "MIC",
+    template: "Glassmorphic",
+    status: "Draft",
+    results: [],
+    ...overrides
+  };
+}
+
+// Mock Firestore that returns the given field config doc (or simulates missing/error).
+function mockFirestoreWithConfig({ fieldConfig = null, throws = false } = {}) {
+  function firestore() {
+    return {
+      collection(name) {
+        if (name === "settings") {
+          return {
+            doc() {
+              return {
+                get: throws
+                  ? async () => { throw new Error("Firestore unavailable"); }
+                  : async () => ({
+                      exists: fieldConfig !== null,
+                      data: () => fieldConfig
+                    })
+              };
+            }
+          };
+        }
+        return { add: async () => ({ id: "new-doc" }) };
+      }
+    };
+  }
+  firestore.FieldValue = { serverTimestamp: () => ({ ".sv": "timestamp" }) };
+  return firestore;
+}
+
+async function postPayload(payload, firestoreMock) {
+  const previousFetch = global.fetch;
+  const previousSecret = process.env.CUBESYNC_RECAPTCHA_SECRET_KEY;
+  global.fetch = async () => ({ async json() { return { success: true }; } });
+  process.env.CUBESYNC_RECAPTCHA_SECRET_KEY = "test-secret";
+  handler._test.setFirebaseAdminForTest({ apps: [{}], firestore: firestoreMock });
+
+  const response = mockResponse();
+  try {
+    await handler({
+      method: "POST",
+      headers: {},
+      socket: { remoteAddress: "127.0.0.1" },
+      body: { recaptchaToken: "token", payload }
+    }, response);
+    return response;
+  } finally {
+    global.fetch = previousFetch;
+    if (previousSecret === undefined) delete process.env.CUBESYNC_RECAPTCHA_SECRET_KEY;
+    else process.env.CUBESYNC_RECAPTCHA_SECRET_KEY = previousSecret;
+    handler._test.setFirebaseAdminForTest(null);
+  }
+}
 
 function mockResponse() {
   return {
@@ -531,4 +610,63 @@ test("submission API accepts empty disabled required fields when formFieldConfig
     }
     handler._test.setFirebaseAdminForTest(null);
   }
+});
+
+// ---------------------------------------------------------------------------
+// Field-config / server-side validation parity tests
+//
+// These tests guard against the class of bug where a required field is hidden
+// on the customer form (via field settings) but the server still rejects an
+// empty value because it validated without reading the config.
+// ---------------------------------------------------------------------------
+
+test("API still rejects an enabled required field that is empty", async () => {
+  const response = await postPayload(
+    basePayload({ customerBilling: "" }),
+    mockFirestoreWithConfig({ fieldConfig: { requestFields: { customerBilling: true } } })
+  );
+  assert.equal(response.statusCode, 400);
+  assert.match(JSON.parse(response.body).error, /Customer \(Billing\)/);
+});
+
+test("API accepts empty value for each individually disabled required field", async () => {
+  for (const field of REQUIRED_FORM_FIELDS) {
+    const response = await postPayload(
+      basePayload({ [field]: "" }),
+      mockFirestoreWithConfig({ fieldConfig: { requestFields: { [field]: false } } })
+    );
+    assert.equal(
+      response.statusCode, 200,
+      `Expected 200 when ${field} is disabled but got ${response.statusCode}: ${response.body}`
+    );
+  }
+});
+
+test("API enforces remaining enabled required fields when only some are disabled", async () => {
+  const response = await postPayload(
+    basePayload({ customerBilling: "", contact: "" }),
+    mockFirestoreWithConfig({
+      fieldConfig: { requestFields: { customerBilling: false, contact: true } }
+    })
+  );
+  assert.equal(response.statusCode, 400);
+  assert.match(JSON.parse(response.body).error, /Contact/);
+});
+
+test("API falls back to requiring all fields when formFieldConfig Firestore fetch throws", async () => {
+  const response = await postPayload(
+    basePayload({ customerBilling: "" }),
+    mockFirestoreWithConfig({ throws: true })
+  );
+  assert.equal(response.statusCode, 400);
+  assert.match(JSON.parse(response.body).error, /Customer \(Billing\)/);
+});
+
+test("API falls back to requiring all fields when formFieldConfig doc does not exist", async () => {
+  const response = await postPayload(
+    basePayload({ customerBilling: "" }),
+    mockFirestoreWithConfig({ fieldConfig: null })
+  );
+  assert.equal(response.statusCode, 400);
+  assert.match(JSON.parse(response.body).error, /Customer \(Billing\)/);
 });
