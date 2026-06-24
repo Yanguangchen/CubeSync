@@ -268,7 +268,18 @@ module.exports = async function handler(request, response) {
       ...cleanPayload(payload),
       updatedAt: now
     };
-    const validation = validateCubeRequestPayload(clean);
+
+    let fieldConfig = null;
+    try {
+      const configDoc = await db.collection("settings").doc("formFieldConfig").get();
+      if (configDoc.exists) {
+        fieldConfig = configDoc.data();
+      }
+    } catch {
+      // Config fetch failure is non-fatal; fall back to validating all required fields.
+    }
+
+    const validation = validateCubeRequestPayload(clean, fieldConfig);
 
     if (!validation.valid) {
       json(response, 400, { error: validation.message });

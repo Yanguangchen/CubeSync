@@ -457,3 +457,78 @@ test("submission API allows customFields and stores them", async () => {
     handler._test.setFirebaseAdminForTest(null);
   }
 });
+
+test("submission API accepts empty disabled required fields when formFieldConfig disables them", async () => {
+  const previousFetch = global.fetch;
+  const previousSecret = process.env.CUBESYNC_RECAPTCHA_SECRET_KEY;
+  process.env.CUBESYNC_RECAPTCHA_SECRET_KEY = "test-secret";
+  global.fetch = async () => ({ async json() { return { success: true }; } });
+
+  const serverTimestamp = { ".sv": "timestamp" };
+  const fieldConfig = {
+    requestFields: {
+      customerBilling: false,
+      contact: false,
+      personInCharge: false,
+      managerInCharge: false
+    }
+  };
+
+  function mockFirestore() {
+    return {
+      collection(name) {
+        if (name === "settings") {
+          return {
+            doc(id) {
+              return { get: async () => ({ exists: true, data: () => fieldConfig }) };
+            }
+          };
+        }
+        return { add: async () => ({ id: "saved-id" }) };
+      }
+    };
+  }
+  mockFirestore.FieldValue = { serverTimestamp: () => serverTimestamp };
+  handler._test.setFirebaseAdminForTest({ apps: [{}], firestore: mockFirestore });
+
+  const response = mockResponse();
+  await handler({
+    method: "POST",
+    headers: {},
+    socket: { remoteAddress: "127.0.0.1" },
+    body: {
+      recaptchaToken: "token",
+      payload: {
+        customerBilling: "",
+        contact: "",
+        personInCharge: "",
+        managerInCharge: "",
+        supplier: "Supplier A",
+        supplierDisplay: "Supplier A Display",
+        locationRepresented: "Site A",
+        dateOfCast: "2026-06-18",
+        concreteGrade: "C35",
+        reportGrade: "C35",
+        specimenSize: "150 x 150 x 150",
+        slumpMeasured: 100,
+        slumpSpecified: 90,
+        template: "Glassmorphic",
+        status: "Draft",
+        results: []
+      }
+    }
+  }, response);
+
+  try {
+    assert.equal(response.statusCode, 200,
+      `Expected 200 but got ${response.statusCode}: ${response.body}`);
+  } finally {
+    global.fetch = previousFetch;
+    if (previousSecret === undefined) {
+      delete process.env.CUBESYNC_RECAPTCHA_SECRET_KEY;
+    } else {
+      process.env.CUBESYNC_RECAPTCHA_SECRET_KEY = previousSecret;
+    }
+    handler._test.setFirebaseAdminForTest(null);
+  }
+});
