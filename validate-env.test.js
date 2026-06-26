@@ -1,88 +1,87 @@
 const { test, describe } = require("node:test");
 const assert = require("node:assert");
-const { execSync } = require("node:child_process");
+const fs = require("node:fs");
+const { createRequire } = require("node:module");
 const path = require("node:path");
+const vm = require("node:vm");
 
 const scriptPath = path.resolve(__dirname, "scripts/validate-env.js");
 
+function runValidateEnv(env) {
+  const stdout = [];
+  const stderr = [];
+  const processStub = {
+    argv: [process.execPath, scriptPath, "dummy.env"],
+    env: { ...env },
+    cwd: () => __dirname,
+    exitCode: 0
+  };
+  const sandbox = {
+    require: createRequire(scriptPath),
+    process: processStub,
+    console: {
+      log: (message) => stdout.push(String(message)),
+      error: (message) => stderr.push(String(message))
+    },
+    Buffer
+  };
+
+  vm.runInNewContext(fs.readFileSync(scriptPath, "utf8"), sandbox, {
+    filename: scriptPath
+  });
+
+  return {
+    exitCode: processStub.exitCode || 0,
+    stdout: stdout.join("\n"),
+    stderr: stderr.join("\n")
+  };
+}
+
+function assertInvalid(env, messagePattern) {
+  const result = runValidateEnv(env);
+
+  assert.equal(result.exitCode, 1);
+  assert.match(result.stderr, messagePattern);
+}
+
 describe("validate-env.js", () => {
   test("fails when missing CUBESYNC_RECAPTCHA_SITE_KEY", () => {
-    try {
-      execSync(`node "${scriptPath}" dummy.env`, {
-        env: { 
-          CUBESYNC_RECAPTCHA_SECRET_KEY: "secret",
-          FIREBASE_SERVICE_ACCOUNT_JSON: "{}"
-        },
-        stdio: "pipe"
-      });
-      assert.fail("Should have failed");
-    } catch (err) {
-      assert.match(err.stderr.toString(), /missing CUBESYNC_RECAPTCHA_SITE_KEY/);
-    }
+    assertInvalid({
+      CUBESYNC_RECAPTCHA_SECRET_KEY: "secret",
+      FIREBASE_SERVICE_ACCOUNT_JSON: "{}"
+    }, /missing CUBESYNC_RECAPTCHA_SITE_KEY/);
   });
 
   test("fails when neither service account env var is present", () => {
-    try {
-      execSync(`node "${scriptPath}" dummy.env`, {
-        env: { 
-          CUBESYNC_RECAPTCHA_SITE_KEY: "site",
-          CUBESYNC_RECAPTCHA_SECRET_KEY: "secret"
-        },
-        stdio: "pipe"
-      });
-      assert.fail("Should have failed");
-    } catch (err) {
-      assert.match(err.stderr.toString(), /missing FIREBASE_SERVICE_ACCOUNT_JSON/);
-    }
+    assertInvalid({
+      CUBESYNC_RECAPTCHA_SITE_KEY: "site",
+      CUBESYNC_RECAPTCHA_SECRET_KEY: "secret"
+    }, /missing FIREBASE_SERVICE_ACCOUNT_JSON/);
   });
 
   test("fails when both service account env vars are present", () => {
-    try {
-      execSync(`node "${scriptPath}" dummy.env`, {
-        env: { 
-          CUBESYNC_RECAPTCHA_SITE_KEY: "site",
-          CUBESYNC_RECAPTCHA_SECRET_KEY: "secret",
-          FIREBASE_SERVICE_ACCOUNT_JSON: "{}",
-          FIREBASE_SERVICE_ACCOUNT_JSON_BASE64: "e30="
-        },
-        stdio: "pipe"
-      });
-      assert.fail("Should have failed");
-    } catch (err) {
-      assert.match(err.stderr.toString(), /not both/);
-    }
+    assertInvalid({
+      CUBESYNC_RECAPTCHA_SITE_KEY: "site",
+      CUBESYNC_RECAPTCHA_SECRET_KEY: "secret",
+      FIREBASE_SERVICE_ACCOUNT_JSON: "{}",
+      FIREBASE_SERVICE_ACCOUNT_JSON_BASE64: "e30="
+    }, /not both/);
   });
 
   test("fails when service account is not valid JSON", () => {
-    try {
-      execSync(`node "${scriptPath}" dummy.env`, {
-        env: { 
-          CUBESYNC_RECAPTCHA_SITE_KEY: "site",
-          CUBESYNC_RECAPTCHA_SECRET_KEY: "secret",
-          FIREBASE_SERVICE_ACCOUNT_JSON: "not-json"
-        },
-        stdio: "pipe"
-      });
-      assert.fail("Should have failed");
-    } catch (err) {
-      assert.match(err.stderr.toString(), /FIREBASE_SERVICE_ACCOUNT_JSON is not valid JSON/);
-    }
+    assertInvalid({
+      CUBESYNC_RECAPTCHA_SITE_KEY: "site",
+      CUBESYNC_RECAPTCHA_SECRET_KEY: "secret",
+      FIREBASE_SERVICE_ACCOUNT_JSON: "not-json"
+    }, /FIREBASE_SERVICE_ACCOUNT_JSON is not valid JSON/);
   });
 
   test("fails when service account is missing fields", () => {
-    try {
-      execSync(`node "${scriptPath}" dummy.env`, {
-        env: { 
-          CUBESYNC_RECAPTCHA_SITE_KEY: "site",
-          CUBESYNC_RECAPTCHA_SECRET_KEY: "secret",
-          FIREBASE_SERVICE_ACCOUNT_JSON: JSON.stringify({ type: "service_account" })
-        },
-        stdio: "pipe"
-      });
-      assert.fail("Should have failed");
-    } catch (err) {
-      assert.match(err.stderr.toString(), /service account missing project_id/);
-    }
+    assertInvalid({
+      CUBESYNC_RECAPTCHA_SITE_KEY: "site",
+      CUBESYNC_RECAPTCHA_SECRET_KEY: "secret",
+      FIREBASE_SERVICE_ACCOUNT_JSON: JSON.stringify({ type: "service_account" })
+    }, /service account missing project_id/);
   });
 
   test("passes when valid", () => {
@@ -94,15 +93,13 @@ describe("validate-env.js", () => {
       token_uri: "uri"
     };
     
-    const output = execSync(`node "${scriptPath}" dummy.env`, {
-      env: { 
-        CUBESYNC_RECAPTCHA_SITE_KEY: "site",
-        CUBESYNC_RECAPTCHA_SECRET_KEY: "secret",
-        FIREBASE_SERVICE_ACCOUNT_JSON: JSON.stringify(account)
-      },
-      stdio: "pipe"
+    const result = runValidateEnv({
+      CUBESYNC_RECAPTCHA_SITE_KEY: "site",
+      CUBESYNC_RECAPTCHA_SECRET_KEY: "secret",
+      FIREBASE_SERVICE_ACCOUNT_JSON: JSON.stringify(account)
     });
     
-    assert.match(output.toString(), /env ok:/);
+    assert.equal(result.exitCode, 0);
+    assert.match(result.stdout, /env ok:/);
   });
 });

@@ -255,6 +255,37 @@ async function deleteCubeRequest(id) {
   return id;
 }
 
+const EDIT_HISTORY_SUBCOLLECTION = "editHistory";
+
+function editHistoryCollection(requestId) {
+  return collection(db, COLLECTION_NAME, requestId, EDIT_HISTORY_SUBCOLLECTION);
+}
+
+// Append-only changelog of a record's field-level edits. One document per save
+// (edit session) with the changed fields embedded as `changes`.
+async function addEditHistoryEntry(requestId, sessionData) {
+  const reference = await addDoc(editHistoryCollection(requestId), withoutUndefined({
+    ...sessionData,
+    createdAt: serverTimestamp()
+  }));
+  return reference.id;
+}
+
+async function listEditHistory(requestId) {
+  const snapshot = await getDocs(editHistoryCollection(requestId));
+  return snapshot.docs
+    .map((entry) => ({ id: entry.id, ...entry.data() }))
+    .sort((left, right) => {
+      const leftValue = left.createdAt && typeof left.createdAt.toMillis === "function"
+        ? left.createdAt.toMillis()
+        : Date.parse(left.createdAt || "") || 0;
+      const rightValue = right.createdAt && typeof right.createdAt.toMillis === "function"
+        ? right.createdAt.toMillis()
+        : Date.parse(right.createdAt || "") || 0;
+      return rightValue - leftValue;
+    });
+}
+
 async function getFormFieldConfig() {
   const snapshot = await getDoc(settingsDocument(FORM_FIELD_CONFIG_DOC_ID));
   return snapshot.exists() ? snapshot.data() : null;
@@ -348,6 +379,8 @@ window.CubeSyncFirestore = {
   saveCubeRequest,
   updateCubeRequest,
   deleteCubeRequest,
+  addEditHistoryEntry,
+  listEditHistory,
   getFormFieldConfig,
   saveFormFieldConfig,
   getDropdownOptions,

@@ -1035,6 +1035,7 @@ service cloud.firestore {
         'results',
         'submittedAt',
         'attemptCount',
+        'version',
         'createdAt',
         'updatedAt'
       ];
@@ -1084,6 +1085,8 @@ service cloud.firestore {
         optCubeSyncTimestamp(data, 'submittedAt') &&
         (!('attemptCount' in data) ||
           (data.attemptCount is int && data.attemptCount >= 0 && data.attemptCount <= 10000)) &&
+        (!('version' in data) ||
+          (data.version is int && data.version >= 1 && data.version <= 1000000)) &&
         optCubeSyncTimestamp(data, 'createdAt') &&
         optCubeSyncTimestamp(data, 'updatedAt');
     }
@@ -1132,8 +1135,13 @@ service cloud.firestore {
           'results',
           'submittedAt',
           'attemptCount',
+          'version',
           'updatedAt'
         ]) &&
+        (!cubeRequestChanged('version') ||
+          (request.resource.data.version is int &&
+            request.resource.data.version >= 1 &&
+            request.resource.data.version <= 1000000)) &&
         (!cubeRequestChanged('template') ||
           request.resource.data.template in ['Original', 'Glassmorphic']) &&
         (!cubeRequestChanged('status') ||
@@ -1214,6 +1222,40 @@ service cloud.firestore {
             request.resource.data.attemptCount <= 10000));
     }
 
+    // Append-only edit-history changelog. Each document records one save
+    // (edit session) with the changed fields embedded as `changes`. Entries are
+    // permanent: no updates or deletes, even for staff.
+    function isValidEditHistoryEntry(data) {
+      return data.keys().hasOnly([
+          'editedByUid',
+          'editedByName',
+          'editedByEmail',
+          'editedByRole',
+          'reason',
+          'statusAtTime',
+          'previousVersion',
+          'newVersion',
+          'deviceInfo',
+          'changes',
+          'createdAt'
+        ]) &&
+        optStrWithin(data, 'editedByUid', 128) &&
+        optStrWithin(data, 'editedByName', 200) &&
+        optStrWithin(data, 'editedByEmail', 200) &&
+        optStrWithin(data, 'editedByRole', 40) &&
+        optStrWithin(data, 'reason', 2000) &&
+        optStrWithin(data, 'statusAtTime', 40) &&
+        optStrWithin(data, 'deviceInfo', 500) &&
+        (!('previousVersion' in data) ||
+          (data.previousVersion is int && data.previousVersion >= 0 && data.previousVersion <= 1000000)) &&
+        (!('newVersion' in data) ||
+          (data.newVersion is int && data.newVersion >= 0 && data.newVersion <= 1000000)) &&
+        data.changes is list &&
+        data.changes.size() >= 1 &&
+        data.changes.size() <= 100 &&
+        isCubeSyncTimestamp(data.createdAt);
+    }
+
     match /cubeRequests/{requestId} {
       allow read: if isCubeSyncStaff();
       allow create: if isCubeSyncStaff() &&
@@ -1221,6 +1263,13 @@ service cloud.firestore {
       allow update: if isCubeSyncStaff() &&
         isValidCubeRequestUpdate();
       allow delete: if isCubeSyncStaff();
+
+      match /editHistory/{sessionId} {
+        allow read: if isCubeSyncStaff();
+        allow create: if isCubeSyncStaff() &&
+          isValidEditHistoryEntry(request.resource.data);
+        allow update, delete: if false;
+      }
     }
 
     function isValidFormFieldConfig(data) {

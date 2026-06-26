@@ -974,7 +974,7 @@
   }
 
   function getExtraFieldValue(data, id) {
-    if (!data || !data.extraFields || typeof data.extraFields !== "object") {
+    if (!data || !data.extraFields || typeof data.extraFields !== "object" || Array.isArray(data.extraFields)) {
       return "";
     }
 
@@ -1370,6 +1370,202 @@
     return patch;
   }
 
+  // --- Edit history changelog -------------------------------------------------
+  // Legacy alias keys that mirror a canonical field. buildCubeRequestUpdatePatch
+  // may include both (e.g. `customerBilling` and `client`); we log only the
+  // canonical one so a single edit is not recorded twice.
+  const EDIT_HISTORY_SKIP_FIELDS = new Set([
+    "client",
+    "project",
+    "method",
+    "reportNo",
+    "projectCode",
+    "internalDate",
+    "dateTimeSampled",
+    "grade"
+  ]);
+
+  // Business-critical fields that require a written reason before saving. Covers
+  // both top-level request fields and per-row result fields.
+  const EDIT_HISTORY_SENSITIVE_FIELDS = new Set([
+    "customerBilling",
+    "clientNameOnReport",
+    "projectNameOnReport",
+    "concreteGrade",
+    "reportGrade",
+    "cubeJobNumber",
+    "barcode",
+    "dateOfTest",
+    "invoiceNumber"
+  ]);
+
+  // Previous-value resolution chains that mirror how dashboardEditToCubeRequest
+  // derives each canonical field on save (e.g. clientNameOnReport falls through
+  // to client and then customerBilling). Without matching the save derivation,
+  // a record stored only under a legacy/related field would surface its
+  // canonical sibling as a phantom change — and demand a reason for it.
+  const EDIT_HISTORY_PREV_FALLBACKS = {
+    customerBilling: ["customerBilling", "client"],
+    clientNameOnReport: ["clientNameOnReport", "client", "customerBilling"],
+    projectNameOnReport: ["projectNameOnReport", "project", "projectErp"],
+    projectErp: ["projectErp", "projectCode"],
+    cubeJobNumber: ["cubeJobNumber", "reportNo"],
+    concreteGrade: ["concreteGrade", "grade"],
+    reportGrade: ["reportGrade", "concreteGrade", "grade"],
+    testItem: ["testItem", "method"],
+    supplierDisplay: ["supplierDisplay", "supplier"],
+    dateOfCast: ["dateOfCast", "internalDate", "dateTimeSampled"]
+  };
+
+  function editHistoryPreviousValue(existing, field) {
+    if (CHECKBOX_FIELDS.has(field)) {
+      return Boolean(existing[field]);
+    }
+
+    const chain = EDIT_HISTORY_PREV_FALLBACKS[field] || [field];
+    for (const key of chain) {
+      const candidate = existing[key];
+      if (candidate !== undefined && candidate !== null && normalizeText(candidate) !== "") {
+        return field === "dateOfCast" ? normalizeText(candidate).slice(0, 10) : candidate;
+      }
+    }
+    return "";
+  }
+
+  function editHistoryDisplayName(field) {
+    if (REQUEST_FIELD_LABELS[field]) {
+      return REQUEST_FIELD_LABELS[field];
+    }
+    if (field === "status") {
+      return "Status";
+    }
+    if (field === "template") {
+      return "Template";
+    }
+    return field;
+  }
+
+  function editHistoryDataType(field) {
+    if (NUMBER_FIELDS.has(field)) {
+      return "number";
+    }
+    if (CHECKBOX_FIELDS.has(field)) {
+      return "boolean";
+    }
+    if (field === "dateOfCast" || field === "resultDateOfCast" || field === "dateOfTest") {
+      return "date";
+    }
+    return "text";
+  }
+
+  function formatEditHistoryValue(field, value) {
+    if (CHECKBOX_FIELDS.has(field)) {
+      return value ? "Yes" : "No";
+    }
+    if (editHistoryDataType(field) === "date") {
+      return formatDate(value) || normalizeText(value);
+    }
+    return normalizeText(value);
+  }
+
+  function resultScalarsEqual(field, left, right) {
+    if (NUMBER_FIELDS.has(field)) {
+      const leftNumber = left == null || left === "" ? null : Number(left);
+      const rightNumber = right == null || right === "" ? null : Number(right);
+      if (leftNumber === null && rightNumber === null) {
+        return true;
+      }
+      return leftNumber === rightNumber &&
+        Number.isFinite(leftNumber) &&
+        Number.isFinite(rightNumber);
+    }
+    return normalizeText(left) === normalizeText(right);
+  }
+
+  // Row-positional diff of the embedded results array. Each differing cell is a
+  // separate change entry labelled "Set N · Field".
+  function diffResultRows(previousResults, nextResults) {
+    const prev = normalizeResultRowsForUpdate(previousResults);
+    const next = normalizeResultRowsForUpdate(nextResults);
+    const changes = [];
+    const rowCount = Math.max(prev.length, next.length);
+
+    for (let index = 0; index < rowCount; index += 1) {
+      const before = prev[index] || {};
+      const after = next[index] || {};
+
+      RESULT_FIELDS.forEach((field) => {
+        if (resultScalarsEqual(field, before[field], after[field])) {
+          return;
+        }
+        changes.push({
+          field,
+          displayName: `Set ${index + 1} · ${RESULT_FIELD_LABELS[field] || field}`,
+          previousValue: formatEditHistoryValue(field, before[field]),
+          newValue: formatEditHistoryValue(field, after[field]),
+          dataType: editHistoryDataType(field)
+        });
+      });
+    }
+
+    return changes;
+  }
+
+  // Turn the output of buildCubeRequestUpdatePatch into a human-readable list of
+  // field changes for the edit-history changelog. Technical/complex fields
+  // (custom/extra fields, ERP & RPA workflow flags, legacy aliases) are skipped.
+  function buildEditHistoryChanges(existing, patch) {
+    const source = existing && typeof existing === "object" ? existing : {};
+    const changed = patch && typeof patch === "object" ? patch : {};
+    const changes = [];
+
+    Object.keys(changed).forEach((field) => {
+      if (field === "results") {
+        diffResultRows(source.results, changed.results).forEach((change) => {
+          changes.push(change);
+        });
+        return;
+      }
+
+      if (EDIT_HISTORY_SKIP_FIELDS.has(field)) {
+        return;
+      }
+
+      const isLoggableField = field in REQUEST_FIELD_LABELS ||
+        field === "status" ||
+        field === "template";
+      if (!isLoggableField) {
+        return;
+      }
+
+      // Resolve the previous value through the same legacy-alias fallbacks the
+      // editor uses (e.g. customerBilling falls back to the stored `client`).
+      // A record migrated from a legacy field surfaces the canonical field as
+      // "changed" in the patch even when the user did not touch it; comparing
+      // the effective previous value drops those phantom diffs so they neither
+      // clutter the changelog nor trigger a spurious reason prompt.
+      const effectiveOld = editHistoryPreviousValue(source, field);
+      if (cubeRequestFieldValuesEqual(field, effectiveOld, changed[field])) {
+        return;
+      }
+
+      changes.push({
+        field,
+        displayName: editHistoryDisplayName(field),
+        previousValue: formatEditHistoryValue(field, effectiveOld),
+        newValue: formatEditHistoryValue(field, changed[field]),
+        dataType: editHistoryDataType(field)
+      });
+    });
+
+    return changes;
+  }
+
+  function changesRequireReason(changes) {
+    return Array.isArray(changes) &&
+      changes.some((change) => EDIT_HISTORY_SENSITIVE_FIELDS.has(change && change.field));
+  }
+
   function formatDate(value) {
     if (!value) {
       return "";
@@ -1428,7 +1624,7 @@
       managerInCharge: normalizeText(data.managerInCharge),
       customFields,
       customFieldCount: customFields.length,
-      extraFields: data.extraFields && typeof data.extraFields === "object" ? data.extraFields : {},
+      extraFields: data.extraFields && typeof data.extraFields === "object" && !Array.isArray(data.extraFields) ? data.extraFields : {},
       raw: data
     };
   }
@@ -1568,6 +1764,9 @@
     normalizeCubeRequestForDashboard,
     CUBE_REQUEST_UPDATE_FIELDS,
     sanitizeCubeRequestUpdatePayload,
-    buildCubeRequestUpdatePatch
+    buildCubeRequestUpdatePatch,
+    EDIT_HISTORY_SENSITIVE_FIELDS,
+    buildEditHistoryChanges,
+    changesRequireReason
   };
 });

@@ -19,7 +19,11 @@ const {
   normalizeDropdownOptionList,
   readSharedDropdownOptions,
   buildSharedDropdownAddValues,
-  buildSharedDropdownSaveValues
+  buildSharedDropdownSaveValues,
+  sanitizeCubeRequestUpdatePayload,
+  dashboardEditToCubeRequest,
+  getCubeRequestFormValue,
+  isDropdownFreeTextField
 } = require("./cubesync-form-data");
 
 function formFieldNames(html) {
@@ -402,6 +406,113 @@ test("buildCubeRequestUpdatePatch only sends changed fields", () => {
   assert.deepEqual(customFieldsCleanup, {});
 });
 
+test("sanitizeCubeRequestUpdatePayload normalizes update-only edge cases", () => {
+  const sanitized = sanitizeCubeRequestUpdatePayload({
+    status: "   ",
+    template: "",
+    enableManualCubeJobNumber: "yes",
+    customFields: ["supplier", "supplier", "not-a-dropdown"],
+    results: [
+      { setNo: "1", age: "7", specimenRef: "A" },
+      { setNo: "2" },
+      null
+    ],
+    extraFields: []
+  });
+
+  assert.equal(sanitized.status, "Draft");
+  assert.equal(sanitized.template, "Original");
+  assert.equal(sanitized.enableManualCubeJobNumber, true);
+  assert.deepEqual(sanitized.customFields, ["supplier"]);
+  assert.deepEqual(sanitized.results, [
+    {
+      setNo: 1,
+      size: "",
+      specimenRef: "A",
+      barcode: "",
+      specifiedSlump: "",
+      meanSlump: null,
+      resultGrade: "",
+      resultDateOfCast: "",
+      age: 7,
+      dateOfTest: "",
+      invoiceNumber: ""
+    }
+  ]);
+  assert.equal("extraFields" in sanitized, false);
+
+  assert.deepEqual(sanitizeCubeRequestUpdatePayload({ results: "bad", extraFields: {} }), {
+    results: []
+  });
+});
+
+test("buildCubeRequestUpdatePatch handles null existing records, checkbox equality, and invalid extras", () => {
+  assert.deepEqual(buildCubeRequestUpdatePatch(null, { status: "Ready" }), { status: "Ready" });
+  assert.deepEqual(buildCubeRequestUpdatePatch(
+    { enableManualCubeJobNumber: true },
+    { enableManualCubeJobNumber: "yes" }
+  ), {});
+  assert.deepEqual(buildCubeRequestUpdatePatch(
+    { extraFields: { siteRef: "A" } },
+    { extraFields: ["bad"] }
+  ), {});
+});
+
+test("dashboardEditToCubeRequest falls back across legacy dashboard field names", () => {
+  const formData = new FormData();
+  formData.set("reportNo", "LEGACY-001");
+  formData.set("client", "Legacy Client");
+  formData.set("project", "Legacy Project");
+  formData.set("grade", "C40");
+  formData.set("location", "Legacy Location");
+  formData.set("notes", "Legacy Notes");
+  formData.set("internalDate", "2026-06-24");
+  formData.set("projectCode", "ERP-LEGACY");
+  formData.set("method", "Legacy Method");
+  formData.set("supplier", "Legacy Supplier");
+  formData.set("dateTimeSampled", "2026-06-25");
+  formData.set("slumpMeasured", "not-a-number");
+  formData.set("slumpSpecified", "100");
+  formData.set("enableManualCubeJobNumber", "on");
+
+  const request = dashboardEditToCubeRequest(formData);
+
+  assert.equal(request.reportNo, "LEGACY-001");
+  assert.equal(request.client, "Legacy Client");
+  assert.equal(request.project, "Legacy Project");
+  assert.equal(request.concreteGrade, "C40");
+  assert.equal(request.locationRepresented, "Legacy Location");
+  assert.equal(request.additionalInformation, "Legacy Notes");
+  assert.equal(request.internalDate, "2026-06-24");
+  assert.equal(request.projectErp, "ERP-LEGACY");
+  assert.equal(request.method, "Legacy Method");
+  assert.equal(request.supplierDisplay, "Legacy Supplier");
+  assert.equal(request.dateOfCast, "2026-06-24");
+  assert.equal(request.dateTimeSampled, "2026-06-25");
+  assert.equal(request.slumpMeasured, null);
+  assert.equal(request.slumpSpecified, 100);
+  assert.equal(request.enableManualCubeJobNumber, true);
+});
+
+test("getCubeRequestFormValue applies aliases, date trimming, checkbox coercion, and empty fallback", () => {
+  const record = {
+    projectCode: "ERP-001",
+    client: "Client Alias",
+    reportNo: "REPORT-001",
+    dateTimeSampled: "2026-06-24T10:00:00Z",
+    concreteGrade: "C35",
+    enableManualCubeJobNumber: 1
+  };
+
+  assert.equal(getCubeRequestFormValue(record, "projectErp"), "ERP-001");
+  assert.equal(getCubeRequestFormValue(record, "customerBilling"), "Client Alias");
+  assert.equal(getCubeRequestFormValue(record, "cubeJobNumber"), "REPORT-001");
+  assert.equal(getCubeRequestFormValue(record, "dateOfCast"), "2026-06-24");
+  assert.equal(getCubeRequestFormValue(record, "reportGrade"), "C35");
+  assert.equal(getCubeRequestFormValue(record, "enableManualCubeJobNumber"), true);
+  assert.equal(getCubeRequestFormValue(null, "projectErp"), "");
+});
+
 test("deriveFreeTextDropdownFields flags values missing from the option list", () => {
   const optionsByField = {
     supplier: ["ABC Concrete", "XYZ Ready Mix"],
@@ -437,6 +548,12 @@ test("deriveFreeTextDropdownFields skips fields without a known option list", ()
 test("mergeFreeTextDropdownFields combines and de-duplicates flag sources", () => {
   const merged = mergeFreeTextDropdownFields(["supplier"], ["supplier", "projectErp"], ["bogus"]);
   assert.deepEqual(merged, ["supplier", "projectErp"]);
+});
+
+test("isDropdownFreeTextField normalizes metadata before membership checks", () => {
+  assert.equal(isDropdownFreeTextField([" supplier ", "bogus"], "supplier"), true);
+  assert.equal(isDropdownFreeTextField("supplier", "supplier"), false);
+  assert.equal(isDropdownFreeTextField(["bogus"], "supplier"), false);
 });
 
 test("resolveFreeTextDropdownFields does not flag a value that matches an option", () => {

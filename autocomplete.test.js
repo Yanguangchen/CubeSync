@@ -133,3 +133,33 @@ test("a query with no matches hides the dropdown", async () => {
   dispatch("input");
   assert.equal(dropdown().style.display, "none");
 });
+
+test("invalid localStorage options are ignored and blur marks unselected text", async () => {
+  installDom();
+  global.localStorage.setItem("supplierOptions", "{not-json");
+
+  await autocomplete.setupAutocomplete("supplier", "options.txt", "supplierOptions", ["Shared Supplier"]);
+
+  input().value = "Typed Supplier";
+  dispatch("focus");
+  dispatch("blur");
+
+  assert.equal(dropdown().style.display, "none");
+  assert.equal(input().dataset.freeTextEntry, "true");
+});
+
+test("setFreeTextState tolerates missing inputs and clears empty values", () => {
+  assert.doesNotThrow(() => autocomplete.setFreeTextState(null, true));
+
+  installDom();
+  input().value = "";
+  autocomplete.setFreeTextState(input(), true);
+  assert.equal(input().dataset.freeTextEntry, undefined);
+
+  input().value = "Typed Supplier";
+  autocomplete.setFreeTextState(input(), true);
+  assert.equal(input().dataset.freeTextEntry, "true");
+
+  autocomplete.setFreeTextState(input(), false);
+  assert.equal(input().dataset.freeTextEntry, undefined);
+});

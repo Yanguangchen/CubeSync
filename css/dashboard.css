@@ -1463,3 +1463,235 @@ textarea:focus {
   margin-top: 8px;
   margin-bottom: 8px;
 }
+
+/* ==========================================================================
+   Detail panel tabs + edit-history changelog
+   ========================================================================== */
+.trial-badge {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--accent-secondary-soft, var(--accent-soft));
+  color: var(--accent, #b8860b);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
+.detail-tabs {
+  display: flex;
+  gap: 4px;
+  margin: 4px 0 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.detail-tabs[hidden] {
+  display: none;
+}
+
+.detail-tab {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-weight: 600;
+  padding: 8px 12px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+
+.detail-tab:hover {
+  color: var(--ink);
+}
+
+.detail-tab.is-active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.detail-tab-pane[hidden] {
+  display: none;
+}
+
+.edit-history-empty {
+  color: var(--muted);
+}
+
+.edit-history-timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.edit-history-entry {
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.edit-history-entry summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  padding: 10px 12px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.edit-history-entry summary::-webkit-details-marker {
+  display: none;
+}
+
+.edit-history-entry summary::before {
+  content: "▸";
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.edit-history-entry details[open] > summary::before {
+  content: "▾";
+}
+
+.edit-history-entry .eh-when {
+  font-weight: 600;
+}
+
+.edit-history-entry .eh-who {
+  color: var(--muted);
+}
+
+.edit-history-entry .eh-count {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.edit-history-entry .eh-version {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.edit-history-entry .eh-body {
+  padding: 0 12px 12px;
+}
+
+.eh-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+  margin: 0 0 10px;
+}
+
+.eh-meta div {
+  display: flex;
+  gap: 6px;
+}
+
+.eh-meta dt {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.eh-meta dd {
+  margin: 0;
+}
+
+.eh-changes {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.eh-changes th,
+.eh-changes td {
+  text-align: left;
+  padding: 6px 8px;
+  border-top: 1px solid var(--line);
+  vertical-align: top;
+}
+
+.eh-changes thead th {
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-top: none;
+}
+
+.eh-changes .eh-prev {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.eh-changes .eh-next {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* Reason-for-change dialog */
+.reason-dialog {
+  width: min(520px, calc(100vw - 32px));
+  padding: 20px;
+  border-radius: 18px;
+  color: var(--ink);
+}
+
+.reason-dialog::backdrop {
+  background: rgba(15, 23, 42, 0.42);
+  backdrop-filter: blur(8px);
+}
+
+.reason-dialog header h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.reason-intro {
+  color: var(--muted);
+  margin: 8px 0 10px;
+}
+
+.reason-change-list {
+  margin: 0 0 12px;
+  padding-left: 18px;
+  font-size: 13px;
+}
+
+.reason-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.reason-field span {
+  font-weight: 600;
+}
+
+.reason-field textarea {
+  width: 100%;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  padding: 8px 10px;
+  font: inherit;
+  resize: vertical;
+}
+
+.reason-dialog footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+}

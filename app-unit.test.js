@@ -85,7 +85,7 @@ test("auto-print triggers window.print on ?print=true after loading form", async
 
   dispatchDOMContentLoaded();
 
-  await new Promise((resolve) => setTimeout(resolve, 700));
+  await new Promise((resolve) => setTimeout(resolve, 1000));
 
   assert.ok(printCalls >= 1, `expected window.print to be called, got ${printCalls} calls`);
   assert.equal(global.document.querySelector('[name="projectErp"]').value, "Print ERP");

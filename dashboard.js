@@ -29,6 +29,8 @@
 
   const elements = {};
   let initialized = false;
+  let historyLoadedId = null;
+  let reasonResolver = null;
 
   async function loadDropdownOptionSets() {
     const fetchFn = typeof window !== "undefined" && window.fetch
@@ -457,6 +459,14 @@
       elements.detailContent.innerHTML = "<p>Select a form from the dashboard to view its request details and barcode labels.</p>";
       setDetailButtons(false);
       setDetailPanelVisible(false);
+      if (elements.detailTabs) {
+        elements.detailTabs.hidden = true;
+      }
+      if (elements.detailHistoryContent) {
+        elements.detailHistoryContent.innerHTML = "";
+      }
+      historyLoadedId = null;
+      setDetailTab("details");
       renderForms();
       return;
     }
@@ -504,7 +514,169 @@
     `;
     setDetailButtons(true);
     setDetailPanelVisible(true);
+    if (elements.detailTabs) {
+      elements.detailTabs.hidden = false;
+    }
+    historyLoadedId = null;
+    if (elements.detailHistoryContent) {
+      elements.detailHistoryContent.innerHTML = "";
+    }
+    setDetailTab("details");
     renderForms();
+  }
+
+  function setDetailTab(tab) {
+    if (elements.detailTabs) {
+      elements.detailTabs.querySelectorAll("[data-detail-tab]").forEach((button) => {
+        const active = button.dataset.detailTab === tab;
+        button.classList.toggle("is-active", active);
+        button.setAttribute("aria-selected", active ? "true" : "false");
+      });
+    }
+    if (elements.detailPanel) {
+      elements.detailPanel.querySelectorAll("[data-detail-pane]").forEach((pane) => {
+        const active = pane.dataset.detailPane === tab;
+        pane.classList.toggle("is-active", active);
+        pane.hidden = !active;
+      });
+    }
+
+    if (tab === "history" && state.selectedId && historyLoadedId !== state.selectedId) {
+      renderEditHistory(state.selectedId);
+    }
+  }
+
+  function formatEditHistoryTimestamp(value) {
+    let date = null;
+    if (value && typeof value.toDate === "function") {
+      date = value.toDate();
+    } else if (value instanceof Date) {
+      date = value;
+    } else if (typeof value === "string" && value) {
+      const parsed = new Date(value);
+      if (!Number.isNaN(parsed.getTime())) {
+        date = parsed;
+      }
+    }
+
+    if (!date) {
+      return "Pending…";
+    }
+
+    try {
+      return date.toLocaleString("en-SG", {
+        day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit"
+      });
+    } catch {
+      return date.toISOString();
+    }
+  }
+
+  function renderEditHistoryEntry(entry) {
+    const changes = Array.isArray(entry.changes) ? entry.changes : [];
+    const fieldsLabel = changes.length === 1 ? "1 field changed" : `${changes.length} fields changed`;
+    const versionLabel = entry.previousVersion && entry.newVersion
+      ? `v${entry.previousVersion} → v${entry.newVersion}`
+      : (entry.newVersion ? `v${entry.newVersion}` : "");
+    const rows = changes.map((change) => `
+      <tr>
+        <th scope="row">${escapeHtml(change.displayName || change.field || "")}</th>
+        <td class="eh-prev">${escapeHtml(change.previousValue || "—")}</td>
+        <td class="eh-next">${escapeHtml(change.newValue || "—")}</td>
+      </tr>`).join("");
+
+    return `
+      <li class="edit-history-entry">
+        <details>
+          <summary>
+            <span class="eh-when">${escapeHtml(formatEditHistoryTimestamp(entry.createdAt))}</span>
+            <span class="eh-who">${escapeHtml(entry.editedByName || entry.editedByEmail || "Unknown user")}</span>
+            <span class="eh-count">${escapeHtml(fieldsLabel)}</span>
+            ${versionLabel ? `<span class="eh-version">${escapeHtml(versionLabel)}</span>` : ""}
+          </summary>
+          <div class="eh-body">
+            <dl class="eh-meta">
+              ${entry.editedByRole ? `<div><dt>Role</dt><dd>${escapeHtml(entry.editedByRole)}</dd></div>` : ""}
+              ${entry.statusAtTime ? `<div><dt>Status at edit</dt><dd>${escapeHtml(entry.statusAtTime)}</dd></div>` : ""}
+              ${entry.reason ? `<div><dt>Reason</dt><dd>${escapeHtml(entry.reason)}</dd></div>` : ""}
+            </dl>
+            <table class="eh-changes">
+              <thead><tr><th scope="col">Field</th><th scope="col">Previous</th><th scope="col">New</th></tr></thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>
+        </details>
+      </li>`;
+  }
+
+  async function renderEditHistory(id) {
+    const store = formStore();
+    const container = elements.detailHistoryContent;
+    if (!container) {
+      return;
+    }
+
+    if (!store || typeof store.listEditHistory !== "function") {
+      container.innerHTML = "<p>Edit history is unavailable.</p>";
+      return;
+    }
+
+    historyLoadedId = id;
+    container.innerHTML = "<p>Loading edit history…</p>";
+
+    try {
+      const entries = await store.listEditHistory(id);
+      if (id !== state.selectedId) {
+        return;
+      }
+      if (!entries.length) {
+        container.innerHTML = '<p class="edit-history-empty">No edits recorded yet. Changes saved from the dashboard editor will appear here.</p>';
+        return;
+      }
+      container.innerHTML = `<ol class="edit-history-timeline">${entries.map(renderEditHistoryEntry).join("")}</ol>`;
+    } catch (error) {
+      historyLoadedId = null;
+      container.innerHTML = `<p>${escapeHtml(error.message || "Unable to load edit history.")}</p>`;
+    }
+  }
+
+  // Promise-based modal: resolves to the entered reason string, or null if the
+  // user cancels (which aborts the save). Falls back to window.prompt when the
+  // <dialog> element is unavailable.
+  function requestEditReason(changes) {
+    return new Promise((resolve) => {
+      reasonResolver = resolve;
+
+      if (elements.reasonChangeList) {
+        elements.reasonChangeList.innerHTML = changes.map((change) => `
+          <li><strong>${escapeHtml(change.displayName || change.field || "")}</strong>: ${escapeHtml(change.previousValue || "—")} → ${escapeHtml(change.newValue || "—")}</li>`).join("");
+      }
+      if (elements.reasonInput) {
+        elements.reasonInput.value = "";
+      }
+      clearSurfaceStatus(elements.reasonStatus);
+
+      if (elements.reasonDialog && typeof elements.reasonDialog.showModal === "function") {
+        elements.reasonDialog.showModal();
+        if (elements.reasonInput) {
+          elements.reasonInput.focus();
+        }
+      } else {
+        const reason = window.prompt("You are changing important record information. Please provide a reason for audit purposes.");
+        finishReason(reason && reason.trim() ? reason.trim() : null);
+      }
+    });
+  }
+
+  function finishReason(value) {
+    const resolve = reasonResolver;
+    reasonResolver = null;
+    if (elements.reasonDialog && elements.reasonDialog.open) {
+      elements.reasonDialog.close();
+    }
+    if (resolve) {
+      resolve(value);
+    }
   }
 
   async function loadForms() {
@@ -1206,7 +1378,56 @@
         return;
       }
 
+      // Build the field-level changelog for the edit-history audit. Only
+      // business-meaningful fields produce entries; technical/complex fields
+      // still save but are not logged.
+      const changes = typeof helper.buildEditHistoryChanges === "function"
+        ? helper.buildEditHistoryChanges(existing, patch)
+        : [];
+
+      // Sensitive fields (barcode, project/client name, grade, dates, report &
+      // invoice numbers) require a written reason before the change is saved.
+      let reason = "";
+      if (changes.length &&
+          typeof helper.changesRequireReason === "function" &&
+          helper.changesRequireReason(changes)) {
+        reason = await requestEditReason(changes);
+        if (reason == null) {
+          setSurfaceStatus(elements.editFormStatus, "Save cancelled — a reason is required for these changes.", "info");
+          return;
+        }
+      }
+
+      const previousVersion = Number.isFinite(existing.version) ? existing.version : 1;
+      const newVersion = previousVersion + 1;
+      if (changes.length) {
+        patch.version = newVersion;
+      }
+
       await store.updateCubeRequest(id, patch);
+
+      // Append the edit-history session entry. Best-effort: a logging failure
+      // must not undo the already-saved record change.
+      if (changes.length && typeof store.addEditHistoryEntry === "function") {
+        try {
+          const auth = authHelper();
+          const user = auth && typeof auth.currentUser === "function" ? auth.currentUser() : null;
+          await store.addEditHistoryEntry(id, {
+            editedByUid: user && user.uid ? user.uid : "",
+            editedByName: user ? (user.displayName || user.email || "") : "",
+            editedByEmail: user && user.email ? user.email : "",
+            editedByRole: "staff",
+            reason: reason || "",
+            statusAtTime: existing.status || payload.status || "Draft",
+            previousVersion,
+            newVersion,
+            deviceInfo: (typeof window !== "undefined" && window.navigator ? String(window.navigator.userAgent || "") : "").slice(0, 500),
+            changes
+          });
+        } catch (historyError) {
+          console.error("CubeSync edit-history write failed", historyError);
+        }
+      }
 
       // Promote flagged free-text values to the shared option lists when a form
       // is set to Ready, so the value becomes a suggestion for everyone. Refresh
@@ -1317,6 +1538,8 @@
     [
       "authGate", "dashboardShell", "signInButton", "signOutButton", "authUser",
       "authGateStatus", "topbarStatus", "formList", "detailPanel", "detailContent", "detailTitle", "detailStatus", "searchInput",
+      "detailTabs", "detailHistoryContent",
+      "reasonDialog", "reasonForm", "reasonInput", "reasonChangeList", "reasonStatus", "cancelReasonButton",
       "statusFilter", "clientFilter", "projectFilter", "sortOrder",
       "todayToggle", "todayOnlyToggle",
       "editDialog", "editForm", "editFormStatus", "closeEditorButton", "cancelEditButton",
@@ -1414,6 +1637,34 @@
     elements.detailDeleteButton.addEventListener("click", () => deleteForm(state.selectedId));
     if (elements.detailHideButton) {
       elements.detailHideButton.addEventListener("click", () => viewForm(null));
+    }
+    if (elements.detailTabs) {
+      elements.detailTabs.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-detail-tab]");
+        if (button) {
+          setDetailTab(button.dataset.detailTab);
+        }
+      });
+    }
+    if (elements.reasonForm) {
+      elements.reasonForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const value = elements.reasonInput ? elements.reasonInput.value.trim() : "";
+        if (!value) {
+          setSurfaceStatus(elements.reasonStatus, "A reason is required before saving.", "error");
+          return;
+        }
+        finishReason(value);
+      });
+    }
+    if (elements.cancelReasonButton) {
+      elements.cancelReasonButton.addEventListener("click", () => finishReason(null));
+    }
+    if (elements.reasonDialog) {
+      elements.reasonDialog.addEventListener("cancel", (event) => {
+        event.preventDefault();
+        finishReason(null);
+      });
     }
 
     elements.editForm.addEventListener("submit", saveEditedForm);

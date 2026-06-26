@@ -8,15 +8,26 @@ const {
   RESULT_FIELDS,
   defaultFormFieldConfig,
   normalizeFormFieldConfig,
+  normalizeCustomFieldDefinition,
   normalizeCustomRequestFields,
+  customFieldInputName,
+  getCustomFieldFormLabel,
+  getCustomRequestFields,
+  getEnabledCustomRequestFields,
+  customRequestFieldHtml,
   getActiveRequiredFormFields,
+  isRequestFieldEnabled,
+  isResultFieldEnabled,
   getRequestFieldLabel,
   getResultFieldLabel,
   applyFieldLabels,
   applyCustomRequestFields,
   collectExtraFields,
+  normalizeExtraFields,
   validateExtraFields,
   isValidCustomFieldId,
+  getExtraFieldValue,
+  isRequestFieldFilled,
   formatCustomFieldDisplayValue,
   applyFormFieldConfig,
   syncNativeFormConstraints,
@@ -404,6 +415,87 @@ test("normalizeCustomRequestFields validates ids, deduplicates, and slugifies la
   assert.equal(isValidCustomFieldId("projectErp"), false);
 });
 
+test("normalizeCustomFieldDefinition rejects corrupt definitions and normalizes safe ones", () => {
+  assert.equal(normalizeCustomFieldDefinition(null), null);
+  assert.equal(normalizeCustomFieldDefinition("bad"), null);
+  assert.equal(normalizeCustomFieldDefinition({ label: "123 Bad" }), null);
+  assert.equal(normalizeCustomFieldDefinition({ id: "setNo", label: "Reserved" }), null);
+  assert.equal(normalizeCustomRequestFields("not-an-array").length, 0);
+
+  const def = normalizeCustomFieldDefinition({
+    label: " Delivery Note ",
+    type: "bogus",
+    required: 1,
+    enabled: true,
+    formLabel: "  Public Delivery Note  "
+  });
+
+  assert.deepEqual(def, {
+    id: "delivery_note",
+    label: "Delivery Note",
+    type: "text",
+    required: true,
+    enabled: true,
+    formLabel: "Public Delivery Note"
+  });
+  assert.equal(customFieldInputName(def.id), "custom__delivery_note");
+  assert.equal(getCustomFieldFormLabel(def), "Public Delivery Note");
+  assert.equal(getCustomFieldFormLabel({ id: "fallbackId", label: "", formLabel: "" }), "fallbackId");
+});
+
+test("custom request field helpers expose normalized enabled definitions", () => {
+  const config = normalizeFormFieldConfig({
+    customRequestFields: [
+      { id: "siteRef", label: "Site Reference", type: "text", enabled: true },
+      { id: "disabledNote", label: "Disabled Note", type: "textarea", enabled: false }
+    ]
+  });
+
+  assert.deepEqual(getCustomRequestFields(config).map((def) => def.id), ["siteRef", "disabledNote"]);
+  assert.deepEqual(getEnabledCustomRequestFields(config).map((def) => def.id), ["siteRef"]);
+  assert.equal(isRequestFieldEnabled(config, "quote"), true);
+  assert.equal(isRequestFieldEnabled(normalizeFormFieldConfig({ requestFields: { quote: false } }), "quote"), false);
+  assert.equal(isResultFieldEnabled(config, "barcode"), true);
+  assert.equal(isResultFieldEnabled(normalizeFormFieldConfig({ resultFields: { barcode: false } }), "barcode"), false);
+});
+
+test("customRequestFieldHtml renders number, date, and textarea field variants", () => {
+  const numberHtml = customRequestFieldHtml({
+    id: "loadCount",
+    label: "Load Count",
+    type: "number",
+    required: true,
+    enabled: true,
+    formLabel: ""
+  });
+  assert.match(numberHtml, /type="number"/);
+  assert.match(numberHtml, /min="0" step="1"/);
+  assert.match(numberHtml, /required/);
+
+  const dateHtml = customRequestFieldHtml({
+    id: "pourDate",
+    label: "Pour Date",
+    type: "date",
+    required: false,
+    enabled: true,
+    formLabel: "Actual Pour Date"
+  });
+  assert.match(dateHtml, /type="date"/);
+  assert.match(dateHtml, /Actual Pour Date :/);
+
+  const textareaHtml = customRequestFieldHtml({
+    id: "siteNotes",
+    label: "Site Notes",
+    type: "textarea",
+    required: false,
+    enabled: false,
+    formLabel: ""
+  });
+  assert.match(textareaHtml, /<textarea/);
+  assert.match(textareaHtml, / hidden/);
+  assert.match(textareaHtml, / disabled/);
+});
+
 test("applyCustomRequestFields renders enabled custom fields and collects values", () => {
   const dom = new JSDOM(`
     <form id="cubeRequestForm">
@@ -436,6 +528,77 @@ test("applyCustomRequestFields renders enabled custom fields and collects values
   });
 });
 
+test("applyCustomRequestFields handles missing containers and typed custom values", () => {
+  const noContainerDom = new JSDOM(`<form id="cubeRequestForm"></form>`);
+  assert.doesNotThrow(() => {
+    applyCustomRequestFields(noContainerDom.window.document.getElementById("cubeRequestForm"), {
+      customRequestFields: [{ id: "siteRef", label: "Site Reference", type: "text" }]
+    });
+  });
+
+  const dom = new JSDOM(`
+    <form id="cubeRequestForm">
+      <div id="customRequestFields" class="custom-request-fields"></div>
+    </form>
+  `);
+  const form = dom.window.document.getElementById("cubeRequestForm");
+  const config = normalizeFormFieldConfig({
+    customRequestFields: [
+      { id: "loadCount", label: "Load Count", type: "number" },
+      { id: "pourDate", label: "Pour Date", type: "date" },
+      { id: "siteNotes", label: "Site Notes", type: "textarea" }
+    ]
+  });
+
+  applyCustomRequestFields(form, config, {
+    loadCount: 12,
+    pourDate: "2026-06-24T10:00:00Z",
+    siteNotes: "  Keep wet  "
+  });
+
+  assert.equal(form.querySelector('[data-custom-field-id="loadCount"]').value, "12");
+  assert.equal(form.querySelector('[data-custom-field-id="pourDate"]').value, "2026-06-24");
+  assert.equal(form.querySelector('[data-custom-field-id="siteNotes"]').value, "  Keep wet  ");
+
+  form.querySelector('[data-custom-field-id="loadCount"]').value = "not-a-number";
+  assert.deepEqual(collectExtraFields(form), {
+    loadCount: null,
+    pourDate: "2026-06-24",
+    siteNotes: "Keep wet"
+  });
+});
+
+test("normalizeExtraFields whitelists configured ids and normalizes values by type", () => {
+  const config = normalizeFormFieldConfig({
+    customRequestFields: [
+      { id: "loadCount", label: "Load Count", type: "number" },
+      { id: "approved", label: "Approved", type: "checkbox" },
+      { id: "siteNotes", label: "Site Notes", type: "textarea" },
+      { id: "pourDate", label: "Pour Date", type: "date" },
+      { id: "missing", label: "Missing", type: "text" }
+    ]
+  });
+
+  assert.deepEqual(normalizeExtraFields({ loadCount: "10" }, null), {});
+  assert.deepEqual(normalizeExtraFields(["bad"], config), {});
+  assert.deepEqual(normalizeExtraFields({
+    loadCount: "10",
+    approved: "yes",
+    siteNotes: "  Trim me  ",
+    pourDate: " 2026-06-24 ",
+    unknown: "drop"
+  }, config), {
+    loadCount: 10,
+    approved: true,
+    siteNotes: "Trim me",
+    pourDate: "2026-06-24"
+  });
+
+  assert.equal(getExtraFieldValue({ extraFields: { loadCount: 10 } }, "loadCount"), 10);
+  assert.equal(getExtraFieldValue(null, "loadCount"), "");
+  assert.equal(getExtraFieldValue({ extraFields: [] }, "loadCount"), "");
+});
+
 test("validateExtraFields enforces required custom fields", () => {
   const config = normalizeFormFieldConfig({
     customRequestFields: [
@@ -450,6 +613,22 @@ test("validateExtraFields enforces required custom fields", () => {
   assert.ok(missing.missingFields.includes("Approved"));
 
   const valid = validateExtraFields({ siteRef: "Block A", approved: true }, config);
+  assert.equal(valid.valid, true);
+});
+
+test("validateExtraFields treats invalid numeric custom fields as missing", () => {
+  const config = normalizeFormFieldConfig({
+    customRequestFields: [
+      { id: "loadCount", label: "Load Count", type: "number", required: true },
+      { id: "disabledRequired", label: "Disabled Required", type: "text", required: true, enabled: false }
+    ]
+  });
+
+  const missing = validateExtraFields({ loadCount: null }, config);
+  assert.equal(missing.valid, false);
+  assert.deepEqual(missing.missingFieldKeys, ["loadCount"]);
+
+  const valid = validateExtraFields({ loadCount: 3 }, config);
   assert.equal(valid.valid, true);
 });
 
@@ -635,6 +814,57 @@ test("readFormFieldConfigFromEditor reads showResultsSection checkbox", () => {
   form.querySelector('[name="showResultsSection"]').checked = false;
   const configOff = readFormFieldConfigFromEditor(form);
   assert.equal(configOff.showResultsSection, false);
+});
+
+test("readFormFieldConfigFromEditor reads valid custom field rows and ignores invalid ones", () => {
+  const dom = new JSDOM(`
+    <form id="fieldConfigForm">
+      <div class="custom-field-editor">
+        <input name="custom-field-id-1" value="siteRef">
+        <input name="custom-field-label-1" value=" Site Reference ">
+        <select name="custom-field-type-1"><option value="textarea" selected>Textarea</option></select>
+        <input type="checkbox" name="custom-field-required-1" checked>
+        <input type="checkbox" name="custom-field-enabled-1">
+        <input name="custom-field-form-label-1" value=" Public Site Reference ">
+      </div>
+      <div class="custom-field-editor">
+        <input name="custom-field-id-2" value="projectErp">
+        <input name="custom-field-label-2" value="Reserved">
+      </div>
+      <div class="custom-field-editor">
+        <input name="custom-field-label-3" value="PO Number">
+      </div>
+    </form>
+  `);
+  const form = dom.window.document.getElementById("fieldConfigForm");
+  const config = readFormFieldConfigFromEditor(form);
+
+  assert.deepEqual(config.customRequestFields, [
+    {
+      id: "siteRef",
+      label: "Site Reference",
+      type: "textarea",
+      required: true,
+      enabled: false,
+      formLabel: "Public Site Reference"
+    },
+    {
+      id: "po_number",
+      label: "PO Number",
+      type: "text",
+      required: false,
+      enabled: true,
+      formLabel: ""
+    }
+  ]);
+});
+
+test("isRequestFieldFilled distinguishes optional numeric blanks from valid numbers", () => {
+  assert.equal(isRequestFieldFilled("slumpMeasured", ""), false);
+  assert.equal(isRequestFieldFilled("slumpMeasured", null), false);
+  assert.equal(isRequestFieldFilled("slumpMeasured", 0), true);
+  assert.equal(isRequestFieldFilled("customerBilling", "  Acme  "), true);
+  assert.equal(isRequestFieldFilled("customerBilling", "   "), false);
 });
 
 // ------------------------------------------------------------

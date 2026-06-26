@@ -1,5 +1,4 @@
 const assert = require("node:assert/strict");
-const childProcess = require("node:child_process");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
@@ -16,6 +15,44 @@ function envSiteKey(file) {
   const sandbox = { window: {} };
   vm.runInNewContext(fs.readFileSync(file, "utf8"), sandbox);
   return sandbox.window.CubeSyncEnv && sandbox.window.CubeSyncEnv.RECAPTCHA_SITE_KEY;
+}
+
+function withCleanBuildEnv(callback) {
+  const keys = ["CUBESYNC_RECAPTCHA_SITE_KEY"];
+  const previous = new Map(keys.map((key) => [key, process.env[key]]));
+
+  keys.forEach((key) => {
+    delete process.env[key];
+  });
+
+  try {
+    return callback();
+  } finally {
+    keys.forEach((key) => {
+      const value = previous.get(key);
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    });
+  }
+}
+
+function runBuildScript(root) {
+  const previousCwd = process.cwd();
+  const scriptPath = path.resolve(previousCwd, "scripts/write-env.js");
+
+  process.chdir(root);
+  try {
+    withCleanBuildEnv(() => {
+      delete require.cache[scriptPath];
+      require(scriptPath);
+    });
+  } finally {
+    delete require.cache[scriptPath];
+    process.chdir(previousCwd);
+  }
 }
 
 test("manifest remains valid JSON for browser installability", () => {
@@ -102,10 +139,7 @@ test("build copies HTML-referenced scripts to public output", () => {
   writeFile(root, "css/dashboard.css", "");
   writeFile(root, ".env.local", "CUBESYNC_RECAPTCHA_SITE_KEY=test\n");
 
-  childProcess.execFileSync(process.execPath, [path.resolve("scripts/write-env.js")], {
-    cwd: root,
-    stdio: "pipe"
-  });
+  runBuildScript(root);
 
   for (const src of allScripts) {
     assert.ok(
@@ -158,10 +192,7 @@ test("build script uses .env.local and emits non-empty public env output", () =>
   writeFile(root, ".env", "CUBESYNC_RECAPTCHA_SITE_KEY=\n");
   writeFile(root, ".env.local", "CUBESYNC_RECAPTCHA_SITE_KEY=local-test-site-key\n");
 
-  childProcess.execFileSync(process.execPath, [path.resolve("scripts/write-env.js")], {
-    cwd: root,
-    stdio: "pipe"
-  });
+  runBuildScript(root);
 
   assert.equal(envSiteKey(path.join(root, "env.js")), "local-test-site-key");
   assert.equal(envSiteKey(path.join(root, "public/env.js")), "local-test-site-key");

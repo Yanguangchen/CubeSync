@@ -1,5 +1,6 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
+const { JSDOM } = require("jsdom");
 
 const {
   CSV_RESULT_HEADER_ROW,
@@ -8,7 +9,8 @@ const {
   RESULT_FIELDS,
   buildExportFiles,
   buildFormCsv,
-  createZipBlob
+  createZipBlob,
+  downloadFilesAsZip
 } = require("./cubesync-export");
 
 function sampleForm(overrides = {}) {
@@ -275,6 +277,46 @@ test("formatDate normalizes DD-MM-YYYY, DD/MM/YYYY, and YYYY/MM/DD to YYYY-MM-DD
   }
 });
 
+test("CSV export formats Date, Timestamp-like, seconds, and object values", () => {
+  const csv = buildFormCsv({
+    id: "date-object-test",
+    reportNo: "DATE-OBJ",
+    raw: {
+      reportNo: "DATE-OBJ",
+      internalDate: new Date("2026-06-20T04:00:00Z"),
+      dateOfCast: { toDate: () => new Date("2026-06-21T04:00:00Z") },
+      dateTimeSampled: { seconds: 1782000000 },
+      additionalInformation: { nested: true },
+      results: [
+        {
+          specimenRef: { ref: "OBJ-1" },
+          resultDateOfCast: { seconds: 1782086400 },
+          dateOfTest: new Date("2026-06-29T04:00:00Z")
+        }
+      ]
+    }
+  });
+
+  assert.match(csv, /Internal date,2026-06-20/);
+  assert.match(csv, /Date of cast,2026-06-21/);
+  assert.match(csv, /Date\/time sampled,2026-06-21/);
+  assert.match(csv, /Additional information,"\{""nested"":true\}"/);
+  assert.match(csv, /,"\{""ref"":""OBJ-1""\}",,,,,2026-06-22,,2026-06-29,/);
+});
+
+test("CSV export leaves unknown date strings unchanged", () => {
+  const csv = buildFormCsv({
+    id: "unknown-date",
+    reportNo: "UNKNOWN-DATE",
+    raw: {
+      dateOfCast: "June 22 2026",
+      results: []
+    }
+  });
+
+  assert.match(csv, /Date of cast,June 22 2026/);
+});
+
 test("result header is always at row 50 regardless of how many request fields exist", () => {
   // Blank padding rows must be inserted so the result section always starts at a
   // predictable row, making it easy to reference in Excel formulas/macros.
@@ -397,4 +439,46 @@ test("ZIP export contains each generated CSV file", async () => {
   ]);
   assert.match(entries[0].content, /RAK-CUBE-001-T-001/);
   assert.match(entries[1].content, /Second Client/);
+});
+
+test("downloadFilesAsZip creates a browser download link and revokes the blob URL", () => {
+  const dom = new JSDOM(`<!doctype html><body></body>`);
+  const previousDocument = global.document;
+  const previousURL = global.URL;
+  const previousSetTimeout = global.setTimeout;
+  let clickedDownload = "";
+  let createdBlob = null;
+  let revokedUrl = "";
+
+  try {
+    global.document = dom.window.document;
+    dom.window.HTMLAnchorElement.prototype.click = function () {
+      clickedDownload = this.download;
+    };
+    global.URL = {
+      createObjectURL(blob) {
+        createdBlob = blob;
+        return "blob:cubesync-export";
+      },
+      revokeObjectURL(url) {
+        revokedUrl = url;
+      }
+    };
+    global.setTimeout = (fn) => {
+      fn();
+      return 0;
+    };
+
+    const blob = downloadFilesAsZip([{ name: "form.csv", content: "a,b\r\n" }], "forms.zip");
+
+    assert.equal(blob, createdBlob);
+    assert.equal(blob.type, "application/zip");
+    assert.equal(clickedDownload, "forms.zip");
+    assert.equal(dom.window.document.querySelectorAll("a").length, 0);
+    assert.equal(revokedUrl, "blob:cubesync-export");
+  } finally {
+    global.document = previousDocument;
+    global.URL = previousURL;
+    global.setTimeout = previousSetTimeout;
+  }
 });

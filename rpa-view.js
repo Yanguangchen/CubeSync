@@ -61,13 +61,21 @@
     return Number.isNaN(parsed.getTime()) ? null : parsed;
   }
 
+  function isDateLikeString(value) {
+    return typeof value === "string" &&
+      (/^\d{4}-\d{2}-\d{2}(?:[T\s]|$)/.test(value) || /^\d{1,2}[/-]\d{1,2}[/-]\d{4}(?:[T\s]|$)/.test(value));
+  }
+
   function formatValue(value) {
     if (value == null || value === "") {
       return "Not provided";
     }
 
-    const date = toDate(value);
-    if (date && typeof value !== "number") {
+    const shouldFormatDate = value instanceof Date ||
+      (value && typeof value.toDate === "function") ||
+      isDateLikeString(value);
+    const date = shouldFormatDate ? toDate(value) : null;
+    if (date) {
       return date.toLocaleString("en-SG", { timeZone: "Asia/Singapore" });
     }
 

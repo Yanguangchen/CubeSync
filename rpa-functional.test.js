@@ -66,7 +66,7 @@ async function bootDashboard({
   return { dom, window };
 }
 
-async function bootView({ url = "http://localhost/?id=rpa-view-1", firestore } = {}) {
+async function bootView({ url = "http://localhost/?id=rpa-view-1", firestore, beforeLoad } = {}) {
   const dom = new JSDOM(rpaViewHtml, {
     runScripts: "dangerously",
     url
@@ -76,6 +76,9 @@ async function bootView({ url = "http://localhost/?id=rpa-view-1", firestore } =
   window.CubeSyncFirestore = firestore;
 
   loadScripts(window, VIEW_SCRIPTS);
+  if (beforeLoad) {
+    beforeLoad(window);
+  }
   dispatchDomContentLoaded(window);
   await waitForAsync();
 
@@ -216,6 +219,99 @@ test("rpa-view.js renders form data and barcodes", async () => {
   const results = window.document.getElementById("resultsBody");
   assert.match(results.innerHTML, /BC-001/);
   assert.match(results.innerHTML, /<svg/); // Barcode rendered
+});
+
+test("rpa-view.js renders fallback aliases, default statuses, dates, and empty results", async () => {
+  const mockFirestore = {
+    getCubeRequest: async (id) => ({
+      id,
+      cubeJobNumber: "FALLBACK-001",
+      client: "Fallback Client",
+      projectCode: "ERP-FALLBACK",
+      dateTimeSampled: "2026-06-24T10:00:00Z",
+      submittedAt: { toDate: () => new Date("2026-06-24T02:00:00Z") },
+      results: []
+    })
+  };
+
+  const { window } = await bootView({ firestore: mockFirestore });
+
+  assert.equal(window.document.getElementById("reportNoDisplay").textContent, "FALLBACK-001");
+  assert.match(window.document.getElementById("submittedAtDisplay").textContent, /Submitted:/);
+  assert.equal(window.document.getElementById("statusBadge").textContent, "Ready for Bot / ERP: Pending");
+  assert.match(window.document.getElementById("formFieldsGrid").textContent, /Fallback Client/);
+  assert.match(window.document.getElementById("formFieldsGrid").textContent, /ERP-FALLBACK/);
+  assert.match(window.document.getElementById("formFieldsGrid").textContent, /FALLBACK-001/);
+  assert.match(window.document.getElementById("formFieldsGrid").textContent, /6\/24\/2026|24\/0?6\/2026/);
+  assert.match(window.document.getElementById("resultsBody").textContent, /No test result rows saved/);
+});
+
+test("rpa-view.js reports missing id and unavailable Firestore before fetching", async () => {
+  let fetchCount = 0;
+  const missingId = await bootView({
+    url: "http://localhost/",
+    firestore: {
+      getCubeRequest: async () => {
+        fetchCount += 1;
+      }
+    }
+  });
+
+  assert.equal(fetchCount, 0);
+  assert.match(missingId.window.document.getElementById("viewMessage").textContent, /Missing Firestore document id/);
+
+  const noFirestore = await bootView({
+    firestore: undefined
+  });
+
+  assert.match(noFirestore.window.document.getElementById("viewMessage").textContent, /Firestore is not available/);
+});
+
+test("rpa-view.js escapes barcode rendering errors in result previews", async () => {
+  const mockFirestore = {
+    getCubeRequest: async () => ({
+      reportNo: "BAD-BARCODE",
+      results: [{ specimenRef: "1", barcode: "BAD-001" }]
+    })
+  };
+
+  const { window } = await bootView({
+    firestore: mockFirestore,
+    beforeLoad(win) {
+      win.CubeSyncBarcode = {
+        renderBarcodeSvg() {
+          throw new Error("<bad barcode>");
+        }
+      };
+    }
+  });
+
+  const results = window.document.getElementById("resultsBody");
+  assert.match(results.textContent, /<bad barcode>/);
+  assert.equal(results.querySelector("bad"), null);
+  assert.match(results.innerHTML, /&lt;bad barcode&gt;/);
+});
+
+test("rpa-view.js reports update failures when toggling RPA status", async () => {
+  const mockFirestore = {
+    getCubeRequest: async () => ({
+      reportNo: "UPDATE-FAIL",
+      rpaStatus: "Disabled"
+    }),
+    updateCubeRequest: async () => {
+      throw new Error("Update denied");
+    }
+  };
+
+  const { window } = await bootView({ firestore: mockFirestore });
+
+  const btnDisable = window.document.getElementById("btnDisable");
+  assert.equal(btnDisable.textContent, "Enable RPA");
+  btnDisable.click();
+  await waitForAsync();
+
+  assert.match(window.document.getElementById("viewMessage").textContent, /Update denied/);
+  assert.equal(window.document.getElementById("statusBadge").textContent, "Disabled / ERP: Pending");
 });
 
 test("rpa-dashboard.js date navigation defaults to today and handles button clicks", async () => {

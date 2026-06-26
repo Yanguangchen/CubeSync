@@ -177,9 +177,14 @@
           <p class="eyebrow">Selected form</p>
           <h2 id="detailTitle">No form selected</h2>
           <div id="detailStatus" class="surface-status" aria-live="polite" hidden></div>
-          <div id="detailContent" class="detail-content">
+          <div id="detailTabs" class="detail-tabs" role="tablist" hidden>
+            <button type="button" class="detail-tab is-active" id="detailTabDetails" role="tab" aria-selected="true" data-detail-tab="details">Details</button>
+            <button type="button" class="detail-tab" id="detailTabHistory" role="tab" aria-selected="false" data-detail-tab="history">Edit History <span class="trial-badge">TRIAL</span></button>
+          </div>
+          <div id="detailContent" class="detail-content detail-tab-pane is-active" data-detail-pane="details">
             <p>Select a form from the dashboard to view its request details and test rows.</p>
           </div>
+          <div id="detailHistoryContent" class="detail-content detail-tab-pane" data-detail-pane="history" hidden></div>
           <div class="detail-actions">
             <button type="button" id="detailViewButton" disabled>View</button>
             <button type="button" id="detailEditButton" disabled>Edit</button>
@@ -440,6 +445,28 @@
         <footer>
           <button type="button" id="cancelEditButton">Cancel</button>
           <button type="submit" id="saveEditButton">Save changes</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog id="reasonDialog" class="reason-dialog glass-panel">
+      <form method="dialog" id="reasonForm">
+        <header>
+          <div>
+            <p class="eyebrow">Reason for change <span class="trial-badge">TRIAL</span></p>
+            <h2>Important record information changed</h2>
+          </div>
+        </header>
+        <p class="reason-intro">You are changing important record information. Please provide a reason for audit purposes.</p>
+        <ul id="reasonChangeList" class="reason-change-list"></ul>
+        <label class="reason-field">
+          <span>Reason</span>
+          <textarea id="reasonInput" name="reason" rows="3" maxlength="2000" placeholder="Example: Corrected barcode after checking physical cube label"></textarea>
+        </label>
+        <div id="reasonStatus" class="surface-status" aria-live="polite" hidden></div>
+        <footer>
+          <button type="button" id="cancelReasonButton">Cancel</button>
+          <button type="submit" id="confirmReasonButton">Save Changes</button>
         </footer>
       </form>
     </dialog>

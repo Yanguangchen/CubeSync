@@ -10,7 +10,8 @@
     "validate-env": "node scripts/validate-env.js"
   },
   "dependencies": {
-    "firebase-admin": "^13.6.0"
+    "firebase-admin": "^13.6.0",
+    "vercel": "^54.17.3"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
