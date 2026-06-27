@@ -1697,6 +1697,73 @@ textarea:focus {
 }
 
 /* ---------------------------------------------------------------------- *
+ * Operational metrics dashboard
+ * ---------------------------------------------------------------------- */
+
+.metrics-panel {
+  margin-bottom: 16px;
+  padding: 18px;
+  border-radius: 18px;
+}
+
+.metrics-heading {
+  margin-bottom: 14px;
+}
+
+.metrics-summary {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.metric-card {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 16px;
+  background: var(--surface-strong);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.36);
+}
+
+.metric-card-wide {
+  grid-column: span 2;
+}
+
+.metric-label,
+.metric-detail {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+.metric-label {
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.metric-value {
+  display: block;
+  margin: 6px 0 4px;
+  color: var(--ink);
+  font-size: clamp(24px, 4vw, 34px);
+  line-height: 1;
+}
+
+@media (max-width: 560px) {
+  .metric-card-wide {
+    grid-column: span 1;
+  }
+}
+
+/* ---------------------------------------------------------------------- *
  * Submission heatmap
  * ---------------------------------------------------------------------- */
 

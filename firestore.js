@@ -333,29 +333,61 @@ function requireFormDataHelper() {
   return helper;
 }
 
+async function dropdownOptionsApi(action, options) {
+  const init = {
+    method: action ? "POST" : "GET",
+    headers: { "Content-Type": "application/json" }
+  };
+
+  if (action) {
+    const user = currentUser();
+    if (!user || typeof user.getIdToken !== "function") {
+      throw new Error("Sign in before managing autocomplete lists.");
+    }
+    init.headers.Authorization = "Bearer " + await user.getIdToken();
+    init.body = JSON.stringify({ action, options });
+  }
+
+  const response = await fetch("/api/dropdown-options", init);
+  let body = null;
+  try {
+    body = await response.json();
+  } catch {
+    body = null;
+  }
+  if (!response.ok) {
+    throw new Error((body && body.error) || "Unable to manage dropdown options.");
+  }
+  return (body && body.options) || {};
+}
+
 // Shared, dynamic autocomplete suggestions. The doc is public-readable (the
 // deployed dropdown-options/*.txt files are already public), so the customer
 // forms can read it, but only authenticated staff may write.
 async function getDropdownOptions() {
-  const snapshot = await getDoc(settingsDocument(DROPDOWN_OPTIONS_DOC_ID));
-  if (!snapshot.exists()) {
-    return {};
-  }
-
-  const data = snapshot.data() || {};
-  const helper = formDataHelper();
-  if (helper && typeof helper.readSharedDropdownOptions === "function") {
-    return helper.readSharedDropdownOptions(data);
-  }
-
-  // Read-only fallback if the helper somehow has not loaded.
-  const options = {};
-  DROPDOWN_OPTION_FIELDS.forEach((field) => {
-    if (Array.isArray(data[field])) {
-      options[field] = data[field];
+  try {
+    const snapshot = await getDoc(settingsDocument(DROPDOWN_OPTIONS_DOC_ID));
+    if (!snapshot.exists()) {
+      return {};
     }
-  });
-  return options;
+
+    const data = snapshot.data() || {};
+    const helper = formDataHelper();
+    if (helper && typeof helper.readSharedDropdownOptions === "function") {
+      return helper.readSharedDropdownOptions(data);
+    }
+
+    // Read-only fallback if the helper somehow has not loaded.
+    const options = {};
+    DROPDOWN_OPTION_FIELDS.forEach((field) => {
+      if (Array.isArray(data[field])) {
+        options[field] = data[field];
+      }
+    });
+    return options;
+  } catch {
+    return dropdownOptionsApi();
+  }
 }
 
 // Append values to the shared lists without duplicates (arrayUnion). Used when
@@ -373,7 +405,11 @@ async function addDropdownOptions(valuesByField) {
   }
 
   update.updatedAt = serverTimestamp();
-  await setDoc(settingsDocument(DROPDOWN_OPTIONS_DOC_ID), update, { merge: true });
+  try {
+    await setDoc(settingsDocument(DROPDOWN_OPTIONS_DOC_ID), update, { merge: true });
+  } catch {
+    await dropdownOptionsApi("add", additions);
+  }
   return DROPDOWN_OPTIONS_DOC_ID;
 }
 
@@ -381,7 +417,11 @@ async function addDropdownOptions(valuesByField) {
 async function saveDropdownOptions(optionsByField) {
   const clean = requireFormDataHelper().buildSharedDropdownSaveValues(optionsByField);
   clean.updatedAt = serverTimestamp();
-  await setDoc(settingsDocument(DROPDOWN_OPTIONS_DOC_ID), clean);
+  try {
+    await setDoc(settingsDocument(DROPDOWN_OPTIONS_DOC_ID), clean, { merge: true });
+  } catch {
+    await dropdownOptionsApi("save", clean);
+  }
   return DROPDOWN_OPTIONS_DOC_ID;
 }
 

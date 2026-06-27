@@ -19,6 +19,7 @@ const APP_SHELL = [
   "./cubesync-autocomplete.js",
   "./cubesync-dashboard-filters.js",
   "./cubesync-heatmap.js",
+  "./cubesync-metrics.js",
   "./cubesync-notifications.js",
   "./cubesync-form-data.js",
   "./cubesync-export.js",
