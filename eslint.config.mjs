@@ -59,6 +59,7 @@ export default [
       "cubesync-table-manager.js",
       "cubesync-dashboard-filters.js",
       "cubesync-heatmap.js",
+      "cubesync-metrics.js",
       "cubesync-notifications.js",
       "cubesync-today-toggle.js",
       "dashboard.js",

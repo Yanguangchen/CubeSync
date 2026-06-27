@@ -167,6 +167,7 @@ test("build script uses .env.local and emits non-empty public env output", () =>
     "cubesync-table-manager.js",
     "cubesync-dashboard-filters.js",
     "cubesync-heatmap.js",
+    "cubesync-metrics.js",
     "cubesync-notifications.js",
     "cubesync-today-toggle.js",
     "dashboard.js",
