@@ -334,6 +334,100 @@
     });
   }
 
+
+  function workloadSignalLabel(signal) {
+    if (signal === "high") return "Unusually high activity";
+    if (signal === "low") return "Unusually quiet activity";
+    return "Activity within expected range";
+  }
+
+  function workloadTrendLabel(trend) {
+    if (trend === "rising") return "Rising trend";
+    if (trend === "falling") return "Falling trend";
+    return "Steady trend";
+  }
+
+  function formatWorkloadPeriodList(periods) {
+    if (!Array.isArray(periods) || periods.length === 0) return "Not enough history yet";
+    return periods.map((period) => period.label + " (avg " + formatMetricNumber(period.average, { maximumFractionDigits: 1 }) + ")").join(", ");
+  }
+
+  function renderWorkloadChart(points, upcoming) {
+    const history = Array.isArray(points) ? points : [];
+    const forecast = Array.isArray(upcoming) ? upcoming : [];
+    const combined = history.map((point) => Number(point.count || 0))
+      .concat(forecast.map((point) => Number(point.expected || 0)));
+    const max = Math.max(1, ...combined);
+    const chartWidth = 560;
+    const chartHeight = 160;
+    const padding = 18;
+    const plotWidth = chartWidth - (padding * 2);
+    const plotHeight = chartHeight - (padding * 2);
+    const historyCount = history.length;
+    const totalPoints = historyCount + forecast.length;
+    if (totalPoints === 0) {
+      return '<div class="workload-chart-empty">No dated submissions yet.</div>';
+    }
+
+    function pointFor(index, value) {
+      const denominator = Math.max(1, totalPoints - 1);
+      const x = padding + ((index / denominator) * plotWidth);
+      const y = padding + (plotHeight - ((Number(value || 0) / max) * plotHeight));
+      return x.toFixed(1) + "," + y.toFixed(1);
+    }
+
+    const historyPoints = history.map((point, index) => pointFor(index, point.count)).join(" ");
+    const forecastPoints = forecast.map((point, index) => pointFor(historyCount + index, point.expected)).join(" ");
+    const separatorX = historyCount > 0 ? padding + ((Math.max(0, historyCount - 1) / Math.max(1, totalPoints - 1)) * plotWidth) : padding;
+    const latestHistory = history.length ? history[history.length - 1] : null;
+    const forecastTitle = forecast.length
+      ? "Forecast: " + forecast.map((point) => point.label + " " + formatMetricNumber(point.expected, { maximumFractionDigits: 1 })).join(", ")
+      : "Forecast unavailable";
+
+    return `
+      <svg class="workload-chart" viewBox="0 0 ${chartWidth} ${chartHeight}" role="img" aria-label="Historical workload and seven day forecast line chart">
+        <title>Historical workload and seven day forecast</title>
+        <desc>${escapeHtml(forecastTitle)}</desc>
+        <line class="workload-chart-axis" x1="${padding}" y1="${chartHeight - padding}" x2="${chartWidth - padding}" y2="${chartHeight - padding}"></line>
+        <line class="workload-chart-axis" x1="${padding}" y1="${padding}" x2="${padding}" y2="${chartHeight - padding}"></line>
+        ${historyPoints ? `<polyline class="workload-chart-history" points="${historyPoints}"></polyline>` : ""}
+        ${latestHistory && forecastPoints ? `<polyline class="workload-chart-forecast" points="${pointFor(historyCount - 1, latestHistory.count)} ${forecastPoints}"></polyline>` : ""}
+        <line class="workload-chart-separator" x1="${separatorX.toFixed(1)}" y1="${padding}" x2="${separatorX.toFixed(1)}" y2="${chartHeight - padding}"></line>
+        <text class="workload-chart-label" x="${padding}" y="${chartHeight - 4}">Past 28 days</text>
+        <text class="workload-chart-label workload-chart-label-end" x="${chartWidth - padding}" y="${chartHeight - 4}">Next 7 days</text>
+      </svg>
+    `;
+  }
+
+  function renderWorkloadInsight(insight) {
+    const panel = elements.workloadInsight;
+    if (!panel) return;
+    if (!insight) {
+      panel.innerHTML = "";
+      return;
+    }
+    const busiestUpcoming = insight.busiestUpcoming || { label: "—", expected: 0 };
+    panel.innerHTML = `
+      <article class="workload-insight-card workload-insight-${escapeHtml(insight.activitySignal || "normal")}">
+        <div class="workload-insight-copy">
+          <p class="metric-label">Predictive workload insight</p>
+          <h3>${escapeHtml(workloadSignalLabel(insight.activitySignal))}</h3>
+          <p>
+            Expected tomorrow: <strong>${escapeHtml(formatMetricNumber(insight.expectedTomorrow, { maximumFractionDigits: 1 }))} forms</strong> ·
+            ${escapeHtml(workloadTrendLabel(insight.trend))} ·
+            28-day baseline: ${escapeHtml(formatMetricNumber(insight.recentAverage, { maximumFractionDigits: 1 }))} forms/day.
+          </p>
+          <dl class="workload-insight-list">
+            <div><dt>Recurring busy periods</dt><dd>${escapeHtml(formatWorkloadPeriodList(insight.busyPeriods))}</dd></div>
+            <div><dt>Quiet periods</dt><dd>${escapeHtml(formatWorkloadPeriodList(insight.quietPeriods))}</dd></div>
+            <div><dt>Next likely peak</dt><dd>${escapeHtml(busiestUpcoming.label)} · ${escapeHtml(formatMetricNumber(busiestUpcoming.expected, { maximumFractionDigits: 1 }))} expected forms</dd></div>
+          </dl>
+        </div>
+        <div class="workload-chart-wrap">${renderWorkloadChart(insight.chart, insight.upcoming)}</div>
+      </article>
+    `;
+  }
+
   function renderMetrics() {
     const grid = elements.metricsGrid;
     if (!grid) {
@@ -343,6 +437,7 @@
     const helper = metricsHelper();
     if (!helper || typeof helper.buildMetrics !== "function") {
       grid.innerHTML = "";
+      renderWorkloadInsight(null);
       if (elements.metricsSummary) {
         elements.metricsSummary.textContent = "Metrics are unavailable until the metrics helper loads.";
       }
@@ -366,6 +461,11 @@
         value: formatMetricNumber(metrics.averagePerDay, { maximumFractionDigits: 1 }),
         detail: "Across dated records in view"
       },
+      {
+        label: "Expected tomorrow",
+        value: formatMetricNumber(metrics.workloadInsight.expectedTomorrow, { maximumFractionDigits: 1 }),
+        detail: workloadTrendLabel(metrics.workloadInsight.trend)
+      },
       { label: "Peak period", value: peakLabel, detail: peakDetail, wide: true },
       { label: "Total records", value: metrics.totalRecords, detail: "Records in the current view" },
       { label: "Processed", value: metrics.processedCount, detail: "ERP success, submitted, or archived" },
@@ -379,6 +479,8 @@
         <span class="metric-detail">${escapeHtml(card.detail)}</span>
       </article>
     `).join("");
+
+    renderWorkloadInsight(metrics.workloadInsight);
 
     if (elements.metricsSummary) {
       const total = metrics.totalRecords;
@@ -1846,7 +1948,7 @@
       "detailTabs", "detailHistoryContent",
       "reasonDialog", "reasonForm", "reasonInput", "reasonChangeList", "reasonStatus", "cancelReasonButton",
       "statusFilter", "clientFilter", "projectFilter", "sortOrder",
-      "todayToggle", "todayOnlyToggle", "metricsGrid", "metricsSummary", "heatmapGrid", "heatmapSummary", "notifyButton",
+      "todayToggle", "todayOnlyToggle", "metricsGrid", "metricsSummary", "workloadInsight", "heatmapGrid", "heatmapSummary", "notifyButton",
       "editDialog", "editForm", "editFormStatus", "closeEditorButton", "cancelEditButton",
       "detailViewButton", "detailEditButton", "detailPrintButton", "detailDeleteButton", "detailHideButton",
       "printArea", "fieldSettingsButton", "fieldConfigDialog", "fieldConfigForm",

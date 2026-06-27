@@ -7,6 +7,7 @@ Digital concrete cube test request forms, staff dashboard, and RPA queue for R.A
 | Topic | Document |
 |-------|----------|
 | Overview & schema | [documentation/README.md](documentation/README.md) |
+| Developer handbook | [documentation/developer-guide.md](documentation/developer-guide.md) |
 | Architecture diagrams | [documentation/architecture.md](documentation/architecture.md) |
 | Design system | [documentation/design.md](documentation/design.md) |
 | Free-text review flags | [documentation/free-text-dropdown-highlighting.md](documentation/free-text-dropdown-highlighting.md) |

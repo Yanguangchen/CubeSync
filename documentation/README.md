@@ -358,6 +358,7 @@ Known WorkGrid permission-policy watch items:
 |----------|---------|
 | `README.md` | Project overview and quick start (this file) |
 | `overview.md` | High-level architecture summary |
+| `developer-guide.md` | Comprehensive maintainer handbook: repository map, runtime flows, data model, testing, security, and deployment checklists |
 | `design.md` | Design system: palette, tokens, typography, components, responsive patterns |
 | `architecture.md` | UML diagrams: class, sequence, component, state, and data model |
 | `project-uml.md` | Comprehensive project-wide UML diagrams for current modules, data, flows, and security boundaries |

@@ -78,7 +78,7 @@ const SAMPLE = [
  * Trial badge
  * ----------------------------------------------------------------------- */
 
-test("metrics dashboard renders usage, workload, automation, and review totals", async () => {
+test("metrics dashboard renders usage, workload, automation, review totals, and a TRIAL badge", async () => {
   const window = bootDashboard([
     { id: "1", reportNo: "REQ-1", submittedAt: MON_A, erpStatus: "Success" },
     { id: "2", reportNo: "REQ-2", submittedAt: MON_B, customFields: ["supplier"] },
@@ -86,11 +86,23 @@ test("metrics dashboard renders usage, workload, automation, and review totals",
   ]);
   await settle();
 
+  const title = window.document.getElementById("metricsTitle");
+  assert.match(title.textContent, /TRIAL/);
+  const badge = window.document.querySelector(".metrics-panel .trial-badge");
+  assert.ok(badge, "expected a .trial-badge inside the metrics panel");
+  assert.equal(badge.textContent.trim(), "TRIAL");
+
   const metricsGrid = window.document.getElementById("metricsGrid");
   assert.match(metricsGrid.textContent, /Total records\s*3/);
   assert.match(metricsGrid.textContent, /Processed\s*1/);
   assert.match(metricsGrid.textContent, /Manual review\s*2/);
   assert.match(metricsGrid.textContent, /Peak period\s*9 AM/);
+  assert.match(metricsGrid.textContent, /Expected tomorrow/);
+
+  const insight = window.document.getElementById("workloadInsight");
+  assert.match(insight.textContent, /Predictive workload insight/);
+  assert.match(insight.textContent, /Expected tomorrow:/);
+  assert.ok(insight.querySelector(".workload-chart"), "expected predictive workload line chart");
 
   const summary = window.document.getElementById("metricsSummary");
   assert.match(summary.textContent, /3 records in view/);
