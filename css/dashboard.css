@@ -1,6 +1,7 @@
 @import url("dashboard/tokens.css");
 @import url("dashboard/field-config.css");
 @import url("dashboard/today-toggle.css");
+@import url("dashboard/workload-insight.css");
 
 /* ==========================================================================
    Base
@@ -489,6 +490,7 @@ button:disabled {
 .dashboard-shell:not(.is-hidden) .topbar {
   animation: dashboard-ease-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
+
 
 .dashboard-shell:not(.is-hidden) .list-panel {
   animation: dashboard-ease-in 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.1s both;
