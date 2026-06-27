@@ -1765,6 +1765,133 @@ textarea:focus {
   }
 }
 
+.workload-insight {
+  margin-top: 12px;
+}
+
+.workload-insight-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 1fr);
+  gap: 16px;
+  padding: 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.74), rgba(255, 255, 255, 0.48));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+
+.workload-insight-card h3 {
+  margin: 4px 0 8px;
+  color: var(--ink);
+  font-size: 18px;
+}
+
+.workload-insight-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.workload-insight-high {
+  border-color: rgba(220, 38, 38, 0.34);
+  background: linear-gradient(135deg, rgba(254, 226, 226, 0.82), rgba(255, 255, 255, 0.58));
+}
+
+.workload-insight-low {
+  border-color: rgba(37, 99, 235, 0.32);
+  background: linear-gradient(135deg, rgba(219, 234, 254, 0.82), rgba(255, 255, 255, 0.58));
+}
+
+.workload-insight-list {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0 0;
+}
+
+.workload-insight-list div {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.45fr) minmax(0, 1fr);
+  gap: 8px;
+}
+
+.workload-insight-list dt {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.workload-insight-list dd {
+  margin: 0;
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.workload-chart-wrap {
+  min-width: 0;
+  align-self: stretch;
+}
+
+.workload-chart {
+  display: block;
+  width: 100%;
+  min-height: 150px;
+}
+
+.workload-chart-axis {
+  stroke: var(--line-strong);
+  stroke-width: 1;
+}
+
+.workload-chart-history {
+  fill: none;
+  stroke: var(--accent);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 3;
+}
+
+.workload-chart-forecast {
+  fill: none;
+  stroke: var(--accent-secondary, #8b5cf6);
+  stroke-dasharray: 6 5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 3;
+}
+
+.workload-chart-separator {
+  stroke: var(--line-strong);
+  stroke-dasharray: 4 4;
+  stroke-width: 1;
+}
+
+.workload-chart-label {
+  fill: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.workload-chart-label-end {
+  text-anchor: end;
+}
+
+.workload-chart-empty {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+@media (max-width: 760px) {
+  .workload-insight-card {
+    grid-template-columns: 1fr;
+  }
+
+  .workload-insight-list div {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* ---------------------------------------------------------------------- *
  * Submission heatmap
  * ---------------------------------------------------------------------- */

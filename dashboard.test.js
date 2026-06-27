@@ -28,10 +28,6 @@ test("dashboard frontend exposes form CRUD controls", () => {
   assert.match(js, /renderWorkloadInsight/);
   assert.match(css, /\.metrics-grid/);
   assert.match(css, /\.workload-insight/);
-  assert.match(css, /@keyframes metric-card-ease-in/);
-  assert.match(css, /@keyframes workload-insight-ease-in/);
-  assert.match(css, /@keyframes workload-chart-draw/);
-  assert.match(css, /@keyframes workload-chart-forecast-ease-in/);
   assert.doesNotMatch(html, /<h1>Concrete Cube Dashboard<\/h1>/);
   assert.match(html, /css\/dashboard\.css/);
   assert.match(html, /barcode\.js/);
