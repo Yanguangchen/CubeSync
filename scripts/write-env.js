@@ -21,6 +21,7 @@ const STATIC_FILES = [
   "cubesync-export.js",
   "cubesync-table-manager.js",
   "cubesync-dashboard-filters.js",
+  "cubesync-heatmap.js",
   "cubesync-today-toggle.js",
   "dashboard.js",
   "firestore.js",
