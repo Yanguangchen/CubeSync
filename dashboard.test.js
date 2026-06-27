@@ -21,6 +21,7 @@ test("dashboard frontend exposes form CRUD controls", () => {
   assert.match(html, /<h1>Human Dashboard<\/h1>/);
   assert.match(html, /metricsGrid/);
   assert.match(html, /Metrics dashboard/);
+  assert.match(html, /metricsTitle[^>]*>Metrics dashboard <span class="trial-badge">TRIAL<\/span>/);
   assert.match(js, /renderMetrics/);
   assert.match(js, /CubeSyncMetrics/);
   assert.match(css, /\.metrics-grid/);

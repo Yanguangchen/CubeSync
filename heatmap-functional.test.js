@@ -78,13 +78,19 @@ const SAMPLE = [
  * Trial badge
  * ----------------------------------------------------------------------- */
 
-test("metrics dashboard renders usage, workload, automation, and review totals", async () => {
+test("metrics dashboard renders usage, workload, automation, review totals, and a TRIAL badge", async () => {
   const window = bootDashboard([
     { id: "1", reportNo: "REQ-1", submittedAt: MON_A, erpStatus: "Success" },
     { id: "2", reportNo: "REQ-2", submittedAt: MON_B, customFields: ["supplier"] },
     { id: "3", reportNo: "REQ-3", submittedAt: WED_C, rpaStatus: "Failed" }
   ]);
   await settle();
+
+  const title = window.document.getElementById("metricsTitle");
+  assert.match(title.textContent, /TRIAL/);
+  const badge = window.document.querySelector(".metrics-panel .trial-badge");
+  assert.ok(badge, "expected a .trial-badge inside the metrics panel");
+  assert.equal(badge.textContent.trim(), "TRIAL");
 
   const metricsGrid = window.document.getElementById("metricsGrid");
   assert.match(metricsGrid.textContent, /Total records\s*3/);
