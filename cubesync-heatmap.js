@@ -44,7 +44,9 @@
       return null;
     }
 
-    if (value instanceof Date) {
+    // Realm-safe Date detection: `instanceof Date` fails for a Date created in
+    // another realm (e.g. an iframe or jsdom window), so fall back to the tag.
+    if (value instanceof Date || Object.prototype.toString.call(value) === "[object Date]") {
       return Number.isNaN(value.getTime()) ? null : value;
     }
 

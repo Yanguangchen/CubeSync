@@ -26,6 +26,15 @@ test("toDate passes through a Date instance", () => {
   assert.equal(toDate(d).getTime(), d.getTime());
 });
 
+test("toDate accepts a Date created in another realm (cross-realm safe)", () => {
+  const vm = require("node:vm");
+  const foreignDate = vm.runInNewContext("new Date(2026, 5, 24, 9, 30)");
+  assert.ok(!(foreignDate instanceof Date), "precondition: foreign Date is not instanceof local Date");
+  const parsed = toDate(foreignDate);
+  assert.ok(parsed, "expected the foreign Date to be recognised");
+  assert.equal(parsed.getHours(), 9);
+});
+
 test("toDate reads epoch milliseconds", () => {
   const d = new Date(2026, 5, 24, 9, 30);
   assert.equal(toDate(d.getTime()).getTime(), d.getTime());
@@ -63,6 +72,8 @@ test("toDate returns null for empty, null or unparseable values", () => {
   assert.equal(toDate("not a date"), null);
   assert.equal(toDate({}), null);
   assert.equal(toDate(NaN), null);
+  assert.equal(toDate(true), null); // non-object/number/string types
+  assert.equal(toDate(Symbol("x")), null);
 });
 
 /* ----------------------------------------------------------------------- *
