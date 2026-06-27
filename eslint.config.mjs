@@ -18,6 +18,7 @@ const browserGlobals = {
   globalThis: "readonly",
   localStorage: "readonly",
   module: "readonly",
+  navigator: "readonly",
   setTimeout: "readonly",
   window: "readonly"
 };
@@ -58,6 +59,7 @@ export default [
       "cubesync-table-manager.js",
       "cubesync-dashboard-filters.js",
       "cubesync-heatmap.js",
+      "cubesync-notifications.js",
       "cubesync-today-toggle.js",
       "dashboard.js",
       "env.example.js",

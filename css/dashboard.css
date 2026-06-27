@@ -1826,3 +1826,40 @@ textarea:focus {
   text-align: center;
   white-space: nowrap;
 }
+
+/* ---------------------------------------------------------------------- *
+ * Notifications toggle (topbar)
+ * ---------------------------------------------------------------------- */
+
+.notify-button {
+  border: 1px solid var(--line-strong);
+  background: var(--subtle);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 7px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background var(--transition), border-color var(--transition), color var(--transition), opacity var(--transition);
+}
+
+.notify-button:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.notify-button[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-strong, var(--accent));
+}
+
+.notify-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.notify-button[hidden] {
+  display: none;
+}

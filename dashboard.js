@@ -219,6 +219,82 @@
     return window.CubeSyncHeatmap;
   }
 
+  function notificationsHelper() {
+    return window.CubeSyncNotifications;
+  }
+
+  let notifier = null;
+
+  // Lazily build the notifier, wiring it to the registered service worker so
+  // alerts can surface even when the dashboard tab is backgrounded.
+  function ensureNotifier() {
+    if (notifier) {
+      return notifier;
+    }
+    const helper = notificationsHelper();
+    if (!helper || typeof helper.createNotifier !== "function") {
+      return null;
+    }
+    notifier = helper.createNotifier({
+      window: window,
+      getRegistration: function () {
+        if (typeof navigator !== "undefined" && navigator.serviceWorker && navigator.serviceWorker.ready) {
+          return navigator.serviceWorker.ready;
+        }
+        return Promise.resolve(null);
+      }
+    });
+    return notifier;
+  }
+
+  // Reflect the current permission state on the topbar button.
+  function refreshNotifyButton() {
+    const button = elements.notifyButton;
+    const helper = notificationsHelper();
+    if (!button || !helper) {
+      return;
+    }
+
+    if (!helper.isSupported(window)) {
+      button.hidden = true;
+      return;
+    }
+
+    button.hidden = false;
+    const permission = helper.getPermission(window);
+    if (permission === "granted") {
+      button.textContent = "🔔 Alerts on";
+      button.setAttribute("aria-pressed", "true");
+      button.disabled = false;
+    } else if (permission === "denied") {
+      button.textContent = "🔕 Alerts blocked";
+      button.setAttribute("aria-pressed", "false");
+      button.disabled = true;
+    } else {
+      button.textContent = "🔔 Enable alerts";
+      button.setAttribute("aria-pressed", "false");
+      button.disabled = false;
+    }
+  }
+
+  async function handleNotifyButtonClick() {
+    const helper = notificationsHelper();
+    if (!helper) {
+      return;
+    }
+    await helper.requestPermission(window);
+    refreshNotifyButton();
+  }
+
+  // Feed the freshly loaded forms to the notifier so new submissions raise a
+  // system notification. The notifier primes silently on the first load.
+  function notifyNewSubmissions() {
+    const instance = ensureNotifier();
+    if (instance) {
+      Promise.resolve(instance.process(state.forms)).catch(() => {});
+    }
+  }
+
   // Forms the heatmap should analyse: the same facet filters as the table
   // (search/status/client/project) so the heatmap reflects the current view,
   // but never the "today only" or sort options — the whole point of the
@@ -795,6 +871,7 @@
       state.loading = false;
       refreshFilterOptions();
       renderForms();
+      notifyNewSubmissions();
 
       if (state.selectedId && selectedForm()) {
         viewForm(state.selectedId);
@@ -1114,6 +1191,11 @@
     state.selectedId = null;
     state.loading = false;
     state.fieldConfig = null;
+    // Drop the baseline so the next signed-in session re-primes instead of
+    // announcing the whole existing backlog as "new".
+    if (notifier && typeof notifier.reset === "function") {
+      notifier.reset();
+    }
     renderForms();
     viewForm(null);
   }
@@ -1620,7 +1702,7 @@
       "detailTabs", "detailHistoryContent",
       "reasonDialog", "reasonForm", "reasonInput", "reasonChangeList", "reasonStatus", "cancelReasonButton",
       "statusFilter", "clientFilter", "projectFilter", "sortOrder",
-      "todayToggle", "todayOnlyToggle", "heatmapGrid", "heatmapSummary",
+      "todayToggle", "todayOnlyToggle", "heatmapGrid", "heatmapSummary", "notifyButton",
       "editDialog", "editForm", "editFormStatus", "closeEditorButton", "cancelEditButton",
       "detailViewButton", "detailEditButton", "detailPrintButton", "detailDeleteButton", "detailHideButton",
       "printArea", "fieldSettingsButton", "fieldConfigDialog", "fieldConfigForm",
@@ -1708,6 +1790,11 @@
     if (elements.todayToggle && window.CubeSyncTodayToggle &&
         typeof window.CubeSyncTodayToggle.setup === "function") {
       window.CubeSyncTodayToggle.setup(elements.todayToggle);
+    }
+
+    if (elements.notifyButton) {
+      elements.notifyButton.addEventListener("click", handleNotifyButtonClick);
+      refreshNotifyButton();
     }
 
     const heatmapModeButtons = document.querySelectorAll("[data-heatmap-mode]");
