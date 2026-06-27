@@ -97,6 +97,12 @@ test("metrics dashboard renders usage, workload, automation, review totals, and 
   assert.match(metricsGrid.textContent, /Processed\s*1/);
   assert.match(metricsGrid.textContent, /Manual review\s*2/);
   assert.match(metricsGrid.textContent, /Peak period\s*9 AM/);
+  assert.match(metricsGrid.textContent, /Expected tomorrow/);
+
+  const insight = window.document.getElementById("workloadInsight");
+  assert.match(insight.textContent, /Predictive workload insight/);
+  assert.match(insight.textContent, /Expected tomorrow:/);
+  assert.ok(insight.querySelector(".workload-chart"), "expected predictive workload line chart");
 
   const summary = window.document.getElementById("metricsSummary");
   assert.match(summary.textContent, /3 records in view/);

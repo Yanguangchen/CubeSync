@@ -73,6 +73,126 @@
     return display + " " + period;
   }
 
+  function dayLabel(day) {
+    return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][day] || "—";
+  }
+
+  function isoDateKey(date) {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    const d = String(date.getDate()).padStart(2, "0");
+    return y + "-" + m + "-" + d;
+  }
+
+  function addDays(date, days) {
+    const copy = startOfDay(date);
+    copy.setDate(copy.getDate() + days);
+    return copy;
+  }
+
+  function linearRegressionSlope(values) {
+    if (!Array.isArray(values) || values.length < 2) return 0;
+    const n = values.length;
+    const meanX = (n - 1) / 2;
+    const meanY = values.reduce((sum, value) => sum + value, 0) / n;
+    let numerator = 0;
+    let denominator = 0;
+    values.forEach((value, index) => {
+      const dx = index - meanX;
+      numerator += dx * (value - meanY);
+      denominator += dx * dx;
+    });
+    return denominator ? numerator / denominator : 0;
+  }
+
+  function average(numbers) {
+    if (!Array.isArray(numbers) || numbers.length === 0) return 0;
+    return numbers.reduce((sum, value) => sum + value, 0) / numbers.length;
+  }
+
+  function buildWorkloadInsightFromDates(dates, now) {
+    const today = startOfDay(now);
+    const countsByDay = new Map();
+    dates.forEach((date) => {
+      const day = startOfDay(date);
+      const key = isoDateKey(day);
+      countsByDay.set(key, (countsByDay.get(key) || 0) + 1);
+    });
+
+    const recentDays = [];
+    for (let offset = 27; offset >= 0; offset -= 1) {
+      const day = addDays(today, -offset);
+      recentDays.push({ date: day, label: isoDateKey(day).slice(5), count: countsByDay.get(isoDateKey(day)) || 0 });
+    }
+
+    const recentWeekdayCounts = [0, 0, 0, 0, 0, 0, 0];
+    const recentWeekdayOccurrences = [0, 0, 0, 0, 0, 0, 0];
+    recentDays.forEach((day) => {
+      const weekday = day.date.getDay();
+      recentWeekdayCounts[weekday] += day.count;
+      recentWeekdayOccurrences[weekday] += 1;
+    });
+
+    const previousDays = recentDays.slice(0, -1);
+    const todayCount = countsByDay.get(isoDateKey(today)) || 0;
+    const recentAverage = average(previousDays.map((day) => day.count));
+    const regressionWindow = recentDays.slice(-14).map((day) => day.count);
+    const trendSlope = linearRegressionSlope(regressionWindow);
+    const trend = trendSlope > 0.05 ? "rising" : trendSlope < -0.05 ? "falling" : "steady";
+
+    const weekdayAverages = recentWeekdayCounts.map((count, day) => ({
+      day,
+      label: dayLabel(day),
+      average: recentWeekdayOccurrences[day] ? count / recentWeekdayOccurrences[day] : 0,
+      count,
+      occurrences: recentWeekdayOccurrences[day]
+    }));
+    const busyPeriods = weekdayAverages
+      .filter((item) => item.occurrences > 0)
+      .sort((a, b) => b.average - a.average)
+      .slice(0, 2);
+    const quietPeriods = weekdayAverages
+      .filter((item) => item.occurrences > 0)
+      .sort((a, b) => a.average - b.average)
+      .slice(0, 2);
+
+    const upcoming = [];
+    for (let offset = 1; offset <= 7; offset += 1) {
+      const date = addDays(today, offset);
+      const weekdayAverage = weekdayAverages[date.getDay()].average || recentAverage;
+      const projected = Math.max(0, weekdayAverage + (trendSlope * offset));
+      upcoming.push({
+        date: isoDateKey(date),
+        label: dayLabel(date.getDay()),
+        expected: projected
+      });
+    }
+
+    let activitySignal = "normal";
+    if (todayCount >= 3 && todayCount >= Math.max(recentAverage * 1.5, recentAverage + 2)) {
+      activitySignal = "high";
+    } else if (recentAverage >= 1 && todayCount <= recentAverage * 0.5) {
+      activitySignal = "low";
+    }
+
+    const expectedTomorrow = upcoming.length ? upcoming[0].expected : Math.max(0, recentAverage + trendSlope);
+    const busiestUpcoming = upcoming.reduce((best, item) => item.expected > best.expected ? item : best, upcoming[0] || { label: "—", expected: 0 });
+
+    return {
+      todayCount,
+      recentAverage,
+      trend,
+      trendSlope,
+      expectedTomorrow,
+      activitySignal,
+      busyPeriods,
+      quietPeriods,
+      upcoming,
+      busiestUpcoming,
+      chart: recentDays
+    };
+  }
+
   function statusText(value) {
     return String(value == null ? "" : value).trim().toLowerCase();
   }
@@ -149,7 +269,8 @@
       peakPeriods,
       peakCount,
       processedCount,
-      manualReviewCount
+      manualReviewCount,
+      workloadInsight: buildWorkloadInsightFromDates(dated, now)
     };
   }
 

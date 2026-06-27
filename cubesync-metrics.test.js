@@ -70,3 +70,28 @@ test("resolveTimestamp falls back across CubeSync date fields", () => {
   assert.equal(resolveTimestamp({ dateOfCast: "2026-06-26" }).toISOString(), "2026-06-26T00:00:00.000Z");
   assert.equal(resolveTimestamp({ submittedAt: "not a date" }), null);
 });
+
+test("buildMetrics adds predictive workload insight from historical trends", () => {
+  const now = new Date("2026-06-27T12:00:00Z");
+  const records = [];
+  ["2026-06-21", "2026-06-22", "2026-06-23", "2026-06-24", "2026-06-25", "2026-06-26"].forEach((date, index) => {
+    for (let count = 0; count <= index; count += 1) {
+      records.push({ id: date + "-" + count, submittedAt: date + "T09:00:00Z" });
+    }
+  });
+  for (let count = 0; count < 8; count += 1) {
+    records.push({ id: "today-" + count, submittedAt: "2026-06-27T10:00:00Z" });
+  }
+
+  const metrics = buildMetrics(records, { now });
+  const insight = metrics.workloadInsight;
+
+  assert.equal(insight.todayCount, 8);
+  assert.equal(insight.activitySignal, "high");
+  assert.equal(insight.trend, "rising");
+  assert.equal(insight.upcoming.length, 7);
+  assert.equal(insight.chart.length, 28);
+  assert.ok(insight.expectedTomorrow > 0);
+  assert.ok(insight.busyPeriods.length > 0);
+  assert.ok(insight.busyPeriods[0].average >= insight.quietPeriods[0].average);
+});

@@ -20,11 +20,14 @@ test("dashboard frontend exposes form CRUD controls", () => {
   assert.match(html, /<title>Concrete Cube Dashboard<\/title>/);
   assert.match(html, /<h1>Human Dashboard<\/h1>/);
   assert.match(html, /metricsGrid/);
+  assert.match(html, /workloadInsight/);
   assert.match(html, /Metrics dashboard/);
   assert.match(html, /metricsTitle[^>]*>Metrics dashboard <span class="trial-badge">TRIAL<\/span>/);
   assert.match(js, /renderMetrics/);
   assert.match(js, /CubeSyncMetrics/);
+  assert.match(js, /renderWorkloadInsight/);
   assert.match(css, /\.metrics-grid/);
+  assert.match(css, /\.workload-insight/);
   assert.doesNotMatch(html, /<h1>Concrete Cube Dashboard<\/h1>/);
   assert.match(html, /css\/dashboard\.css/);
   assert.match(html, /barcode\.js/);
