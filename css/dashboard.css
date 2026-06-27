@@ -1,3 +1,4 @@
+@import url("shared/throbber.css");
 @import url("dashboard/tokens.css");
 @import url("dashboard/field-config.css");
 @import url("dashboard/today-toggle.css");
@@ -952,6 +953,20 @@ textarea:focus {
   box-shadow: inset 6px 0 0 #f97316;
 }
 
+.form-table tbody tr.has-cube-job-collision {
+  background: rgba(220, 38, 38, 0.08);
+}
+
+.form-table tbody tr.has-cube-job-collision:hover,
+.form-table tbody tr.has-cube-job-collision.selected {
+  background: rgba(220, 38, 38, 0.16);
+}
+
+.form-table tbody tr.has-cube-job-collision td:first-child {
+  background: rgba(220, 38, 38, 0.12);
+  box-shadow: inset 6px 0 0 #dc2626;
+}
+
 .row-actions {
   display: flex;
   flex-wrap: wrap;
@@ -1020,6 +1035,14 @@ textarea:focus {
   box-shadow: inset 5px 0 0 #f97316;
   /* Looped pulse to draw attention to custom free-text fields. */
   animation: custom-field-pulse 1.8s ease-in-out infinite;
+}
+
+.detail-list .detail-field.is-collision-field {
+  padding: 12px;
+  border: 1px solid rgba(220, 38, 38, 0.64);
+  border-radius: 10px;
+  background: rgba(220, 38, 38, 0.12);
+  box-shadow: inset 5px 0 0 #dc2626;
 }
 
 @keyframes custom-field-pulse {
@@ -1164,6 +1187,26 @@ textarea:focus {
   color: #c7d2fe;
 }
 
+.edit-dialog .field-row.has-collision {
+  padding: 10px 12px;
+  border: 1px solid rgba(220, 38, 38, 0.28);
+  border-radius: 10px;
+  background: rgba(220, 38, 38, 0.08);
+}
+
+.edit-dialog input.has-collision {
+  border-color: rgba(220, 38, 38, 0.64);
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12);
+}
+
+.cube-job-collision-hint {
+  display: block;
+  margin-top: 6px;
+  color: #991b1b;
+  font-size: 12px;
+  font-weight: 700;
+}
+
 /* ==========================================================================
    Utilities
    ========================================================================== */
@@ -1177,6 +1220,16 @@ textarea:focus {
   font-weight: 700;
 }
 
+.highlight-collision {
+  display: inline-block;
+  background-color: rgba(220, 38, 38, 0.18);
+  color: #991b1b;
+  padding: 2px 6px;
+  border: 1px solid rgba(220, 38, 38, 0.56);
+  border-radius: 6px;
+  font-weight: 800;
+}
+
 .custom-field-count {
   display: inline-flex;
   align-items: center;
@@ -1188,6 +1241,23 @@ textarea:focus {
   border-radius: 999px;
   background: rgba(249, 115, 22, 0.14);
   color: #9a3412;
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.cube-job-collision-badge {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  min-height: 22px;
+  margin: 6px 0 0;
+  margin-left: 6px;
+  padding: 0 8px;
+  border: 1px solid rgba(220, 38, 38, 0.42);
+  border-radius: 999px;
+  background: rgba(220, 38, 38, 0.12);
+  color: #991b1b;
   font-size: 11px;
   font-weight: 800;
   white-space: nowrap;
@@ -1214,15 +1284,45 @@ textarea:focus {
   font-size: 12px;
 }
 
+.cube-job-collision-legend {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border: 1px solid rgba(220, 38, 38, 0.3);
+  border-radius: 12px;
+  background: rgba(220, 38, 38, 0.1);
+  color: #991b1b;
+}
+
+.cube-job-collision-legend strong {
+  color: #991b1b;
+  font-size: 13px;
+}
+
+.cube-job-collision-legend span {
+  color: #b91c1c;
+  font-size: 12px;
+}
+
 [data-theme="dark"] .highlight-custom,
 [data-theme="dark"] .custom-field-count,
-[data-theme="dark"] .custom-field-legend {
+[data-theme="dark"] .custom-field-legend,
+[data-theme="dark"] .highlight-collision,
+[data-theme="dark"] .cube-job-collision-badge,
+[data-theme="dark"] .cube-job-collision-legend,
+[data-theme="dark"] .cube-job-collision-hint {
   color: #fed7aa;
 }
 
 [data-theme="dark"] .custom-field-legend strong,
 [data-theme="dark"] .custom-field-legend span {
   color: #fed7aa;
+}
+
+[data-theme="dark"] .cube-job-collision-legend strong,
+[data-theme="dark"] .cube-job-collision-legend span {
+  color: #fecaca;
 }
 
 /* ==========================================================================

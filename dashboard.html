@@ -13,6 +13,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/glassmorphic.css">
     <link rel="stylesheet" href="css/dashboard.css">
+    <script src="cubesync-connectivity.js" defer></script>
     <script src="barcode.js" defer></script>
     <script src="cubesync-form-markup.js" defer></script>
     <script src="cubesync-form-data.js" defer></script>
@@ -29,6 +30,10 @@
     <script src="dashboard.js" defer></script>
   </head>
   <body>
+    <div id="pageLoader" class="page-loader" role="status" aria-live="polite">
+      <span class="throbber" aria-hidden="true"></span>
+      <span>Loading…</span>
+    </div>
     <script>
       window.addEventListener("DOMContentLoaded", () => {
         if (window.CubeSyncChime) window.CubeSyncChime.attachButtonChimes();
@@ -336,6 +341,7 @@
                 <label class="field-row" data-form-field="cubeJobNumber">
                   <span>Cube Job # :</span>
                   <input type="text" name="cubeJobNumber">
+                  <small id="editCubeJobCollisionHint" class="field-hint cube-job-collision-hint" hidden></small>
                 </label>
                 <label class="field-row" data-form-field="quote">
                   <span>Quote :</span>

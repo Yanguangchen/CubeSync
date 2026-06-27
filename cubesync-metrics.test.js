@@ -44,7 +44,10 @@ test("buildMetrics reports daily weekly monthly workload and operational totals"
   assert.equal(metrics.processedCount, 3);
   assert.equal(metrics.manualReviewCount, 3);
   assert.equal(metrics.peakCount, 2);
-  assert.deepEqual(metrics.peakPeriods.map((period) => period.label), ["9 AM"]);
+  // Peak label reflects local timezone, so derive it from the timestamp rather than hardcoding "9 AM".
+  const peakHour = new Date("2026-06-27T09:00:00Z").getHours();
+  const expectedPeakLabel = (peakHour % 12 || 12) + " " + (peakHour < 12 ? "AM" : "PM");
+  assert.deepEqual(metrics.peakPeriods.map((period) => period.label), [expectedPeakLabel]);
   assert.equal(Number(metrics.averagePerDay.toFixed(2)), 0.13);
 });
 

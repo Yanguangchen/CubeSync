@@ -188,7 +188,7 @@ function cleanPayload(payload) {
 
   if ("extraFields" in clean) {
     clean.extraFields = cleanExtraFields(clean.extraFields);
-    if (!Object.keys(clean.extraFields).length) {
+    if (!clean.extraFields || !Object.keys(clean.extraFields).length) {
       delete clean.extraFields;
     }
   }

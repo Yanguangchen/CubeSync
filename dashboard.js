@@ -659,6 +659,74 @@
     return customFields(form).length;
   }
 
+  function cubeJobCollisionKey(value) {
+    return String(value == null ? "" : value).trim().toLowerCase();
+  }
+
+  function buildCubeJobCollisionIndex(forms) {
+    const groups = new Map();
+
+    (forms || []).forEach((form) => {
+      const key = cubeJobCollisionKey(form && (form.cubeJob || form.reportNo));
+      if (!key) {
+        return;
+      }
+
+      if (!groups.has(key)) {
+        groups.set(key, []);
+      }
+      groups.get(key).push(form);
+    });
+
+    return groups;
+  }
+
+  function cubeJobCollisionGroup(form, collisionIndex) {
+    if (!form) {
+      return [];
+    }
+
+    const index = collisionIndex || buildCubeJobCollisionIndex(state.forms);
+    const key = cubeJobCollisionKey(form.cubeJob || form.reportNo);
+    const group = key ? (index.get(key) || []) : [];
+    return group.length > 1 ? group : [];
+  }
+
+  function cubeJobCollisionPeers(form, collisionIndex) {
+    return cubeJobCollisionGroup(form, collisionIndex).filter((item) => item.id !== form.id);
+  }
+
+  function collisionReportLabels(forms) {
+    return forms.map((item) => item.reportNo || item.id);
+  }
+
+  function renderCubeJobCollisionBadge(form, collisionIndex) {
+    const peers = cubeJobCollisionPeers(form, collisionIndex);
+    if (!peers.length) {
+      return "";
+    }
+
+    const label = peers.length === 1 ? "Cube Job collision" : `Cube Job collision (${peers.length + 1})`;
+    return `<span class="cube-job-collision-badge" title="Also used by ${escapeHtml(collisionReportLabels(peers).join(", "))}">${escapeHtml(label)}</span>`;
+  }
+
+  function renderCubeJobCollisionLegend(form, collisionIndex) {
+    const peers = cubeJobCollisionPeers(form, collisionIndex);
+    if (!peers.length) {
+      return "";
+    }
+
+    const requestLabel = peers.length === 1
+      ? "1 other request shares this Cube Job #"
+      : `${peers.length} other requests share this Cube Job #`;
+    return `
+      <aside class="cube-job-collision-legend" aria-label="Cube Job collision warning">
+        <strong>${escapeHtml(requestLabel)}</strong>
+        <span>${escapeHtml(form.cubeJob || form.reportNo)} is also used by ${escapeHtml(collisionReportLabels(peers).join(", "))}.</span>
+      </aside>
+    `;
+  }
+
   function renderCustomFieldBadge(form) {
     const count = customFieldCount(form);
     if (!count) {
@@ -692,12 +760,14 @@
       return;
     }
 
+    const collisionIndex = buildCubeJobCollisionIndex(state.forms);
     const rows = filteredForms().map(function (form) {
       const selectedClass = form.id === state.selectedId ? " selected" : "";
       const customClass = customFieldCount(form) ? " has-custom-fields" : "";
+      const collisionClass = cubeJobCollisionGroup(form, collisionIndex).length ? " has-cube-job-collision" : "";
       return `
-        <tr class="${selectedClass}${customClass}" data-id="${escapeHtml(form.id)}" tabindex="0">
-          <td><strong>${escapeHtml(form.reportNo || form.id)}</strong>${renderCustomFieldBadge(form)}</td>
+        <tr class="${selectedClass}${customClass}${collisionClass}" data-id="${escapeHtml(form.id)}" tabindex="0">
+          <td><strong>${escapeHtml(form.reportNo || form.id)}</strong>${renderCustomFieldBadge(form)}${renderCubeJobCollisionBadge(form, collisionIndex)}</td>
           <td>${escapeHtml(form.client)}</td>
           <td>${escapeHtml(form.project)}</td>
           <td>${escapeHtml(form.template)}</td>
@@ -810,18 +880,33 @@
     elements.detailTitle.textContent = form.reportNo || form.id;
     const helper = formDataHelper();
     const flaggedFields = customFields(form);
+    const collisionIndex = buildCubeJobCollisionIndex(state.forms);
+    const cubeJobCollision = cubeJobCollisionGroup(form, collisionIndex);
     const renderField = (label, value, formFieldKey) => {
       if (value == null || value === "") return '';
       const isCustom = helper && typeof helper.isDropdownFreeTextField === "function"
         ? helper.isDropdownFreeTextField(flaggedFields, formFieldKey)
         : flaggedFields.includes(formFieldKey);
+      const isCollision = formFieldKey === "cubeJob" && cubeJobCollision.length > 0;
       const displayText = formFieldKey === "dateOfCast" ? formatDashboardDate(value) : value;
-      const displayValue = isCustom ? `<span class="highlight-custom" title="Custom free text entry">${escapeHtml(displayText)}</span>` : escapeHtml(displayText);
-      return `<div class="detail-field${isCustom ? " is-custom-field" : ""}"><dt>${escapeHtml(label)}</dt><dd>${displayValue}</dd></div>`;
+      const displayValue = isCollision
+        ? `<span class="highlight-collision" title="Cube Job # collision">${escapeHtml(displayText)}</span>`
+        : (isCustom
+          ? `<span class="highlight-custom" title="Custom free text entry">${escapeHtml(displayText)}</span>`
+          : escapeHtml(displayText));
+      const classes = [];
+      if (isCustom) {
+        classes.push("is-custom-field");
+      }
+      if (isCollision) {
+        classes.push("is-collision-field");
+      }
+      return `<div class="detail-field${classes.length ? ` ${classes.join(" ")}` : ""}"><dt>${escapeHtml(label)}</dt><dd>${displayValue}</dd></div>`;
     };
 
     elements.detailContent.innerHTML = `
       ${renderCustomFieldLegend(form)}
+      ${renderCubeJobCollisionLegend(form, collisionIndex)}
       <dl class="detail-list">
         ${renderField("Project (ERP)", form.projectErp, "projectErp")}
         ${renderField("Customer (Billing)", form.customerBilling, "customerBilling")}
@@ -1459,11 +1544,23 @@
 
     elements.signInButton.addEventListener("click", async function () {
       setSurfaceStatus(elements.authGateStatus, "Starting Google sign-in...", "info");
+      // Throbber feedback: spin the button and show the full-page loader while
+      // the Google popup and auth handshake resolve.
+      const connectivity = window.CubeSyncConnectivity;
+      elements.signInButton.classList.add("is-busy");
+      elements.signInButton.disabled = true;
+      elements.signInButton.setAttribute("aria-busy", "true");
+      if (connectivity) connectivity.showLoader();
       try {
         await auth.signInWithGoogle();
       } catch (error) {
         const detail = classifyActionError(error, "Unable to sign in with Google.");
         setSurfaceStatus(elements.authGateStatus, detail.message, detail.tone);
+      } finally {
+        elements.signInButton.classList.remove("is-busy");
+        elements.signInButton.disabled = false;
+        elements.signInButton.setAttribute("aria-busy", "false");
+        if (connectivity) connectivity.hideLoader();
       }
     });
 
@@ -1603,7 +1700,7 @@
     const manualCubeJobToggle = elements.editForm.elements["enableManualCubeJobNumber"];
     const cubeJobNumberInput = elements.editForm.elements["cubeJobNumber"];
     if (!manualCubeJobToggle || !cubeJobNumberInput) return;
-    
+
     const enabled = manualCubeJobToggle.checked;
     cubeJobNumberInput.disabled = !enabled;
     cubeJobNumberInput.classList.toggle("is-disabled", !enabled);
@@ -1612,9 +1709,42 @@
     } else {
       cubeJobNumberInput.value = "";
     }
+
+    updateEditorCubeJobCollisionState();
   }
 
+  function updateEditorCubeJobCollisionState() {
+    const cubeJobNumberInput = elements.editForm && elements.editForm.elements["cubeJobNumber"];
+    const collisionHint = elements.editCubeJobCollisionHint;
+    if (!cubeJobNumberInput || !collisionHint) {
+      return;
+    }
 
+    const currentId = elements.editForm.elements.id ? String(elements.editForm.elements.id.value || "") : "";
+    const value = String(cubeJobNumberInput.value || "").trim();
+    const peers = value
+      ? cubeJobCollisionPeers({ id: currentId, cubeJob: value, reportNo: value }, buildCubeJobCollisionIndex(state.forms))
+      : [];
+    const hasCollision = peers.length > 0;
+    const row = cubeJobNumberInput.closest(".field-row");
+
+    cubeJobNumberInput.classList.toggle("has-collision", hasCollision);
+    if (row) {
+      row.classList.toggle("has-collision", hasCollision);
+    }
+
+    if (!hasCollision) {
+      collisionHint.hidden = true;
+      collisionHint.textContent = "";
+      return;
+    }
+
+    const requestLabel = peers.length === 1
+      ? "1 other request already uses this Cube Job #:"
+      : `${peers.length} other requests already use this Cube Job #:`;
+    collisionHint.textContent = `${requestLabel} ${collisionReportLabels(peers).join(", ")}.`;
+    collisionHint.hidden = false;
+  }
 
   function openEditor(id) {
     const form = state.forms.find((item) => item.id === id);
@@ -1700,6 +1830,7 @@
     renderAllEditorBarcodes();
     setEditorStep(1);
     applyEditorManualCubeJobState();
+    updateEditorCubeJobCollisionState();
 
     elements.editDialog.showModal();
   }
@@ -1949,7 +2080,7 @@
       "reasonDialog", "reasonForm", "reasonInput", "reasonChangeList", "reasonStatus", "cancelReasonButton",
       "statusFilter", "clientFilter", "projectFilter", "sortOrder",
       "todayToggle", "todayOnlyToggle", "metricsGrid", "metricsSummary", "workloadInsight", "heatmapGrid", "heatmapSummary", "notifyButton",
-      "editDialog", "editForm", "editFormStatus", "closeEditorButton", "cancelEditButton",
+      "editDialog", "editForm", "editFormStatus", "editCubeJobCollisionHint", "closeEditorButton", "cancelEditButton",
       "detailViewButton", "detailEditButton", "detailPrintButton", "detailDeleteButton", "detailHideButton",
       "printArea", "fieldSettingsButton", "fieldConfigDialog", "fieldConfigForm",
       "manageOptionsButton", "optionsDialog", "optionsForm", "optionsGroups", "optionsStatus",
@@ -2123,6 +2254,10 @@
     const manualCubeJobToggle = elements.editForm.elements["enableManualCubeJobNumber"];
     if (manualCubeJobToggle) {
       manualCubeJobToggle.addEventListener("change", applyEditorManualCubeJobState);
+    }
+    const editCubeJobNumberInput = elements.editForm.elements["cubeJobNumber"];
+    if (editCubeJobNumberInput) {
+      editCubeJobNumberInput.addEventListener("input", updateEditorCubeJobCollisionState);
     }
 
     const setupAutocomplete = window.CubeSyncAutocomplete ? window.CubeSyncAutocomplete.setupAutocomplete : function(){};

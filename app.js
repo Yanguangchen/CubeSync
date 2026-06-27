@@ -319,6 +319,15 @@
       form.addEventListener("submit", async function (event) {
         event.preventDefault();
 
+        // Block submits while offline: the write would fail (or worse, half
+        // complete on a flaky link) and the user would retry, creating a
+        // duplicate request. Reconnecting and resubmitting is the safe path.
+        const connectivity = window.CubeSyncConnectivity;
+        if (connectivity && !connectivity.isOnline()) {
+          setSaveStatus(saveStatus, "You're offline — reconnect before saving to avoid duplicate submissions.", true);
+          return;
+        }
+
         const store = window.CubeSyncFirestore;
         const formData = window.CubeSyncFormData;
 

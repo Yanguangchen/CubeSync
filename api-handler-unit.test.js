@@ -552,3 +552,171 @@ test("missing request body returns 400", withRecaptcha(async () => {
 
   assert.equal(response.statusCode, 400);
 }));
+
+// --- Extra fields edge cases & base64/fallback config ---
+
+test("null extraFields returns undefined", withRecaptcha(async () => {
+  let savedData = null;
+  setFirebaseAdminForTest(mockFirestoreAdmin({
+    add: async (data) => {
+      savedData = data;
+      return { id: "null-extras" };
+    }
+  }));
+
+  const response = mockResponse();
+  await handler({
+    method: "POST",
+    headers: {},
+    body: {
+      recaptchaToken: "token",
+      payload: validPayload({ extraFields: null })
+    }
+  }, response);
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(savedData.extraFields, undefined);
+}));
+
+test("extraFields rejects invalid field IDs", withRecaptcha(async () => {
+  const response = mockResponse();
+  await handler({
+    method: "POST",
+    headers: {},
+    body: {
+      recaptchaToken: "token",
+      payload: validPayload({
+        extraFields: { "invalid-key": "value" }
+      })
+    }
+  }, response);
+
+  assert.equal(response.statusCode, 400);
+  assert.match(JSON.parse(response.body).error, /Unexpected extra field/);
+}));
+
+test("extraFields rejects object values", withRecaptcha(async () => {
+  const response = mockResponse();
+  await handler({
+    method: "POST",
+    headers: {},
+    body: {
+      recaptchaToken: "token",
+      payload: validPayload({
+        extraFields: { customField_1: { nested: "object" } }
+      })
+    }
+  }, response);
+
+  assert.equal(response.statusCode, 400);
+  assert.match(JSON.parse(response.body).error, /Invalid extra field value/);
+}));
+
+test("firebase admin initialization in submit - cert from base64 env", withRecaptcha(async () => {
+  const originalCache = require.cache[require.resolve("firebase-admin")];
+  
+  const initializedConfig = [];
+  const mockFirebaseAdmin = {
+    apps: [],
+    initializeApp(config) {
+      this.apps.push({ name: "[DEFAULT]" });
+      initializedConfig.push(config);
+    },
+    credential: {
+      cert: (cert) => ({ cert }),
+      applicationDefault: () => ({ default: true })
+    },
+    firestore() {
+      return {
+        collection: () => ({ add: async () => ({ id: "id" }) })
+      };
+    }
+  };
+  require.cache[require.resolve("firebase-admin")] = { exports: mockFirebaseAdmin };
+
+  const prevBase64 = process.env.FIREBASE_SERVICE_ACCOUNT_JSON_BASE64;
+  const prevJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+
+  const account = { type: "service_account", project_id: "base64-proj-submit" };
+  process.env.FIREBASE_SERVICE_ACCOUNT_JSON_BASE64 = Buffer.from(JSON.stringify(account)).toString("base64");
+  delete process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+
+  setFirebaseAdminForTest(null);
+
+  try {
+    const response = mockResponse();
+    await handler({
+      method: "POST",
+      headers: {},
+      body: {
+        recaptchaToken: "token",
+        payload: validPayload()
+      }
+    }, response);
+
+    assert.equal(initializedConfig.length, 1);
+    assert.deepEqual(initializedConfig[0].credential.cert, account);
+  } finally {
+    if (originalCache) {
+      require.cache[require.resolve("firebase-admin")] = originalCache;
+    } else {
+      delete require.cache[require.resolve("firebase-admin")];
+    }
+    process.env.FIREBASE_SERVICE_ACCOUNT_JSON_BASE64 = prevBase64;
+    process.env.FIREBASE_SERVICE_ACCOUNT_JSON = prevJson;
+  }
+}));
+
+test("firebase admin initialization in submit - application default fallback", withRecaptcha(async () => {
+  const originalCache = require.cache[require.resolve("firebase-admin")];
+  
+  const initializedConfig = [];
+  const mockFirebaseAdmin = {
+    apps: [],
+    initializeApp(config) {
+      this.apps.push({ name: "[DEFAULT]" });
+      initializedConfig.push(config);
+    },
+    credential: {
+      cert: (cert) => ({ cert }),
+      applicationDefault: () => ({ default: true })
+    },
+    firestore() {
+      return {
+        collection: () => ({ add: async () => ({ id: "id" }) })
+      };
+    }
+  };
+  require.cache[require.resolve("firebase-admin")] = { exports: mockFirebaseAdmin };
+
+  const prevBase64 = process.env.FIREBASE_SERVICE_ACCOUNT_JSON_BASE64;
+  const prevJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+
+  delete process.env.FIREBASE_SERVICE_ACCOUNT_JSON_BASE64;
+  delete process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+
+  setFirebaseAdminForTest(null);
+
+  try {
+    const response = mockResponse();
+    await handler({
+      method: "POST",
+      headers: {},
+      body: {
+        recaptchaToken: "token",
+        payload: validPayload()
+      }
+    }, response);
+
+    assert.equal(initializedConfig.length, 1);
+    assert.deepEqual(initializedConfig[0].credential.default, true);
+  } finally {
+    if (originalCache) {
+      require.cache[require.resolve("firebase-admin")] = originalCache;
+    } else {
+      delete require.cache[require.resolve("firebase-admin")];
+    }
+    process.env.FIREBASE_SERVICE_ACCOUNT_JSON_BASE64 = prevBase64;
+    process.env.FIREBASE_SERVICE_ACCOUNT_JSON = prevJson;
+  }
+}));

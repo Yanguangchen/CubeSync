@@ -30,7 +30,10 @@
       "Bash(curl *)",
       "Bash(git commit *)",
       "Bash(git push *)",
-      "Bash(firebase deploy *)"
+      "Bash(firebase deploy *)",
+      "Bash(git check-ignore *)",
+      "Bash(grep -rn \"throbber\" css/*.css index.html glassmorphic.html dashboard.html)",
+      "Bash(grep -rln \"navigator.onLine\\\\|offline\\\\|connectivity\\\\|page-loader\\\\|pageLoader\\\\|loadingOverlay\" *.js *.html)"
     ]
   }
 }

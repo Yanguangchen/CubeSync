@@ -428,6 +428,107 @@ test("dashboard.js shows dropdown free text counter, legend, and highlighted fie
   assert.equal(detailContent.querySelectorAll(".detail-field.is-custom-field").length, 3);
 });
 
+test("dashboard.js highlights cube job number collisions in the list, detail view, and editor", async () => {
+  const dom = new JSDOM(html, {
+    runScripts: "dangerously",
+    url: "http://localhost/"
+  });
+  const { window } = dom;
+
+  const mockAuth = {
+    onAuthChange: (cb) => cb({ email: "test@rakmat.com.sg" }),
+    isAllowedUser: () => true
+  };
+
+  const mockFirestore = {
+    listCubeRequests: async () => [
+      {
+        id: "dup-a",
+        reportNo: "REPORT-001",
+        cubeJobNumber: "CJ-100",
+        customerBilling: "Client A",
+        projectNameOnReport: "Project X",
+        status: "Ready",
+        template: "Original",
+        enableManualCubeJobNumber: true
+      },
+      {
+        id: "dup-b",
+        reportNo: "REPORT-002",
+        cubeJobNumber: "CJ-100",
+        customerBilling: "Client B",
+        projectNameOnReport: "Project Y",
+        status: "Draft",
+        template: "Original",
+        enableManualCubeJobNumber: true
+      },
+      {
+        id: "unique-c",
+        reportNo: "REPORT-003",
+        cubeJobNumber: "CJ-200",
+        customerBilling: "Client C",
+        projectNameOnReport: "Project Z",
+        status: "Draft",
+        template: "Original"
+      }
+    ]
+  };
+
+  window.CubeSyncAuth = mockAuth;
+  window.CubeSyncFirestore = mockFirestore;
+
+  [barcodeJs, formDataJs, dashboardJs].forEach((js) => {
+    const script = window.document.createElement("script");
+    script.textContent = js;
+    window.document.head.appendChild(script);
+  });
+
+  window.HTMLDialogElement.prototype.showModal = function () {
+    this.open = true;
+  };
+  window.HTMLDialogElement.prototype.close = function () {
+    this.open = false;
+  };
+
+  const event = window.document.createEvent("Event");
+  event.initEvent("DOMContentLoaded", true, true);
+  window.document.dispatchEvent(event);
+
+  await new Promise((resolve) => setTimeout(resolve, 50));
+
+  const list = window.document.getElementById("formList");
+  const duplicateRow = list.querySelector("tr[data-id='dup-a']");
+  const siblingRow = list.querySelector("tr[data-id='dup-b']");
+  const uniqueRow = list.querySelector("tr[data-id='unique-c']");
+
+  assert.ok(duplicateRow.classList.contains("has-cube-job-collision"));
+  assert.ok(siblingRow.classList.contains("has-cube-job-collision"));
+  assert.ok(!uniqueRow.classList.contains("has-cube-job-collision"));
+  assert.match(duplicateRow.innerHTML, /Cube Job collision/);
+
+  duplicateRow.click();
+
+  const detailContent = window.document.getElementById("detailContent");
+  assert.match(detailContent.textContent, /1 other request shares this Cube Job #/);
+  assert.match(detailContent.textContent, /REPORT-002/);
+  assert.equal(detailContent.querySelectorAll(".detail-field.is-collision-field").length, 1);
+  assert.equal(detailContent.querySelectorAll(".highlight-collision").length, 1);
+
+  window.document.querySelector("button[data-action='edit'][data-id='dup-a']").click();
+
+  const editForm = window.document.getElementById("editForm");
+  const cubeJobInput = editForm.elements.cubeJobNumber;
+  const collisionHint = window.document.getElementById("editCubeJobCollisionHint");
+  assert.equal(cubeJobInput.classList.contains("has-collision"), true);
+  assert.equal(collisionHint.hidden, false);
+  assert.match(collisionHint.textContent, /REPORT-002/);
+
+  cubeJobInput.value = "CJ-999";
+  cubeJobInput.dispatchEvent(new window.Event("input", { bubbles: true }));
+  assert.equal(cubeJobInput.classList.contains("has-collision"), false);
+  assert.equal(collisionHint.hidden, true);
+});
+
 test("dashboard.js flags only values missing from the loaded option list", async () => {
   const dom = new JSDOM(html, {
     runScripts: "dangerously",

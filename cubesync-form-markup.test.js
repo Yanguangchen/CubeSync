@@ -1,9 +1,24 @@
 const { test, describe } = require("node:test");
 const assert = require("node:assert");
 const { JSDOM } = require("jsdom");
-const { resultRowHtml, seedResultRows } = require("./cubesync-form-markup.js");
+const {
+  resultTableHeadHtml,
+  resultRowHtml,
+  seedResultRows,
+  resultRowFieldNames
+} = require("./cubesync-form-markup.js");
 
 describe("cubesync-form-markup.js", () => {
+  describe("resultTableHeadHtml", () => {
+    test("generates table header with correct columns and action column", () => {
+      const html = resultTableHeadHtml();
+      assert.ok(html.includes('<th scope="col" data-result-field="setNo">Set No</th>'));
+      assert.ok(html.includes('<th scope="col">Action</th>'));
+      assert.ok(html.startsWith("<tr>"));
+      assert.ok(html.endsWith("</tr>"));
+    });
+  });
+
   describe("resultRowHtml", () => {
     test("generates row HTML with correct row count in names and labels", () => {
       const html = resultRowHtml(42);
@@ -36,6 +51,25 @@ describe("cubesync-form-markup.js", () => {
       } finally {
         global.document = previousDocument;
       }
+    });
+  });
+
+  describe("resultRowFieldNames", () => {
+    test("generates list of field names with correct row suffix", () => {
+      const fieldNames = resultRowFieldNames(3);
+      assert.deepEqual(fieldNames, [
+        "setNo3",
+        "size3",
+        "specimenRef3",
+        "barcode3",
+        "specifiedSlump3",
+        "meanSlump3",
+        "resultGrade3",
+        "resultDateOfCast3",
+        "age3",
+        "dateOfTest3",
+        "invoiceNumber3"
+      ]);
     });
   });
 });
