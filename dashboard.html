@@ -19,6 +19,7 @@
     <script src="cubesync-autocomplete.js" defer></script>
     <script src="cubesync-table-manager.js" defer></script>
     <script src="cubesync-dashboard-filters.js" defer></script>
+    <script src="cubesync-heatmap.js" defer></script>
     <script src="cubesync-today-toggle.js" defer></script>
     <script src="env.js"></script>
     <script type="module" src="firestore.js"></script>
@@ -81,6 +82,22 @@
           </div>
         </nav>
       </header>
+
+      <section class="heatmap-panel glass-panel" aria-labelledby="heatmapTitle">
+        <div class="panel-heading heatmap-heading">
+          <div>
+            <p class="eyebrow">Insights</p>
+            <h2 id="heatmapTitle">Submission heatmap</h2>
+            <p class="heatmap-summary" id="heatmapSummary">Spot the busiest times for form submissions.</p>
+          </div>
+          <div class="heatmap-modes" role="group" aria-label="Heatmap grouping">
+            <button type="button" class="heatmap-mode-btn" data-heatmap-mode="daily">Daily</button>
+            <button type="button" class="heatmap-mode-btn is-active" data-heatmap-mode="weekly" aria-pressed="true">Weekly</button>
+            <button type="button" class="heatmap-mode-btn" data-heatmap-mode="yearly">Yearly</button>
+          </div>
+        </div>
+        <div class="heatmap-grid heatmap-grid-weekly" id="heatmapGrid" role="img" aria-label="Form submission heatmap"></div>
+      </section>
 
       <section class="workspace">
         <section class="list-panel glass-panel" aria-labelledby="formsTitle">

@@ -10,6 +10,7 @@
     project: "all",
     sort: "date-desc",
     todayOnly: false,
+    heatmapMode: "weekly",
     loading: false,
     fieldConfig: null,
     dropdownOptions: {},
@@ -214,6 +215,82 @@
     return window.CubeSyncDashboardFilters;
   }
 
+  function heatmapHelper() {
+    return window.CubeSyncHeatmap;
+  }
+
+  // Forms the heatmap should analyse: the same facet filters as the table
+  // (search/status/client/project) so the heatmap reflects the current view,
+  // but never the "today only" or sort options — the whole point of the
+  // heatmap is to look across submission history. Raw Firestore records are
+  // returned because they retain the real submission timestamps (with the
+  // time-of-day needed for the Daily view); normalized forms keep only dates.
+  function heatmapSourceForms() {
+    const helper = dashboardFilters();
+    let forms = state.forms;
+    if (helper && typeof helper.applyDashboardFilters === "function") {
+      forms = helper.applyDashboardFilters(state.forms, {
+        search: state.search,
+        status: state.status,
+        client: state.client,
+        project: state.project
+      });
+    }
+    return forms.map((form) => (form && form.raw ? form.raw : form));
+  }
+
+  // Compact axis label for a bucket, e.g. "9 AM" -> "9a", "Monday" -> "Mon".
+  function heatmapShortLabel(label, mode) {
+    if (mode === "daily") {
+      const match = /^(\d+)\s*(AM|PM)$/.exec(label);
+      if (match) {
+        return match[1] + (match[2] === "AM" ? "a" : "p");
+      }
+      return label;
+    }
+    return label.slice(0, 3);
+  }
+
+  function renderHeatmap() {
+    const grid = elements.heatmapGrid;
+    if (!grid) {
+      return;
+    }
+
+    const helper = heatmapHelper();
+    if (!helper || typeof helper.buildHeatmap !== "function") {
+      grid.innerHTML = "";
+      return;
+    }
+
+    const result = helper.buildHeatmap(heatmapSourceForms(), { mode: state.heatmapMode });
+    grid.className = "heatmap-grid heatmap-grid-" + result.mode;
+
+    grid.innerHTML = result.buckets.map((bucket) => {
+      const countLabel = bucket.count + " submission" + (bucket.count === 1 ? "" : "s");
+      const title = bucket.label + ": " + countLabel;
+      const busiest = result.busiest && result.busiest.key === bucket.key && result.max > 0;
+      const emptyClass = bucket.count === 0 ? " is-empty" : "";
+      const busyClass = busiest ? " is-busiest" : "";
+      return `
+        <div class="heatmap-cell${emptyClass}${busyClass}" style="--heat: ${bucket.intensity.toFixed(3)}" title="${escapeHtml(title)}" role="img" aria-label="${escapeHtml(title)}">
+          <span class="heatmap-cell-bar" aria-hidden="true"></span>
+          <span class="heatmap-cell-count">${bucket.count}</span>
+          <span class="heatmap-cell-label">${escapeHtml(heatmapShortLabel(bucket.label, result.mode))}</span>
+        </div>`;
+    }).join("");
+
+    if (elements.heatmapSummary) {
+      if (result.total === 0) {
+        elements.heatmapSummary.textContent = "No submissions match the current filters yet.";
+      } else if (result.busiest) {
+        const totalLabel = result.total + " submission" + (result.total === 1 ? "" : "s");
+        elements.heatmapSummary.textContent =
+          "Busiest: " + result.busiest.label + " (" + result.busiest.count + " of " + totalLabel + ").";
+      }
+    }
+  }
+
   function filteredForms() {
     const helper = dashboardFilters();
     if (helper && typeof helper.applyDashboardFilters === "function") {
@@ -351,6 +428,8 @@
   }
 
   function renderForms() {
+    renderHeatmap();
+
     if (state.loading) {
       setListMessage("Loading Firestore forms...");
       return;
@@ -1541,7 +1620,7 @@
       "detailTabs", "detailHistoryContent",
       "reasonDialog", "reasonForm", "reasonInput", "reasonChangeList", "reasonStatus", "cancelReasonButton",
       "statusFilter", "clientFilter", "projectFilter", "sortOrder",
-      "todayToggle", "todayOnlyToggle",
+      "todayToggle", "todayOnlyToggle", "heatmapGrid", "heatmapSummary",
       "editDialog", "editForm", "editFormStatus", "closeEditorButton", "cancelEditButton",
       "detailViewButton", "detailEditButton", "detailPrintButton", "detailDeleteButton", "detailHideButton",
       "printArea", "fieldSettingsButton", "fieldConfigDialog", "fieldConfigForm",
@@ -1630,6 +1709,19 @@
         typeof window.CubeSyncTodayToggle.setup === "function") {
       window.CubeSyncTodayToggle.setup(elements.todayToggle);
     }
+
+    const heatmapModeButtons = document.querySelectorAll("[data-heatmap-mode]");
+    heatmapModeButtons.forEach((button) => {
+      button.addEventListener("click", function () {
+        state.heatmapMode = button.getAttribute("data-heatmap-mode");
+        heatmapModeButtons.forEach((other) => {
+          const active = other === button;
+          other.classList.toggle("is-active", active);
+          other.setAttribute("aria-pressed", active ? "true" : "false");
+        });
+        renderHeatmap();
+      });
+    });
 
     elements.detailViewButton.addEventListener("click", () => openEditor(state.selectedId));
     elements.detailEditButton.addEventListener("click", () => openEditor(state.selectedId));
