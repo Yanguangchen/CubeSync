@@ -7,6 +7,7 @@ const barcodeJs = fs.readFileSync("barcode.js", "utf8");
 const formDataJs = fs.readFileSync("cubesync-form-data.js", "utf8");
 const filtersJs = fs.readFileSync("cubesync-dashboard-filters.js", "utf8");
 const heatmapJs = fs.readFileSync("cubesync-heatmap.js", "utf8");
+const metricsJs = fs.readFileSync("cubesync-metrics.js", "utf8");
 const dashboardJs = fs.readFileSync("dashboard.js", "utf8");
 const html = fs.readFileSync("dashboard.html", "utf8");
 
@@ -40,7 +41,7 @@ function bootDashboard(records) {
     deleteCubeRequest: async () => {}
   };
 
-  [barcodeJs, formDataJs, filtersJs, heatmapJs, dashboardJs].forEach((js) => {
+  [barcodeJs, formDataJs, filtersJs, heatmapJs, metricsJs, dashboardJs].forEach((js) => {
     const script = window.document.createElement("script");
     script.textContent = js;
     window.document.head.appendChild(script);
@@ -76,6 +77,24 @@ const SAMPLE = [
 /* ----------------------------------------------------------------------- *
  * Trial badge
  * ----------------------------------------------------------------------- */
+
+test("metrics dashboard renders usage, workload, automation, and review totals", async () => {
+  const window = bootDashboard([
+    { id: "1", reportNo: "REQ-1", submittedAt: MON_A, erpStatus: "Success" },
+    { id: "2", reportNo: "REQ-2", submittedAt: MON_B, customFields: ["supplier"] },
+    { id: "3", reportNo: "REQ-3", submittedAt: WED_C, rpaStatus: "Failed" }
+  ]);
+  await settle();
+
+  const metricsGrid = window.document.getElementById("metricsGrid");
+  assert.match(metricsGrid.textContent, /Total records\s*3/);
+  assert.match(metricsGrid.textContent, /Processed\s*1/);
+  assert.match(metricsGrid.textContent, /Manual review\s*2/);
+  assert.match(metricsGrid.textContent, /Peak period\s*9 AM/);
+
+  const summary = window.document.getElementById("metricsSummary");
+  assert.match(summary.textContent, /3 records in view/);
+});
 
 test("heatmap panel shows a TRIAL badge beside the title", async () => {
   const window = bootDashboard(SAMPLE);

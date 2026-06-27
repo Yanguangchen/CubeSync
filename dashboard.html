@@ -20,6 +20,7 @@
     <script src="cubesync-table-manager.js" defer></script>
     <script src="cubesync-dashboard-filters.js" defer></script>
     <script src="cubesync-heatmap.js" defer></script>
+    <script src="cubesync-metrics.js" defer></script>
     <script src="cubesync-notifications.js" defer></script>
     <script src="cubesync-today-toggle.js" defer></script>
     <script src="env.js"></script>
@@ -84,6 +85,17 @@
           </div>
         </nav>
       </header>
+
+      <section class="metrics-panel glass-panel" aria-labelledby="metricsTitle">
+        <div class="panel-heading metrics-heading">
+          <div>
+            <p class="eyebrow">Operational metrics</p>
+            <h2 id="metricsTitle">Metrics dashboard</h2>
+            <p class="metrics-summary" id="metricsSummary">Usage, workload, automation results, and review trends.</p>
+          </div>
+        </div>
+        <div class="metrics-grid" id="metricsGrid" aria-live="polite"></div>
+      </section>
 
       <section class="heatmap-panel glass-panel" aria-labelledby="heatmapTitle">
         <div class="panel-heading heatmap-heading">

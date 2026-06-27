@@ -219,6 +219,10 @@
     return window.CubeSyncHeatmap;
   }
 
+  function metricsHelper() {
+    return window.CubeSyncMetrics;
+  }
+
   function notificationsHelper() {
     return window.CubeSyncNotifications;
   }
@@ -314,6 +318,79 @@
       });
     }
     return forms.map((form) => (form && form.raw ? form.raw : form));
+  }
+
+
+  function formatMetricNumber(value, options) {
+    if (typeof value === "string") {
+      return value;
+    }
+    const opts = options || {};
+    const numeric = Number(value || 0);
+    const digits = opts.maximumFractionDigits == null ? 0 : opts.maximumFractionDigits;
+    return numeric.toLocaleString(undefined, {
+      minimumFractionDigits: opts.minimumFractionDigits || 0,
+      maximumFractionDigits: digits
+    });
+  }
+
+  function renderMetrics() {
+    const grid = elements.metricsGrid;
+    if (!grid) {
+      return;
+    }
+
+    const helper = metricsHelper();
+    if (!helper || typeof helper.buildMetrics !== "function") {
+      grid.innerHTML = "";
+      if (elements.metricsSummary) {
+        elements.metricsSummary.textContent = "Metrics are unavailable until the metrics helper loads.";
+      }
+      return;
+    }
+
+    const metrics = helper.buildMetrics(heatmapSourceForms());
+    const peakLabel = metrics.peakPeriods.length
+      ? metrics.peakPeriods.slice(0, 2).map((period) => period.label).join(", ")
+      : "—";
+    const peakDetail = metrics.peakCount > 0
+      ? metrics.peakCount + " submission" + (metrics.peakCount === 1 ? "" : "s") + " at peak"
+      : "No dated submissions yet";
+
+    const cards = [
+      { label: "Today", value: metrics.dailyCount, detail: "Form submissions today" },
+      { label: "This week", value: metrics.weeklyCount, detail: "Form submissions this week" },
+      { label: "This month", value: metrics.monthlyCount, detail: "Form submissions this month" },
+      {
+        label: "Avg / day",
+        value: formatMetricNumber(metrics.averagePerDay, { maximumFractionDigits: 1 }),
+        detail: "Across dated records in view"
+      },
+      { label: "Peak period", value: peakLabel, detail: peakDetail, wide: true },
+      { label: "Total records", value: metrics.totalRecords, detail: "Records in the current view" },
+      { label: "Processed", value: metrics.processedCount, detail: "ERP success, submitted, or archived" },
+      { label: "Manual review", value: metrics.manualReviewCount, detail: "Free-text or failed/error records" }
+    ];
+
+    grid.innerHTML = cards.map((card) => `
+      <article class="metric-card${card.wide ? " metric-card-wide" : ""}">
+        <span class="metric-label">${escapeHtml(card.label)}</span>
+        <strong class="metric-value">${escapeHtml(formatMetricNumber(card.value))}</strong>
+        <span class="metric-detail">${escapeHtml(card.detail)}</span>
+      </article>
+    `).join("");
+
+    if (elements.metricsSummary) {
+      const total = metrics.totalRecords;
+      if (total === 0) {
+        elements.metricsSummary.textContent = "No records match the current filters yet.";
+      } else {
+        elements.metricsSummary.textContent =
+          formatMetricNumber(total) + " records in view · " +
+          formatMetricNumber(metrics.processedCount) + " processed · " +
+          formatMetricNumber(metrics.manualReviewCount) + " requiring review.";
+      }
+    }
   }
 
   // Compact axis label for a bucket, e.g. "9 AM" -> "9a", "Monday" -> "Mon".
@@ -506,6 +583,7 @@
 
   function renderForms() {
     renderHeatmap();
+    renderMetrics();
 
     if (state.loading) {
       setListMessage("Loading Firestore forms...");
@@ -1240,6 +1318,7 @@
 
     try {
       await store.saveDropdownOptions(map);
+      await loadDropdownOptionSets();
       if (elements.optionsDialog) elements.optionsDialog.close();
       await loadForms();
     } catch (error) {
@@ -1767,7 +1846,7 @@
       "detailTabs", "detailHistoryContent",
       "reasonDialog", "reasonForm", "reasonInput", "reasonChangeList", "reasonStatus", "cancelReasonButton",
       "statusFilter", "clientFilter", "projectFilter", "sortOrder",
-      "todayToggle", "todayOnlyToggle", "heatmapGrid", "heatmapSummary", "notifyButton",
+      "todayToggle", "todayOnlyToggle", "metricsGrid", "metricsSummary", "heatmapGrid", "heatmapSummary", "notifyButton",
       "editDialog", "editForm", "editFormStatus", "closeEditorButton", "cancelEditButton",
       "detailViewButton", "detailEditButton", "detailPrintButton", "detailDeleteButton", "detailHideButton",
       "printArea", "fieldSettingsButton", "fieldConfigDialog", "fieldConfigForm",
