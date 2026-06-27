@@ -20,6 +20,7 @@
     <script src="cubesync-table-manager.js" defer></script>
     <script src="cubesync-dashboard-filters.js" defer></script>
     <script src="cubesync-heatmap.js" defer></script>
+    <script src="cubesync-notifications.js" defer></script>
     <script src="cubesync-today-toggle.js" defer></script>
     <script src="env.js"></script>
     <script type="module" src="firestore.js"></script>
@@ -57,6 +58,7 @@
         <nav class="top-actions" aria-label="Dashboard actions">
           <span id="authUser" class="auth-user"></span>
           <span id="topbarStatus" class="surface-status surface-status-compact" aria-live="polite" hidden></span>
+          <button type="button" id="notifyButton" class="notify-button" aria-pressed="false" hidden>🔔 Enable alerts</button>
           <button type="button" id="signOutButton">Sign out</button>
           <div class="theme-switch">
             <div class="theme-switch-face">

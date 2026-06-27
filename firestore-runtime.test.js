@@ -82,6 +82,25 @@ test("firestore.js runtime tests", async (t) => {
     win.updateDoc = async (docRef, data) => {
       win.calls.updateDoc.push({ docRef, data });
     };
+
+    win.calls.onSnapshot = [];
+    win.calls.onSnapshotUnsub = 0;
+    win.onSnapshotError = null; // set before calling watchCubeRequests to test the error path
+    win.onSnapshot = (ref, next, error) => {
+      win.calls.onSnapshot.push({ ref, next, error });
+      if (win.onSnapshotError) {
+        error(win.onSnapshotError);
+      } else {
+        // Deliver an initial snapshot synchronously, mirroring the SDK.
+        next({
+          docs: [
+            { id: "req1", data: () => ({ name: "Request 1", updatedAt: { toMillis: () => 2000 } }) },
+            { id: "req2", data: () => ({ name: "Request 2", updatedAt: { toMillis: () => 1000 } }) }
+          ]
+        });
+      }
+      return () => { win.calls.onSnapshotUnsub++; };
+    };
     // Mirror the real modular SDK: serverTimestamp() returns a FieldValue
     // class instance (an object sentinel), NOT a string.
     win.FieldValue = class FieldValue {
@@ -122,6 +141,31 @@ test("firestore.js runtime tests", async (t) => {
     assert.equal(requests.length, 2);
     // ordered by updatedAt desc
     assert.equal(requests[0].id, "req1");
+  });
+
+  await t.test("watchCubeRequests subscribes and delivers sorted records", () => {
+    const dom = setupDom();
+    let received = null;
+    const unsubscribe = dom.window.CubeSyncFirestore.watchCubeRequests((records) => { received = records; });
+
+    assert.equal(dom.window.calls.collection.includes("cubeRequests"), true);
+    assert.equal(dom.window.calls.onSnapshot.length, 1);
+    assert.ok(received, "callback received an initial snapshot");
+    assert.equal(received.length, 2);
+    assert.equal(received[0].id, "req1"); // ordered by updatedAt desc
+
+    assert.equal(typeof unsubscribe, "function");
+    unsubscribe();
+    assert.equal(dom.window.calls.onSnapshotUnsub, 1);
+  });
+
+  await t.test("watchCubeRequests forwards listener errors", () => {
+    const dom = setupDom();
+    dom.window.onSnapshotError = new Error("permission-denied");
+    let captured = null;
+    dom.window.CubeSyncFirestore.watchCubeRequests(() => {}, (err) => { captured = err; });
+    assert.ok(captured);
+    assert.equal(captured.message, "permission-denied");
   });
 
   await t.test("saveCubeRequest (new)", async () => {

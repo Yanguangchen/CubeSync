@@ -219,6 +219,83 @@
     return window.CubeSyncHeatmap;
   }
 
+  function notificationsHelper() {
+    return window.CubeSyncNotifications;
+  }
+
+  let notifier = null;
+  let formsUnsubscribe = null;
+
+  // Lazily build the notifier, wiring it to the registered service worker so
+  // alerts can surface even when the dashboard tab is backgrounded.
+  function ensureNotifier() {
+    if (notifier) {
+      return notifier;
+    }
+    const helper = notificationsHelper();
+    if (!helper || typeof helper.createNotifier !== "function") {
+      return null;
+    }
+    notifier = helper.createNotifier({
+      window: window,
+      getRegistration: function () {
+        if (typeof navigator !== "undefined" && navigator.serviceWorker && navigator.serviceWorker.ready) {
+          return navigator.serviceWorker.ready;
+        }
+        return Promise.resolve(null);
+      }
+    });
+    return notifier;
+  }
+
+  // Reflect the current permission state on the topbar button.
+  function refreshNotifyButton() {
+    const button = elements.notifyButton;
+    const helper = notificationsHelper();
+    if (!button || !helper) {
+      return;
+    }
+
+    if (!helper.isSupported(window)) {
+      button.hidden = true;
+      return;
+    }
+
+    button.hidden = false;
+    const permission = helper.getPermission(window);
+    if (permission === "granted") {
+      button.textContent = "🔔 Alerts on";
+      button.setAttribute("aria-pressed", "true");
+      button.disabled = false;
+    } else if (permission === "denied") {
+      button.textContent = "🔕 Alerts blocked";
+      button.setAttribute("aria-pressed", "false");
+      button.disabled = true;
+    } else {
+      button.textContent = "🔔 Enable alerts";
+      button.setAttribute("aria-pressed", "false");
+      button.disabled = false;
+    }
+  }
+
+  async function handleNotifyButtonClick() {
+    const helper = notificationsHelper();
+    if (!helper) {
+      return;
+    }
+    await helper.requestPermission(window);
+    refreshNotifyButton();
+  }
+
+  // Feed the freshly loaded forms to the notifier so new submissions raise a
+  // system notification. The notifier primes silently on the first load.
+  function notifyNewSubmissions() {
+    const instance = ensureNotifier();
+    if (instance) {
+      Promise.resolve(instance.process(state.forms)).catch(() => {});
+    }
+  }
+
   // Forms the heatmap should analyse: the same facet filters as the table
   // (search/status/client/project) so the heatmap reflects the current view,
   // but never the "today only" or sort options — the whole point of the
@@ -758,15 +835,75 @@
     }
   }
 
+  function servicesUnavailable() {
+    state.forms = [];
+    renderForms();
+    setSurfaceStatus(elements.detailStatus, "Dashboard services are unavailable.", "error");
+    elements.detailContent.innerHTML = "<p>Firestore is not available yet. Check the Firebase SDK scripts and network access.</p>";
+  }
+
+  // Map a raw Firestore record list into dashboard forms and refresh the view.
+  // Shared by the one-shot loader and the real-time subscription so both behave
+  // identically (filters, notifications, selection refresh).
+  function applyFormRecords(records) {
+    const helper = formDataHelper();
+    if (!helper) {
+      servicesUnavailable();
+      return;
+    }
+
+    state.forms = (Array.isArray(records) ? records : []).map((record) => {
+      const form = helper.normalizeCubeRequestForDashboard(record, record.id);
+
+      // Flag dropdown fields by comparing the stored value against the known
+      // option list (value-based). Capture-time `customFields` metadata is
+      // only used as a fallback when an option list is unavailable.
+      if (typeof helper.resolveFreeTextDropdownFields === "function") {
+        form.customFields = helper.resolveFreeTextDropdownFields(
+          form.raw || record,
+          state.dropdownOptions,
+          form.customFields
+        );
+        form.customFieldCount = form.customFields.length;
+      }
+
+      return form;
+    });
+    state.loading = false;
+    refreshFilterOptions();
+    renderForms();
+    notifyNewSubmissions();
+
+    if (state.selectedId && selectedForm()) {
+      viewForm(state.selectedId);
+    } else {
+      viewForm(null);
+    }
+
+    if (state.pendingDetailStatus) {
+      setSurfaceStatus(elements.detailStatus, state.pendingDetailStatus.message, state.pendingDetailStatus.tone);
+      state.pendingDetailStatus = null;
+    }
+  }
+
+  function handleFormsError(error) {
+    state.loading = false;
+    state.forms = [];
+    renderForms();
+    setSurfaceStatus(elements.detailStatus, "Unable to load requests. Retry after the connection or Firestore access is restored.", "error");
+    elements.detailTitle.textContent = "Firestore error";
+    elements.detailContent.innerHTML = `<p>${escapeHtml(error && error.message ? error.message : "Unable to load forms from Firestore.")}</p>`;
+    setDetailButtons(false);
+  }
+
+  // One-shot load. Still used as a fallback when real-time updates are
+  // unavailable, and after mutations for immediate feedback.
   async function loadForms() {
     const store = formStore();
     const helper = formDataHelper();
 
     if (!store || !helper) {
-      state.forms = [];
-      renderForms();
-      setSurfaceStatus(elements.detailStatus, "Dashboard services are unavailable.", "error");
-      elements.detailContent.innerHTML = "<p>Firestore is not available yet. Check the Firebase SDK scripts and network access.</p>";
+      servicesUnavailable();
       return;
     }
 
@@ -775,45 +912,49 @@
 
     try {
       const records = await store.listCubeRequests();
-      state.forms = records.map((record) => {
-        const form = helper.normalizeCubeRequestForDashboard(record, record.id);
-
-        // Flag dropdown fields by comparing the stored value against the known
-        // option list (value-based). Capture-time `customFields` metadata is
-        // only used as a fallback when an option list is unavailable.
-        if (typeof helper.resolveFreeTextDropdownFields === "function") {
-          form.customFields = helper.resolveFreeTextDropdownFields(
-            form.raw || record,
-            state.dropdownOptions,
-            form.customFields
-          );
-          form.customFieldCount = form.customFields.length;
-        }
-
-        return form;
-      });
-      state.loading = false;
-      refreshFilterOptions();
-      renderForms();
-
-      if (state.selectedId && selectedForm()) {
-        viewForm(state.selectedId);
-      } else {
-        viewForm(null);
-      }
-
-      if (state.pendingDetailStatus) {
-        setSurfaceStatus(elements.detailStatus, state.pendingDetailStatus.message, state.pendingDetailStatus.tone);
-        state.pendingDetailStatus = null;
-      }
+      applyFormRecords(records);
     } catch (error) {
-      state.loading = false;
-      state.forms = [];
-      renderForms();
-      setSurfaceStatus(elements.detailStatus, "Unable to load requests. Retry after the connection or Firestore access is restored.", "error");
-      elements.detailTitle.textContent = "Firestore error";
-      elements.detailContent.innerHTML = `<p>${escapeHtml(error.message || "Unable to load forms from Firestore.")}</p>`;
-      setDetailButtons(false);
+      handleFormsError(error);
+    }
+  }
+
+  // Begin streaming live updates from Firestore. Every change (including new
+  // submissions) re-renders the dashboard and runs new-submission detection,
+  // so alerts fire instantly without polling.
+  function startFormsSubscription() {
+    const store = formStore();
+    const helper = formDataHelper();
+
+    if (!store || !helper) {
+      servicesUnavailable();
+      return;
+    }
+
+    stopFormsSubscription();
+    state.loading = true;
+    renderForms();
+
+    formsUnsubscribe = store.watchCubeRequests(
+      (records) => { applyFormRecords(records); },
+      (error) => { handleFormsError(error); }
+    );
+  }
+
+  function stopFormsSubscription() {
+    if (typeof formsUnsubscribe === "function") {
+      formsUnsubscribe();
+    }
+    formsUnsubscribe = null;
+  }
+
+  // Prefer a real-time subscription; fall back to a one-shot load when the
+  // store predates watchCubeRequests (e.g. older mocks/tests).
+  function startForms() {
+    const store = formStore();
+    if (store && typeof store.watchCubeRequests === "function") {
+      startFormsSubscription();
+    } else {
+      loadForms();
     }
   }
 
@@ -1110,10 +1251,16 @@
   }
 
   function clearDashboard() {
+    stopFormsSubscription();
     state.forms = [];
     state.selectedId = null;
     state.loading = false;
     state.fieldConfig = null;
+    // Drop the baseline so the next signed-in session re-primes instead of
+    // announcing the whole existing backlog as "new".
+    if (notifier && typeof notifier.reset === "function") {
+      notifier.reset();
+    }
     renderForms();
     viewForm(null);
   }
@@ -1175,7 +1322,7 @@
       loadFieldConfig();
       loadDropdownOptionSets()
         .catch(() => {})
-        .then(() => loadForms());
+        .then(() => startForms());
     });
   }
 
@@ -1620,7 +1767,7 @@
       "detailTabs", "detailHistoryContent",
       "reasonDialog", "reasonForm", "reasonInput", "reasonChangeList", "reasonStatus", "cancelReasonButton",
       "statusFilter", "clientFilter", "projectFilter", "sortOrder",
-      "todayToggle", "todayOnlyToggle", "heatmapGrid", "heatmapSummary",
+      "todayToggle", "todayOnlyToggle", "heatmapGrid", "heatmapSummary", "notifyButton",
       "editDialog", "editForm", "editFormStatus", "closeEditorButton", "cancelEditButton",
       "detailViewButton", "detailEditButton", "detailPrintButton", "detailDeleteButton", "detailHideButton",
       "printArea", "fieldSettingsButton", "fieldConfigDialog", "fieldConfigForm",
@@ -1708,6 +1855,11 @@
     if (elements.todayToggle && window.CubeSyncTodayToggle &&
         typeof window.CubeSyncTodayToggle.setup === "function") {
       window.CubeSyncTodayToggle.setup(elements.todayToggle);
+    }
+
+    if (elements.notifyButton) {
+      elements.notifyButton.addEventListener("click", handleNotifyButtonClick);
+      refreshNotifyButton();
     }
 
     const heatmapModeButtons = document.querySelectorAll("[data-heatmap-mode]");

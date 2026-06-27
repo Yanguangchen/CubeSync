@@ -13,7 +13,14 @@ describe("sw.js", () => {
     global.self = {
       addEventListener: (evt, cb) => { listeners[evt] = cb; },
       skipWaiting: () => {},
-      clients: { claim: () => {} },
+      clients: {
+        claim: () => {},
+        matchAll: () => Promise.resolve([]),
+        openWindow: () => Promise.resolve(null)
+      },
+      registration: {
+        showNotification: () => Promise.resolve()
+      },
       location: { origin: "http://localhost" }
     };
     
@@ -37,6 +44,94 @@ describe("sw.js", () => {
     assert.ok(listeners.install, "install listener registered");
     assert.ok(listeners.activate, "activate listener registered");
     assert.ok(listeners.fetch, "fetch listener registered");
+  });
+
+  test("registers push and notificationclick listeners", () => {
+    assert.ok(listeners.push, "push listener registered");
+    assert.ok(listeners.notificationclick, "notificationclick listener registered");
+  });
+
+  test("push event shows a notification from the payload", async () => {
+    let shown = null;
+    global.self.registration.showNotification = (title, options) => {
+      shown = { title, options };
+      return Promise.resolve();
+    };
+
+    let waitUntilPromise = null;
+    const event = {
+      data: { json: () => ({ title: "New cube request", body: "REPORT-9", data: { url: "dashboard.html" } }) },
+      waitUntil: (p) => { waitUntilPromise = p; }
+    };
+
+    listeners.push(event);
+    await waitUntilPromise;
+
+    assert.ok(shown, "showNotification was called");
+    assert.strictEqual(shown.title, "New cube request");
+    assert.strictEqual(shown.options.body, "REPORT-9");
+  });
+
+  test("push event falls back to a default title when payload is empty", async () => {
+    let shown = null;
+    global.self.registration.showNotification = (title, options) => {
+      shown = { title, options };
+      return Promise.resolve();
+    };
+
+    let waitUntilPromise = null;
+    const event = {
+      data: null,
+      waitUntil: (p) => { waitUntilPromise = p; }
+    };
+
+    listeners.push(event);
+    await waitUntilPromise;
+
+    assert.ok(shown, "showNotification was called");
+    assert.strictEqual(shown.title, "CubeSync");
+  });
+
+  test("notificationclick focuses an existing dashboard window", async () => {
+    let focused = false;
+    let openedUrl = null;
+    const dashboardClient = {
+      url: "http://localhost/dashboard.html",
+      focus: () => { focused = true; return Promise.resolve(); }
+    };
+    global.self.clients.matchAll = () => Promise.resolve([dashboardClient]);
+    global.self.clients.openWindow = (url) => { openedUrl = url; return Promise.resolve(null); };
+
+    let closed = false;
+    let waitUntilPromise = null;
+    const event = {
+      notification: { close: () => { closed = true; }, data: { url: "dashboard.html" } },
+      waitUntil: (p) => { waitUntilPromise = p; }
+    };
+
+    listeners.notificationclick(event);
+    await waitUntilPromise;
+
+    assert.strictEqual(closed, true, "notification is closed on click");
+    assert.strictEqual(focused, true, "existing window is focused");
+    assert.strictEqual(openedUrl, null, "no new window opened when one exists");
+  });
+
+  test("notificationclick opens a new window when none is open", async () => {
+    let openedUrl = null;
+    global.self.clients.matchAll = () => Promise.resolve([]);
+    global.self.clients.openWindow = (url) => { openedUrl = url; return Promise.resolve(null); };
+
+    let waitUntilPromise = null;
+    const event = {
+      notification: { close: () => {}, data: { url: "dashboard.html" } },
+      waitUntil: (p) => { waitUntilPromise = p; }
+    };
+
+    listeners.notificationclick(event);
+    await waitUntilPromise;
+
+    assert.match(openedUrl, /dashboard\.html/);
   });
 
   test("install event precaches app shell", async () => {

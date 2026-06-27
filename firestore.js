@@ -16,6 +16,7 @@ import {
   getDoc,
   getDocs,
   getFirestore,
+  onSnapshot,
   serverTimestamp,
   setDoc,
   updateDoc
@@ -187,6 +188,24 @@ function sortByUpdatedAtDesc(left, right) {
 async function listCubeRequests() {
   const snapshot = await getDocs(cubeRequestsCollection());
   return snapshot.docs.map(snapshotToCubeRequest).sort(sortByUpdatedAtDesc);
+}
+
+// Real-time subscription to the cube request collection. Calls `callback` with
+// the full, sorted record list on the initial load and again on every change,
+// so the dashboard updates live without polling. Returns the unsubscribe fn.
+function watchCubeRequests(callback, onError) {
+  return onSnapshot(
+    cubeRequestsCollection(),
+    (snapshot) => {
+      const records = snapshot.docs.map(snapshotToCubeRequest).sort(sortByUpdatedAtDesc);
+      callback(records);
+    },
+    (error) => {
+      if (typeof onError === "function") {
+        onError(error);
+      }
+    }
+  );
 }
 
 async function getCubeRequest(id) {
@@ -374,6 +393,7 @@ window.CubeSyncFirestore = {
   DROPDOWN_OPTION_FIELDS,
   firebaseConfig,
   listCubeRequests,
+  watchCubeRequests,
   getCubeRequest,
   savePublicCubeRequest,
   saveCubeRequest,

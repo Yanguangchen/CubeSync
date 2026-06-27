@@ -4,7 +4,7 @@
 // - use stale-while-revalidate for same-origin static assets and pages
 // - bypass caching for live APIs, Firebase, auth, and runtime env
 
-const CACHE_NAME = "cubesync-v5";
+const CACHE_NAME = "cubesync-v6";
 
 const APP_SHELL = [
   "./",
@@ -18,6 +18,8 @@ const APP_SHELL = [
   "./chime.js",
   "./cubesync-autocomplete.js",
   "./cubesync-dashboard-filters.js",
+  "./cubesync-heatmap.js",
+  "./cubesync-notifications.js",
   "./cubesync-form-data.js",
   "./cubesync-export.js",
   "./cubesync-form-markup.js",
@@ -143,6 +145,52 @@ function updateCache(request) {
       return response;
     });
 }
+
+// Push — display a notification from the payload. Local (page-initiated)
+// notifications go straight through registration.showNotification, but this
+// handler also lets a future server-side Web Push deliver alerts when the app
+// is closed without any further code changes.
+self.addEventListener("push", (event) => {
+  let payload = {};
+  try {
+    payload = event.data ? event.data.json() : {};
+  } catch {
+    payload = { body: event.data && typeof event.data.text === "function" ? event.data.text() : "" };
+  }
+
+  const title = payload.title || "CubeSync";
+  const options = {
+    body: payload.body || "",
+    tag: payload.tag || "cubesync-push",
+    renotify: true,
+    icon: "assets/icon-192.png",
+    badge: "assets/icon-192.png",
+    data: payload.data || { url: "dashboard.html" }
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+// Notification click — focus an open dashboard tab if there is one, otherwise
+// open a fresh window at the notification's target url.
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const targetUrl = (event.notification.data && event.notification.data.url) || "dashboard.html";
+
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if (client.url.includes("dashboard") && typeof client.focus === "function") {
+          return client.focus();
+        }
+      }
+      if (typeof self.clients.openWindow === "function") {
+        return self.clients.openWindow(targetUrl);
+      }
+      return undefined;
+    })
+  );
+});
 
 // Fetch — bypass live backends, stale-while-revalidate for same-origin static assets.
 self.addEventListener("fetch", (event) => {
