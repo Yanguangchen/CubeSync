@@ -144,6 +144,38 @@ test("a live new submission fires a system notification end to end", async () =>
   assert.match(shown[0].options.body, /REPORT-2/);
 });
 
+test("a live status change fires the matching lifecycle notification", async () => {
+  const shown = [];
+  const registration = {
+    showNotification: (title, options) => { shown.push({ title, options }); return Promise.resolve(); }
+  };
+  const rt = realtimeStore([
+    { id: "1", reportNo: "REPORT-1", status: "Ready", rpaStatus: "Ready for Bot", erpStatus: "Pending" }
+  ]);
+  bootDashboard(rt.store, (win) => {
+    installNotification(win, "granted");
+    Object.defineProperty(win.navigator, "serviceWorker", {
+      value: { ready: Promise.resolve(registration), register: () => Promise.resolve(registration) },
+      configurable: true
+    });
+  });
+  await settle();
+  await settle();
+
+  assert.equal(shown.length, 0, "first snapshot primes silently");
+
+  // The RPA bot finishes and submits the record to the ERP.
+  rt.push([
+    { id: "1", reportNo: "REPORT-1", status: "Ready", rpaStatus: "Submitted to ERP", erpStatus: "Success" }
+  ]);
+  await settle();
+  await settle();
+
+  const titles = shown.map((s) => s.title);
+  assert.ok(titles.includes("RPA automation completed"), "RPA completion alert fired");
+  assert.ok(titles.includes("Record successfully processed"), "ERP success alert fired");
+});
+
 test("signing out unsubscribes the listener", async () => {
   const rt = realtimeStore([{ id: "1", reportNo: "REPORT-1", status: "Ready" }]);
   const { signOut } = bootDashboard(rt.store);
