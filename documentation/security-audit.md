@@ -1,6 +1,6 @@
 # CubeSync — Security & Test-Coverage Audit
 
-_Date: 2026-06-21_
+_Date: 2026-06-27_
 
 Audit of the CubeSync code paths (public submission API, client auth/CRUD,
 Firestore rules) and the test suite. The WorkGrid rules in `firestore.rules`
@@ -9,16 +9,25 @@ helpers were assessed.
 
 ## Test coverage snapshot
 
-`npm test` → 223 tests pass; ~96% line / ~90% branch on instrumented files.
+`npm test` (Node's built-in test runner with `--experimental-test-coverage`)
+passes 474 tests across 443 top-level subtests. The current aggregate coverage
+for instrumented files is 97.73% lines, 92.67% branches, and 90.62% functions.
 
-**Blind spot:** the two largest behavioral files are not in the coverage report
-because they're only eval'd inside jsdom, never `require`d:
+**Instrumentation blind spot:** the main browser entrypoints below are exercised
+through jsdom functional tests, but they still do not appear as first-class
+source files in Node's coverage table because the tests inject/evaluate them as
+browser scripts rather than `require`ing them as modules:
 
-| File | Lines | Status |
-| --- | --- | --- |
-| `dashboard.js` | 1,144 | Exercised via functional tests, not instrumented |
-| `rpa-dashboard.js` | 404 | Exercised via functional tests, not instrumented |
-| `firestore.js` | 277 | Real file read + eval'd in `firestore-runtime.test.js`; not counted |
+| File | Status |
+| --- | --- |
+| `dashboard.js` | Exercised by dashboard unit/functional/realtime tests, not instrumented as a source file |
+| `rpa-dashboard.js` | Exercised by RPA unit/functional/coverage-audit tests, not instrumented as a source file |
+| `rpa-view.js` | Exercised by RPA view tests, not instrumented as a source file |
+| `firestore.js` | Real file read + eval'd in `firestore-runtime.test.js`; not counted as source coverage |
+
+**Largest measured gap:** `app.js` is now the lowest-coverage production source
+in the report at 68.92% lines / 54.55% branches / 67.39% functions. Most other
+shared modules and server-side paths are above 90% line coverage.
 
 ## Findings & remediation status
 

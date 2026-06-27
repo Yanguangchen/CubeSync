@@ -1424,6 +1424,69 @@ test("the manage-autocomplete-lists GUI loads and saves shared options", async (
   assert.deepEqual([...saved.supplier], []);
 });
 
+test("saving managed autocomplete lists refreshes dashboard free-text resolution", async () => {
+  const dom = new JSDOM(html, { runScripts: "dangerously", url: "http://localhost/" });
+  const { window } = dom;
+
+  const shared = {};
+  const record = {
+    id: "managed-1",
+    reportNo: "REQ-MANAGED-1",
+    status: "Draft",
+    supplier: "Fresh Managed Supplier",
+    customFields: ["supplier"]
+  };
+
+  window.CubeSyncAuth = {
+    onAuthChange: (cb) => cb({ email: "test@rakmat.com.sg" }),
+    isAllowedUser: () => true
+  };
+  window.CubeSyncFirestore = {
+    listCubeRequests: async () => [{ ...record }],
+    getDropdownOptions: async () => {
+      const copy = {};
+      Object.keys(shared).forEach((field) => { copy[field] = shared[field].slice(); });
+      return copy;
+    },
+    saveDropdownOptions: async (map) => {
+      Object.keys(map).forEach((field) => { shared[field] = map[field].slice(); });
+    }
+  };
+
+  [barcodeJs, formDataJs, dashboardJs].forEach((js) => {
+    const s = window.document.createElement("script");
+    s.textContent = js;
+    window.document.head.appendChild(s);
+  });
+  window.HTMLDialogElement.prototype.showModal = function () { this.open = true; };
+  window.HTMLDialogElement.prototype.close = function () { this.open = false; };
+
+  const ev = window.document.createEvent("Event");
+  ev.initEvent("DOMContentLoaded", true, true);
+  window.document.dispatchEvent(ev);
+  await new Promise((r) => setTimeout(r, 50));
+
+  const list = window.document.getElementById("formList");
+  assert.ok(
+    list.querySelector("tr[data-id='managed-1']").classList.contains("has-custom-fields"),
+    "the supplier starts flagged before it is added to shared options"
+  );
+
+  window.document.getElementById("manageOptionsButton").click();
+  await new Promise((r) => setTimeout(r, 20));
+
+  const optionsForm = window.document.getElementById("optionsForm");
+  optionsForm.elements.supplier.value = "Fresh Managed Supplier";
+  optionsForm.dispatchEvent(new window.Event("submit", { cancelable: true }));
+  await new Promise((r) => setTimeout(r, 60));
+
+  assert.deepEqual([...shared.supplier], ["Fresh Managed Supplier"]);
+  assert.ok(
+    !list.querySelector("tr[data-id='managed-1']").classList.contains("has-custom-fields"),
+    "saving the managed list should immediately make the value canonical"
+  );
+});
+
 test("setting a form to Ready still saves when promotion (addDropdownOptions) fails", async () => {
   const dom = new JSDOM(html, { runScripts: "dangerously", url: "http://localhost/" });
   const { window } = dom;

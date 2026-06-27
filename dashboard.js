@@ -1240,6 +1240,7 @@
 
     try {
       await store.saveDropdownOptions(map);
+      await loadDropdownOptionSets();
       if (elements.optionsDialog) elements.optionsDialog.close();
       await loadForms();
     } catch (error) {
