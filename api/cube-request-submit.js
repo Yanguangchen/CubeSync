@@ -3,7 +3,14 @@ const {
   FORM_FIELDS: REQUEST_FORM_FIELDS,
   validateCubeRequestPayload,
   isValidCustomFieldId
-} = require("../cubesync-form-data");
+} = require("../cubesync-schema");
+const {
+  json,
+  setApiHeaders,
+  stripWrappingQuotes,
+  parseServiceAccount,
+  initFirebaseAdmin
+} = require("./_utils/firebase-api-helper");
 
 const COLLECTION_NAME = "cubeRequests";
 const ALLOWED_TEMPLATES = new Set(["Original", "Glassmorphic"]);
@@ -39,79 +46,8 @@ const FORM_FIELDS = new Set([
 loadDotEnv();
 let admin = null;
 
-function json(response, status, body) {
-  response.status(status).setHeader("Content-Type", "application/json");
-  response.end(JSON.stringify(body));
-}
-
-function setApiHeaders(request, response) {
-  const origin = request.headers.origin || "*";
-  response.setHeader("Access-Control-Allow-Origin", origin);
-  response.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  response.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  response.setHeader("Vary", "Origin");
-}
-
-function stripWrappingQuotes(value) {
-  const trimmed = String(value || "").trim();
-  if (
-    (trimmed.startsWith("\"") && trimmed.endsWith("\"")) ||
-    (trimmed.startsWith("'") && trimmed.endsWith("'"))
-  ) {
-    return trimmed.slice(1, -1);
-  }
-  return trimmed;
-}
-
-function serviceAccountJson() {
-  const base64 = stripWrappingQuotes(process.env.FIREBASE_SERVICE_ACCOUNT_JSON_BASE64);
-  if (base64) {
-    return Buffer.from(base64, "base64").toString("utf8");
-  }
-
-  return stripWrappingQuotes(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
-}
-
-function parseServiceAccount(raw) {
-  if (!raw) return null;
-
-  let account;
-  try {
-    account = JSON.parse(raw);
-  } catch {
-    throw new Error(
-      "Invalid Firebase service account JSON. Use valid JSON with double-quoted property names, or set FIREBASE_SERVICE_ACCOUNT_JSON_BASE64 to a base64-encoded service account JSON file."
-    );
-  }
-
-  if (typeof account.private_key === "string") {
-    account.private_key = account.private_key.replace(/\\n/g, "\n");
-  }
-  return account;
-}
-
-function serviceAccount() {
-  return parseServiceAccount(serviceAccountJson());
-}
-
 function initializeFirebaseAdmin() {
-  if (!admin) {
-    admin = require("firebase-admin");
-  }
-
-  if (admin.apps.length) return;
-
-  const account = serviceAccount();
-  if (account) {
-    admin.initializeApp({
-      credential: admin.credential.cert(account)
-    });
-    return;
-  }
-
-  admin.initializeApp({
-    credential: admin.credential.applicationDefault()
-  });
+  admin = initFirebaseAdmin(admin);
 }
 
 function cleanExtraFields(value) {

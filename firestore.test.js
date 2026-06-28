@@ -212,7 +212,7 @@ test("Firestore rules permit submittedAt and attemptCount injected by dashboard 
 });
 
 test("public submission API verifies reCAPTCHA v2 before Admin SDK writes", () => {
-  const api = fs.readFileSync("api/cube-request-submit.js", "utf8");
+  const api = fs.readFileSync("api/cube-request-submit.js", "utf8") + "\n" + fs.readFileSync("api/_utils/firebase-api-helper.js", "utf8");
 
   assert.match(api, /CUBESYNC_RECAPTCHA_SECRET_KEY/);
   assert.match(api, /siteverify/);
@@ -221,3 +221,26 @@ test("public submission API verifies reCAPTCHA v2 before Admin SDK writes", () =
   assert.match(api, /admin\.firestore/);
   assert.match(api, /collection\(COLLECTION_NAME\)/);
 });
+
+test("staff allowlist remains strictly synchronized across json, firestore.js, and firestore.rules", () => {
+  const authoritativeList = JSON.parse(fs.readFileSync("shared/staff-allowlist.json", "utf8"));
+
+  const firestoreJs = fs.readFileSync("firestore.js", "utf8");
+  const jsMatch = firestoreJs.match(/const CUBESYNC_ALLOWED_EMAILS = \[([\s\S]*?)\];/);
+  assert.ok(jsMatch, "CUBESYNC_ALLOWED_EMAILS must be defined in firestore.js");
+  const jsEmails = jsMatch[1]
+    .split(",")
+    .map((s) => s.trim().replace(/^["']|["']$/g, ""))
+    .filter(Boolean);
+  assert.deepEqual(jsEmails, authoritativeList, "firestore.js allowlist must match shared/staff-allowlist.json");
+
+  const rules = fs.readFileSync("firestore.rules", "utf8");
+  const rulesMatch = rules.match(/function isCubeSyncAllowedEmail\(\)\s*\{\s*return request\.auth\.token\.email\.lower\(\)\s*in\s*\[([\s\S]*?)\];/);
+  assert.ok(rulesMatch, "isCubeSyncAllowedEmail function must be defined in firestore.rules");
+  const rulesEmails = rulesMatch[1]
+    .split(",")
+    .map((s) => s.trim().replace(/^['"]|['"]$/g, ""))
+    .filter(Boolean);
+  assert.deepEqual(rulesEmails, authoritativeList, "firestore.rules allowlist must match shared/staff-allowlist.json");
+});
+

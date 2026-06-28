@@ -18,6 +18,7 @@ const browserGlobals = {
   globalThis: "readonly",
   localStorage: "readonly",
   module: "readonly",
+  require: "readonly",
   navigator: "readonly",
   setTimeout: "readonly",
   window: "readonly"
@@ -55,6 +56,7 @@ export default [
       "cubesync-autocomplete.js",
       "cubesync-export.js",
       "cubesync-form-data.js",
+      "cubesync-schema.js",
       "cubesync-form-markup.js",
       "cubesync-table-manager.js",
       "cubesync-dashboard-filters.js",
@@ -106,7 +108,7 @@ export default [
     }
   },
   {
-    files: ["scripts/*.js", "api/*.js"],
+    files: ["scripts/**/*.js", "api/**/*.js"],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: "commonjs",
