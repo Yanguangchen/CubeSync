@@ -148,6 +148,33 @@ test("invalid localStorage options are ignored and blur marks unselected text", 
   assert.equal(input().dataset.freeTextEntry, "true");
 });
 
+test("re-invoking setupAutocomplete refreshes options without duplicating the dropdown", async () => {
+  installDom();
+
+  // First wiring: a single shared value.
+  await autocomplete.setupAutocomplete("supplier", "options.txt", "supplierOptions", ["Alpha"]);
+  dispatch("focus");
+  assert.deepEqual(
+    Array.from(dropdown().querySelectorAll(".erp-dropdown-item"), (li) => li.textContent),
+    ["Alpha"]
+  );
+
+  // Staff add a value -> setupAutocomplete is called again for the same input.
+  await autocomplete.setupAutocomplete("supplier", "options.txt", "supplierOptions", ["Alpha", "Beta"]);
+
+  // The input is only wrapped once (no stacked wrappers/dropdowns).
+  assert.equal(global.document.querySelectorAll(".erp-autocomplete-wrapper").length, 1);
+  assert.equal(global.document.querySelectorAll(".erp-dropdown").length, 1);
+
+  // The refreshed list is what renders -- proving renderDropdown reads the live
+  // options, not the list captured on the first call (the bug this guards).
+  input().value = "";
+  dispatch("focus");
+  const texts = Array.from(dropdown().querySelectorAll(".erp-dropdown-item"), (li) => li.textContent);
+  assert.ok(texts.includes("Beta"), "a newly added option should appear after re-wiring");
+  assert.equal(texts.length, 2);
+});
+
 test("setFreeTextState tolerates missing inputs and clears empty values", () => {
   assert.doesNotThrow(() => autocomplete.setFreeTextState(null, true));
 
