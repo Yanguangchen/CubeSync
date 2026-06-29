@@ -6,6 +6,7 @@ const fs = require("node:fs");
 const barcodeJs = fs.readFileSync("barcode.js", "utf8");
 const formDataJs = fs.readFileSync("cubesync-form-data.js", "utf8");
 const dashboardJs = fs.readFileSync("dashboard.js", "utf8");
+const autocompleteJs = fs.readFileSync("cubesync-autocomplete.js", "utf8");
 const filtersJs = fs.readFileSync("cubesync-dashboard-filters.js", "utf8");
 const todayToggleJs = fs.readFileSync("cubesync-today-toggle.js", "utf8");
 const html = fs.readFileSync("dashboard.html", "utf8");
@@ -1523,6 +1524,67 @@ test("the manage-autocomplete-lists GUI loads and saves shared options", async (
   // Spread to normalize cross-realm (JSDOM) arrays before strict comparison.
   assert.deepEqual([...saved.customerBilling], ["Existing Co", "Fresh Client"]);
   assert.deepEqual([...saved.supplier], []);
+});
+
+test("dashboard edit form autocomplete includes managed (shared) suggestions", async () => {
+  // Regression: the edit-form inputs were wired with setupAutocomplete(name,
+  // url, storageKey) and no 4th `extraOptions` argument, so values added via
+  // "Manage autocomplete" (stored in Firestore) never showed up here -- only
+  // the deployed dropdown-options/*.txt files and localStorage did. This test
+  // injects cubesync-autocomplete.js (the real module) so the wiring is
+  // actually exercised, then asserts a shared value reaches the dropdown.
+  const dom = new JSDOM(html, { runScripts: "dangerously", url: "http://localhost/" });
+  const { window } = dom;
+
+  // No network in tests: forces file options empty so the assertion isolates
+  // the shared (Firestore) path.
+  window.fetch = async () => { throw new Error("no network in test"); };
+
+  window.CubeSyncAuth = {
+    onAuthChange: (cb) => cb({ email: "test@rakmat.com.sg" }),
+    isAllowedUser: () => true
+  };
+  window.CubeSyncFirestore = {
+    listCubeRequests: async () => [
+      { id: "1", reportNo: "APPLE", status: "Draft", supplier: "S1" }
+    ],
+    getDropdownOptions: async () => ({ supplier: ["Shared Managed Supplier"] }),
+    updateCubeRequest: async () => {}
+  };
+
+  [barcodeJs, formDataJs, autocompleteJs, dashboardJs].forEach((js) => {
+    const s = window.document.createElement("script");
+    s.textContent = js;
+    window.document.head.appendChild(s);
+  });
+  window.HTMLDialogElement.prototype.showModal = function () { this.open = true; };
+  window.HTMLDialogElement.prototype.close = function () { this.open = false; };
+
+  const ev = window.document.createEvent("Event");
+  ev.initEvent("DOMContentLoaded", true, true);
+  window.document.dispatchEvent(ev);
+  await new Promise((r) => setTimeout(r, 60));
+
+  // Open the editor for the record.
+  const list = window.document.getElementById("formList");
+  list.querySelector("button[data-action='edit']").click();
+
+  const editForm = window.document.getElementById("editForm");
+  const supplier = editForm.elements.supplier;
+
+  // Clear the populated value and focus to render the full suggestion list.
+  supplier.value = "";
+  supplier.dispatchEvent(new window.Event("focus", { bubbles: true }));
+
+  const dropdown = supplier.parentElement.querySelector(".erp-dropdown");
+  const texts = Array.from(
+    dropdown.querySelectorAll("li.erp-dropdown-item"),
+    (li) => li.textContent
+  );
+  assert.ok(
+    texts.some((t) => /Shared Managed Supplier/.test(t)),
+    "a value added via Manage autocomplete should appear in the dashboard edit form"
+  );
 });
 
 test("saving managed autocomplete lists refreshes dashboard free-text resolution", async () => {

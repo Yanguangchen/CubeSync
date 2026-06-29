@@ -39,9 +39,35 @@ match /settings/dropdownOptions {
 
 **Public read is intentional and not a leak:** the deployed `dropdown-options/*.txt` files are already served publicly, so this doc exposes the same class of data. Writes remain staff-only. `isValidDropdownOptions` restricts keys to the known fields and caps each list at 5000 entries.
 
+## Who wires the autocomplete (the 4th-argument rule)
+
+`setupAutocomplete(name, url, storageKey, extraOptions)` (`cubesync-autocomplete.js`) merges three sources into the suggestion list: the deployed file (`url`), `localStorage[storageKey]`, **and `extraOptions`** — the shared Firestore list. **If a caller omits `extraOptions`, managed/promoted values silently never appear for that surface.**
+
+There are **two** independent callers, and both must pass the shared options:
+
+| Surface | File | Inputs | How it gets `extraOptions` |
+|---------|------|--------|----------------------------|
+| Customer form | `app.js` (`index.html`, `glassmorphic.html`) | the public request form | `getDropdownOptions()` on load → `shared[field]` |
+| Dashboard editor | `dashboard.js` (`#editForm`) | staff edit/view dialog | `state.dropdownOptions[field]`, populated by `loadDropdownOptionSets()` |
+
+`setupAutocomplete` is **re-entrant**: it stores the merged list on the input (`input.erpAutocompleteOptions`) and `renderDropdown` reads it live, so calling it again refreshes suggestions in place without stacking duplicate event listeners. The dashboard relies on this to re-wire after `loadDropdownOptionSets()` (sign-in) and after a Manage-autocomplete save, without rebuilding the editor.
+
 ## Public form (`app.js`, `cubesync-autocomplete.js`)
 
-On load, the form reads `getDropdownOptions()` once and passes each field's shared array as the new 4th argument to `setupAutocomplete(name, url, storageKey, extraOptions)`. The customer form never writes the store — new values are only promoted by staff.
+On load, the form reads `getDropdownOptions()` once and passes each field's shared array as the 4th argument to `setupAutocomplete(name, url, storageKey, extraOptions)`. The customer form never writes the store — new values are only promoted by staff.
+
+## Regression: managed values missing from the dashboard editor
+
+**Symptom:** a value added in **Manage autocomplete** saved fine and appeared on the customer form, but **not** in the dashboard's edit/view form.
+
+**Root cause:** the editor wired its inputs with only three arguments — `setupAutocomplete('supplier', 'dropdown-options/supplier.txt', 'savedSuppliers')` — dropping `extraOptions`. So the editor only ever saw the deployed `.txt` files plus that browser's `localStorage`; the shared Firestore layer was never merged in. The customer form (`app.js`) passed the 4th argument and worked, which masked the gap.
+
+**Why tests missed it:** the dashboard functional tests injected `dashboard.js` **without** `cubesync-autocomplete.js`, so `window.CubeSyncAutocomplete` was undefined and the wiring fell back to a no-op stub — the autocomplete path was never exercised.
+
+**Fix:**
+- `dashboard.js` wires the editor through `wireEditFormAutocomplete()`, which passes `state.dropdownOptions[field]` as `extraOptions`, and re-runs it after `loadDropdownOptionSets()` and after each Manage-autocomplete save.
+- `cubesync-autocomplete.js` made re-entrant (live `input.erpAutocompleteOptions`) so re-wiring refreshes without duplicate listeners.
+- `sw.js` cache bumped (`cubesync-v6` → `cubesync-v7`) so returning clients drop the stale cached `dashboard.js`/`app.js`/`cubesync-autocomplete.js` and pick up the fix. **Any change to a precached asset must bump `CACHE_NAME`**, or stale-while-revalidate keeps serving the old file for at least one more load.
 
 ## Promote-on-Ready (`dashboard.js`)
 
@@ -64,6 +90,8 @@ The dashboard menu's **“Manage autocomplete lists”** opens a dialog with one
 | Normalization rules | `form-data.test.js` | `normalizeDropdownOptionList`, `readSharedDropdownOptions`, `buildSharedDropdownAddValues`, `buildSharedDropdownSaveValues` — trim, blank-drop, case-insensitive de-dupe, field whitelist, single-vs-array |
 | Store + rules | `firestore.test.js` | Store exports, `arrayUnion`, delegation to the form-data helpers, `settings/dropdownOptions` rule (public read, staff write) |
 | Public form | `app-functional.test.js` | Shared Firestore options merge into the autocomplete dropdown |
+| Re-entrancy | `autocomplete.test.js` | Re-invoking `setupAutocomplete` refreshes the live option list without duplicating the dropdown/listeners |
+| Dashboard editor | `dashboard-functional.test.js` | The edit form's autocomplete includes managed (shared) suggestions — injects the real `cubesync-autocomplete.js`, so the wiring is actually exercised |
 | Promotion | `dashboard-functional.test.js` | Setting a flagged form to Ready calls `addDropdownOptions` with its free-text values |
 | Promotion resilience | `dashboard-functional.test.js` | The save still succeeds when `addDropdownOptions` throws (best-effort) |
 | Promotion → review | `dashboard-functional.test.js` | A promoted value is no longer flagged after the reload |
