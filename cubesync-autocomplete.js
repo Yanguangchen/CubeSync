@@ -51,6 +51,16 @@
       const allOptions = Array.from(new Set([...fileOptions, ...sharedOptions, ...localOptions]));
       
       document.querySelectorAll(`input[name="${inputName}"]`).forEach(input => {
+        // Keep the latest merged option list on the element so a later
+        // setupAutocomplete() call (e.g. after staff update the shared lists)
+        // refreshes the suggestions for an already-wired input without stacking
+        // duplicate event listeners. renderDropdown reads from this live list.
+        input.erpAutocompleteOptions = allOptions;
+        if (input.dataset.erpAutocompleteWired === 'true') {
+          return;
+        }
+        input.dataset.erpAutocompleteWired = 'true';
+
         input.setAttribute('autocomplete', 'off');
         input.removeAttribute('list');
         input.dataset.dropdownOptionField = inputName;
@@ -76,7 +86,8 @@
           dropdown.innerHTML = '';
           const lowerQuery = query.toLowerCase();
           
-          let matches = allOptions.filter(opt => opt.toLowerCase().includes(lowerQuery));
+          const liveOptions = Array.isArray(input.erpAutocompleteOptions) ? input.erpAutocompleteOptions : allOptions;
+          let matches = liveOptions.filter(opt => opt.toLowerCase().includes(lowerQuery));
           
           if (matches.length === 0) {
             dropdown.style.display = 'none';

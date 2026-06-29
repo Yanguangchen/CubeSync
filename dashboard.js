@@ -85,6 +85,23 @@
     state.dropdownOptions = options;
   }
 
+  // Wire (or re-wire) the edit-form autocomplete inputs with the shared,
+  // dynamic suggestions from Firestore. Pass state.dropdownOptions as the
+  // extraOptions so values added via "Manage autocomplete" show up here too —
+  // not just the deployed dropdown-options/*.txt files. setupAutocomplete is
+  // re-entrant, so calling this again after a save refreshes suggestions in
+  // place without duplicating event listeners.
+  function wireEditFormAutocomplete() {
+    const setupAutocomplete = window.CubeSyncAutocomplete &&
+      typeof window.CubeSyncAutocomplete.setupAutocomplete === "function"
+      ? window.CubeSyncAutocomplete.setupAutocomplete
+      : function () {};
+    const shared = state.dropdownOptions || {};
+    DROPDOWN_OPTION_SOURCES.forEach(({ field, url, storageKey }) => {
+      setupAutocomplete(field, url, storageKey, shared[field] || []);
+    });
+  }
+
   function escapeHtml(value) {
     return String(value == null ? "" : value)
       .replace(/&/g, "&amp;")
@@ -1506,6 +1523,7 @@
     try {
       await store.saveDropdownOptions(map);
       await loadDropdownOptionSets();
+      wireEditFormAutocomplete();
       if (elements.optionsDialog) elements.optionsDialog.close();
       await loadForms();
     } catch (error) {
@@ -1600,7 +1618,10 @@
       loadFieldConfig();
       loadDropdownOptionSets()
         .catch(() => {})
-        .then(() => startForms());
+        .then(() => {
+          wireEditFormAutocomplete();
+          startForms();
+        });
     });
   }
 
@@ -2260,15 +2281,10 @@
       editCubeJobNumberInput.addEventListener("input", updateEditorCubeJobCollisionState);
     }
 
-    const setupAutocomplete = window.CubeSyncAutocomplete ? window.CubeSyncAutocomplete.setupAutocomplete : function(){};
-    setupAutocomplete('projectErp', 'dropdown-options/project erp.txt', 'savedProjectErps');
-    setupAutocomplete('customerBilling', 'dropdown-options/customer billing.txt', 'savedCustomerBillings');
-    setupAutocomplete('supplier', 'dropdown-options/supplier.txt', 'savedSuppliers');
-    setupAutocomplete('concreteGrade', 'dropdown-options/Grade.txt', 'savedGrades');
-    setupAutocomplete('personInCharge', 'dropdown-options/person-in-charge.txt', 'savedPersonsInCharge');
-    setupAutocomplete('managerInCharge', 'dropdown-options/manager-in-charge.txt', 'savedManagersInCharge');
-    setupAutocomplete('testItem', 'dropdown-options/testitem.txt', 'savedTestItems');
-    setupAutocomplete('specimenSize', 'dropdown-options/size.txt', 'savedSizes');
+    // Initial wiring with whatever option sets are available so far. The auth
+    // handler re-wires once loadDropdownOptionSets() resolves with the shared
+    // Firestore suggestions, and saveOptionsManager re-wires after each edit.
+    wireEditFormAutocomplete();
 
     if (elements.fieldSettingsButton) {
       elements.fieldSettingsButton.addEventListener("click", openFieldConfigDialog);
