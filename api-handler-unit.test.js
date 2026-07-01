@@ -149,6 +149,37 @@ test("reCAPTCHA returns 400 when secret key is not configured", async () => {
   }
 });
 
+test("reCAPTCHA fails when hostname does not match configured CUBESYNC_ALLOWED_HOSTNAMES", withRecaptcha(async () => {
+  const originalHostnames = process.env.CUBESYNC_ALLOWED_HOSTNAMES;
+  process.env.CUBESYNC_ALLOWED_HOSTNAMES = "cubesync.vercel.app";
+
+  try {
+    global.fetch = async () => ({
+      json: async () => ({ success: true, hostname: "evil-attacker.com" })
+    });
+
+    const response = mockResponse();
+    await handler({
+      method: "POST",
+      headers: {},
+      body: {
+        recaptchaToken: "token",
+        payload: validPayload()
+      }
+    }, response);
+
+    assert.equal(response.statusCode, 400);
+    assert.match(JSON.parse(response.body).error, /reCAPTCHA verification failed: invalid hostname/);
+  } finally {
+    if (originalHostnames === undefined) {
+      delete process.env.CUBESYNC_ALLOWED_HOSTNAMES;
+    } else {
+      process.env.CUBESYNC_ALLOWED_HOSTNAMES = originalHostnames;
+    }
+  }
+}));
+
+
 test("reCAPTCHA sends empty string when token is missing", withRecaptcha(async () => {
   let capturedBody = null;
   global.fetch = async (url, opts) => {
@@ -539,6 +570,34 @@ test("CORS uses wildcard origin when no origin header is present", async () => {
   assert.equal(response.headers["Access-Control-Allow-Origin"], "*");
   assert.equal(response.headers.Vary, "Origin");
 });
+
+test("CORS enforces CUBESYNC_ALLOWED_ORIGINS allowlist when configured", async () => {
+  const originalEnv = process.env.CUBESYNC_ALLOWED_ORIGINS;
+  process.env.CUBESYNC_ALLOWED_ORIGINS = "https://cubesync.vercel.app, https://custom.domain";
+
+  try {
+    const allowedResp = mockResponse();
+    await handler({
+      method: "OPTIONS",
+      headers: { origin: "https://cubesync.vercel.app" }
+    }, allowedResp);
+    assert.equal(allowedResp.headers["Access-Control-Allow-Origin"], "https://cubesync.vercel.app");
+
+    const disallowedResp = mockResponse();
+    await handler({
+      method: "OPTIONS",
+      headers: { origin: "https://evil-attacker.com" }
+    }, disallowedResp);
+    assert.equal(disallowedResp.headers["Access-Control-Allow-Origin"], "https://cubesync.vercel.app");
+  } finally {
+    if (originalEnv === undefined) {
+      delete process.env.CUBESYNC_ALLOWED_ORIGINS;
+    } else {
+      process.env.CUBESYNC_ALLOWED_ORIGINS = originalEnv;
+    }
+  }
+});
+
 
 // --- Missing body ---
 

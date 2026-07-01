@@ -159,6 +159,30 @@ async function verifyRecaptcha(token, remoteAddress) {
   if (!result.success) {
     throw new Error("reCAPTCHA verification failed");
   }
+
+  const allowedHostnamesEnv = process.env.CUBESYNC_ALLOWED_HOSTNAMES || process.env.CUBESYNC_ALLOWED_ORIGINS;
+  if (allowedHostnamesEnv && typeof allowedHostnamesEnv === "string" && result.hostname) {
+    const defaultExceptions = new Set(["localhost", "127.0.0.1", "testkey.google.com"]);
+    if (!defaultExceptions.has(result.hostname)) {
+      const allowedList = allowedHostnamesEnv
+        .split(",")
+        .map((s) => {
+          const trimmed = s.trim();
+          try {
+            return trimmed.startsWith("http://") || trimmed.startsWith("https://")
+              ? new URL(trimmed).hostname
+              : trimmed;
+          } catch {
+            return trimmed;
+          }
+        })
+        .filter(Boolean);
+
+      if (allowedList.length > 0 && !allowedList.includes(result.hostname)) {
+        throw new Error("reCAPTCHA verification failed: invalid hostname");
+      }
+    }
+  }
 }
 
 function clientIp(request) {

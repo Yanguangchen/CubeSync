@@ -53,52 +53,33 @@ Tests: `api-handler.test.js` ("rejects submissions targeting an existing
 document id"), `api-handler-unit.test.js` (malformed and well-formed id both
 rejected).
 
-### 🟠 MEDIUM — CORS reflects arbitrary `Origin` — ⏳ OUTSTANDING
-`setApiHeaders` sets `Access-Control-Allow-Origin = request.headers.origin || "*"`,
-so any site can call the API from a browser. No credentials are used, limiting
-impact, but it should be an allowlist.
-**Proposed:** read `CUBESYNC_ALLOWED_ORIGINS` (comma-separated; default the prod
-Vercel domain) and only reflect listed origins. Deferred to keep the HIGH fix
-dependency-free (this one needs an env var).
+### 🟠 MEDIUM — CORS reflects arbitrary `Origin` — ✅ FIXED
+`setApiHeaders` in `api/_utils/firebase-api-helper.js` now reads `CUBESYNC_ALLOWED_ORIGINS` (comma-separated). If configured, only matching origins are reflected; non-matching origins fall back to the primary allowed origin or block cross-origin requests.
+Tests: `api-handler-unit.test.js` ("CORS enforces CUBESYNC_ALLOWED_ORIGINS allowlist when configured").
 
-### 🟠 MEDIUM — Firestore rules validation is incomplete — ⏳ OUTSTANDING
-- `isValidCubeResults` validates only result rows 0–9 but allows `size ≤ 50`;
-  rows 10–49 (and their per-row `hasOnly` key restriction) are unchecked.
-- `isValidExtraFields` only checks `is map && size ≤ 25` — values are not
-  type/length-validated. The API's `cleanExtraFields` validates them, but the
-  **authenticated staff client path** (direct Firestore writes) is governed only
-  by rules. A staff/compromised account could write unvalidated bulk content.
-**Proposed:** validate all result rows (or cap at a validated count) and
-deep-validate `extraFields` values in the rules.
+### 🟠 MEDIUM — Firestore rules validation is incomplete — ✅ FIXED
+- `isValidCubeResults` in `firestore.rules` unrolls validation across all 50 possible result rows (`value[0]` through `value[49]`).
+- `isValidExtraFields` now deep-validates up to 25 map entries via `isValidExtraFieldsList`, ensuring keys match `^[a-z][a-zA-Z0-9_]{0,31}$` and values are boolean, number, or string ($\le$ 500 chars).
+Tests: `firestore.test.js` regex assertions verify the presence of deep validation rules for `extraFields` and index checks up to 49.
 
-### 🟡 LOW — Staff allowlist duplicated and already drifted — ⏳ OUTSTANDING
-The allowlist is hand-copied in 3 places. `firestore.js` and
-`isCubeSyncAllowedEmail` (rules) list 22 emails incl. `ernestngcy@…` /
-`jlee.j.m9382@…`; `isHardcodedMaster` (rules) lists 20 without them.
-**Proposed:** single source of truth + a test asserting `firestore.js` and the
-rules allowlist stay in sync (goals.md: "Keep `firestore.js` and
-`firestore.rules` staff allowlists in sync").
+### 🟡 LOW — Staff allowlist duplicated and already drifted — ✅ FIXED
+Authoritative staff list consolidated in `shared/staff-allowlist.json` (25 emails). Unit tests in `firestore.test.js` automatically assert that `firestore.js` and `firestore.rules` (`isCubeSyncAllowedEmail`) match this authoritative list exactingly. Note: WorkGrid bootstrap masters (`isHardcodedMaster`) are separate and out of scope.
 
-### 🟡 LOW — reCAPTCHA hostname/action not verified — ⏳ OUTSTANDING
-`verifyRecaptcha` only checks `result.success`. Acceptable for v2; adding
-hostname verification would block token replay from other properties sharing the
-site key.
+### 🟡 LOW — reCAPTCHA hostname/action not verified — ✅ FIXED
+`verifyRecaptcha` in `api/cube-request-submit.js` checks `result.hostname` against `CUBESYNC_ALLOWED_HOSTNAMES` (falling back to `CUBESYNC_ALLOWED_ORIGINS`). Replay attacks from unauthorized hostnames are rejected with `400`. Development fallback exceptions (`localhost`, `127.0.0.1`, `testkey.google.com`) are preserved for test environments.
+Tests: `api-handler-unit.test.js` ("reCAPTCHA fails when hostname does not match configured CUBESYNC_ALLOWED_HOSTNAMES").
 
 ## Largest outstanding test gap
 
-**No behavioral tests for `firestore.rules`.** `firestore.test.js` verifies the
-rules by `readFileSync` + regex `assert.match` — it checks the *text*, never
-evaluates authorization. ~1,200 lines of access control (allowlist enforcement,
-`isValidCubeRequestUpdate`, status/enum checks, immutable fields) have zero
-behavioral verification; the validation gaps above pass every existing test.
-**Proposed:** add `@firebase/rules-unit-testing` emulator tests asserting
-`assertFails`/`assertSucceeds` for the CubeSync collection — non-staff denied,
-staff allowed, oversized/invalid payloads denied, immutable fields locked.
+**No behavioral tests for `firestore.rules`.** `firestore.test.js` verifies the rules by `readFileSync` + regex `assert.match` — it checks the *text*, never evaluates authorization. ~1,200 lines of access control (allowlist enforcement, `isValidCubeRequestUpdate`, status/enum checks, immutable fields) have zero behavioral verification.
+**Proposed:** add `@firebase/rules-unit-testing` emulator tests asserting `assertFails`/`assertSucceeds` for the CubeSync collection — non-staff denied, staff allowed, oversized/invalid payloads denied, immutable fields locked.
 
 ## Recommended next steps (priority order)
 
 1. ~~Public-endpoint hardening (create-only + forced Draft)~~ — **done.**
-2. CORS origin allowlist (MEDIUM, needs `CUBESYNC_ALLOWED_ORIGINS`).
-3. Firestore rules emulator tests (largest coverage hole).
-4. Tighten rules validation (all result rows + `extraFields` values).
-5. De-duplicate the staff allowlist + add a sync test.
+2. ~~CORS origin allowlist (`CUBESYNC_ALLOWED_ORIGINS`)~~ — **done.**
+3. ~~Tighten rules validation (all 50 result rows + `extraFields` deep validation)~~ — **done.**
+4. ~~De-duplicate staff allowlist + add sync test~~ — **done.**
+5. ~~reCAPTCHA hostname verification against allowlist~~ — **done.**
+6. Firestore rules emulator tests (behavioral testing with `@firebase/rules-unit-testing`).
+

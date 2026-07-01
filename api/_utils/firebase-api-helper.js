@@ -4,10 +4,27 @@ function json(response, status, body) {
 }
 
 function setApiHeaders(request, response, options = {}) {
-  const origin = request.headers.origin || "*";
+  const requestOrigin = request.headers.origin || "";
+  let allowedOrigin = requestOrigin || "*";
+
+  const allowedOriginsEnv = process.env.CUBESYNC_ALLOWED_ORIGINS;
+  if (allowedOriginsEnv && typeof allowedOriginsEnv === "string") {
+    const allowlist = allowedOriginsEnv
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (allowlist.length > 0) {
+      if (requestOrigin && allowlist.includes(requestOrigin)) {
+        allowedOrigin = requestOrigin;
+      } else {
+        allowedOrigin = allowlist[0];
+      }
+    }
+  }
+
   const methods = options.methods || "POST, OPTIONS";
   const headers = options.headers || "Content-Type";
-  response.setHeader("Access-Control-Allow-Origin", origin);
+  response.setHeader("Access-Control-Allow-Origin", allowedOrigin);
   response.setHeader("Access-Control-Allow-Methods", methods);
   response.setHeader("Access-Control-Allow-Headers", headers);
   response.setHeader("Vary", "Origin");

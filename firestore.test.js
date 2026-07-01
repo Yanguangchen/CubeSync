@@ -79,6 +79,9 @@ test("Firestore rules enforce CubeSync staff allowlist for direct client access"
   assert.match(rules, /allow create, update: if isCubeSyncStaff\(\) &&\s*isValidDropdownOptions/);
   assert.match(rules, /customRequestFields/);
   assert.match(rules, /isValidExtraFields/);
+  assert.match(rules, /isValidExtraFieldKey/);
+  assert.match(rules, /isValidExtraFieldEntry/);
+  assert.match(rules, /value\.size\(\) > 49 \? isValidCubeResult\(value\[49\]\)/);
   assert.match(rules, /'extraFields'/);
   // formFieldConfig is publicly readable so the customer forms can apply field visibility.
   assert.match(rules, /match \/settings\/formFieldConfig[\s\S]*allow get: if true/);
