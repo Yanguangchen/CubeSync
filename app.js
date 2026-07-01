@@ -1,6 +1,21 @@
 (function () {
   "use strict";
 
+  function logClientObs(context) {
+    const obs = window.CubeSyncObservability || (window.CubeSyncFormData && window.CubeSyncFormData.Observability);
+    if (obs && typeof obs.logClientEvent === "function") {
+      obs.logClientEvent(context);
+    }
+  }
+
+  function formatClientUserError(error, fallback) {
+    const obs = window.CubeSyncObservability || (window.CubeSyncFormData && window.CubeSyncFormData.Observability);
+    if (obs && typeof obs.formatClientError === "function") {
+      return obs.formatClientError(error, fallback);
+    }
+    return error ? error.message || fallback : fallback;
+  }
+
   function renderBarcode(input) {
     const cell = input.closest(".barcode-cell");
     const preview = cell.querySelector(".barcode-preview");
@@ -26,6 +41,14 @@
         preview.innerHTML = "";
       }
     } catch (error) {
+      logClientObs({
+        feature: "Barcode",
+        functionName: "renderBarcode",
+        operation: "renderSvg",
+        status: "warning",
+        category: "ValidationFailure",
+        error: error
+      });
       cell.classList.remove("has-barcode");
       cell.classList.add("has-error");
       input.setAttribute("aria-invalid", "true");
@@ -347,7 +370,15 @@
         try {
           token = recaptchaToken(recaptchaContainer);
         } catch (error) {
-          setSaveStatus(saveStatus, error.message || "reCAPTCHA failed", true);
+          logClientObs({
+            feature: "FormSubmission",
+            functionName: "submit",
+            operation: "recaptchaToken",
+            status: "failed",
+            category: "AuthenticationCheck",
+            error: error
+          });
+          setSaveStatus(saveStatus, formatClientUserError(error, "reCAPTCHA failed"), true);
           return;
         }
 
@@ -356,9 +387,15 @@
 
         try {
           const payload = formData.buildCubeRequestFromForm(form);
-          // Public submissions are create-only (the API rejects a supplied id),
-          // so never resend the current id — each save creates a new Draft.
           currentDocId = await store.savePublicCubeRequest(payload, undefined, token);
+          logClientObs({
+            feature: "FormSubmission",
+            functionName: "submit",
+            operation: "savePublicCubeRequest",
+            status: "succeeded",
+            category: "APIError",
+            safeId: currentDocId
+          });
           
           const saveToLocal = (key, value) => {
             if (!value) return;
@@ -369,8 +406,8 @@
                 localStorage.setItem(key, JSON.stringify(existing));
               }
             } catch {
-        // Ignore missing autocomplete source files.
-      }
+              // Ignore local storage write errors.
+            }
           };
           if (payload.projectErp) saveToLocal('savedProjectErps', payload.projectErp);
           if (payload.customerBilling) saveToLocal('savedCustomerBillings', payload.customerBilling);
@@ -383,7 +420,15 @@
             window.CubeSyncChime.showEncouragingPopup("Great job! Form submitted successfully.");
           }
         } catch (error) {
-          setSaveStatus(saveStatus, error.message || "Save failed", true);
+          logClientObs({
+            feature: "FormSubmission",
+            functionName: "submit",
+            operation: "savePublicCubeRequest",
+            status: "failed",
+            category: "APIError",
+            error: error
+          });
+          setSaveStatus(saveStatus, formatClientUserError(error, "Save failed"), true);
           resetRecaptcha(recaptchaContainer);
         } finally {
           setButtonBusy(saveButton, false);

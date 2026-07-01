@@ -1,6 +1,21 @@
 (function () {
   "use strict";
 
+  function logRpaObs(context) {
+    const obs = window.CubeSyncObservability || (window.CubeSyncFormData && window.CubeSyncFormData.Observability);
+    if (obs && typeof obs.logClientEvent === "function") {
+      obs.logClientEvent(context);
+    }
+  }
+
+  function formatRpaError(error, fallback) {
+    const obs = window.CubeSyncObservability || (window.CubeSyncFormData && window.CubeSyncFormData.Observability);
+    if (obs && typeof obs.formatClientError === "function") {
+      return obs.formatClientError(error, fallback);
+    }
+    return error ? error.message || fallback : fallback;
+  }
+
   function getSGTDate(date = new Date()) {
     const formatter = new Intl.DateTimeFormat("en-GB", {
       timeZone: "Asia/Singapore",
@@ -192,10 +207,18 @@
       const records = await firestore.listCubeRequests();
       state.forms = records.map((record) => formData.normalizeCubeRequestForDashboard(record, record.id));
     } catch (error) {
+      logRpaObs({
+        feature: "RpaDashboard",
+        functionName: "loadQueue",
+        operation: "listCubeRequests",
+        status: "failed",
+        category: "DatabaseRead",
+        error: error
+      });
       state.forms = [];
       state.loading = false;
       setExportButtonState();
-      elements.queueList.innerHTML = `<tr><td colspan="7">${escapeHtml(error.message || "Unable to load Firestore forms.")}</td></tr>`;
+      elements.queueList.innerHTML = `<tr><td colspan="7">${escapeHtml(formatRpaError(error, error && error.message ? error.message : "Unable to load Firestore forms."))}</td></tr>`;
       return;
     } finally {
       state.loading = false;
@@ -229,7 +252,15 @@
       try {
         await auth.signInWithGoogle();
       } catch (error) {
-        window.alert(error.message || "Unable to sign in with Google.");
+        logRpaObs({
+          feature: "RpaAuth",
+          functionName: "bindAuthGate",
+          operation: "signInWithGoogle",
+          status: "failed",
+          category: "AuthenticationCheck",
+          error: error
+        });
+        window.alert(formatRpaError(error, "Unable to sign in with Google."));
       }
     });
 
@@ -237,7 +268,15 @@
       try {
         await auth.signOutUser();
       } catch (error) {
-        window.alert(error.message || "Unable to sign out.");
+        logRpaObs({
+          feature: "RpaAuth",
+          functionName: "bindAuthGate",
+          operation: "signOutUser",
+          status: "failed",
+          category: "AuthenticationCheck",
+          error: error
+        });
+        window.alert(formatRpaError(error, "Unable to sign out."));
       }
     });
 
@@ -287,8 +326,21 @@
     if (newStatus === "Error") updates.rpaStatus = "Failed";
     if (newStatus === "Pending") updates.rpaStatus = "Ready for Bot";
 
-    await firestore.updateCubeRequest(id, updates);
-    await loadQueue();
+    try {
+      await firestore.updateCubeRequest(id, updates);
+      await loadQueue();
+    } catch (error) {
+      logRpaObs({
+        feature: "RpaDashboard",
+        functionName: "updateERPStatus",
+        operation: "updateCubeRequest",
+        status: "failed",
+        category: "DatabaseWrite",
+        safeId: id,
+        error: error
+      });
+      window.alert(formatRpaError(error, "Unable to update ERP status."));
+    }
   }
 
   async function toggleDisable(id) {
@@ -297,8 +349,21 @@
     if (!firestore || !form) return;
 
     const nextStatus = rpaStatus(form) === "Disabled" ? "Ready for Bot" : "Disabled";
-    await firestore.updateCubeRequest(id, { rpaStatus: nextStatus });
-    await loadQueue();
+    try {
+      await firestore.updateCubeRequest(id, { rpaStatus: nextStatus });
+      await loadQueue();
+    } catch (error) {
+      logRpaObs({
+        feature: "RpaDashboard",
+        functionName: "toggleDisable",
+        operation: "updateCubeRequest",
+        status: "failed",
+        category: "DatabaseWrite",
+        safeId: id,
+        error: error
+      });
+      window.alert(formatRpaError(error, "Unable to toggle disable status."));
+    }
   }
 
   function changeDate(days) {
@@ -336,7 +401,15 @@
       const files = exporter.buildExportFiles(exportableForms);
       exporter.downloadFilesAsZip(files, exportArchiveName());
     } catch (error) {
-      window.alert(error.message || "Unable to export forms.");
+      logRpaObs({
+        feature: "RpaExport",
+        functionName: "exportAllForms",
+        operation: "downloadFilesAsZip",
+        status: "failed",
+        category: "FileExport",
+        error: error
+      });
+      window.alert(formatRpaError(error, "Unable to export forms."));
     } finally {
       elements.exportAllButton.textContent = originalLabel;
       setExportButtonState();

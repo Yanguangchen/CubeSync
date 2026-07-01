@@ -1,3 +1,4 @@
+const { URL } = require("url");
 const { loadDotEnv } = require("../scripts/load-env");
 const {
   FORM_FIELDS: REQUEST_FORM_FIELDS,
@@ -9,7 +10,9 @@ const {
   setApiHeaders,
   stripWrappingQuotes,
   parseServiceAccount,
-  initFirebaseAdmin
+  initFirebaseAdmin,
+  logServerEvent,
+  formatUserFacingError
 } = require("./_utils/firebase-api-helper");
 
 const COLLECTION_NAME = "cubeRequests";
@@ -135,7 +138,16 @@ function cleanPayload(payload) {
 async function verifyRecaptcha(token, remoteAddress) {
   const secret = process.env.CUBESYNC_RECAPTCHA_SECRET_KEY;
   if (!secret) {
-    throw new Error("reCAPTCHA secret key is not configured");
+    const err = new Error("reCAPTCHA secret key is not configured");
+    logServerEvent({
+      feature: "CubeSubmission",
+      functionName: "verifyRecaptcha",
+      operation: "checkSecret",
+      status: "failed",
+      category: "ConfigError",
+      error: err
+    });
+    throw err;
   }
 
   const body = new URLSearchParams({
@@ -147,16 +159,37 @@ async function verifyRecaptcha(token, remoteAddress) {
     body.set("remoteip", remoteAddress);
   }
 
-  const verification = await fetch("https://www.google.com/recaptcha/api/siteverify", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded"
-    },
-    body
-  });
-  const result = await verification.json();
+  let result;
+  try {
+    const verification = await fetch("https://www.google.com/recaptcha/api/siteverify", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded"
+      },
+      body
+    });
+    result = await verification.json();
+  } catch (err) {
+    logServerEvent({
+      feature: "CubeSubmission",
+      functionName: "verifyRecaptcha",
+      operation: "fetchGoogleRecaptcha",
+      status: "failed",
+      category: "ExternalServiceCall",
+      error: err
+    });
+    throw new Error("reCAPTCHA verification failed");
+  }
 
   if (!result.success) {
+    logServerEvent({
+      feature: "CubeSubmission",
+      functionName: "verifyRecaptcha",
+      operation: "verifyToken",
+      status: "failed",
+      category: "AuthCheck",
+      validationRule: "reCAPTCHA score/success check"
+    });
     throw new Error("reCAPTCHA verification failed");
   }
 
@@ -179,6 +212,15 @@ async function verifyRecaptcha(token, remoteAddress) {
         .filter(Boolean);
 
       if (allowedList.length > 0 && !allowedList.includes(result.hostname)) {
+        logServerEvent({
+          feature: "CubeSubmission",
+          functionName: "verifyRecaptcha",
+          operation: "verifyHostname",
+          status: "failed",
+          category: "AuthCheck",
+          expected: allowedList,
+          actual: result.hostname
+        });
         throw new Error("reCAPTCHA verification failed: invalid hostname");
       }
     }
@@ -211,10 +253,15 @@ module.exports = async function handler(request, response) {
 
   try {
     const { id, payload, recaptchaToken } = request.body || {};
-    // Create-only: the public endpoint must never overwrite an existing record.
-    // A caller-supplied id with set({ merge: true }) was an unauthenticated IDOR
-    // letting anyone patch any document. Staff edits go through the dashboard.
     if (id) {
+      logServerEvent({
+        feature: "CubeSubmission",
+        functionName: "handler",
+        operation: "submitForm",
+        status: "failed",
+        category: "PermissionCheck",
+        validationRule: "Public submissions cannot target an existing document"
+      });
       json(response, 400, { error: "Public submissions cannot target an existing document." });
       return;
     }
@@ -235,13 +282,28 @@ module.exports = async function handler(request, response) {
       if (configDoc.exists) {
         fieldConfig = configDoc.data();
       }
-    } catch {
-      // Config fetch failure is non-fatal; fall back to validating all required fields.
+    } catch (err) {
+      logServerEvent({
+        feature: "CubeSubmission",
+        functionName: "handler",
+        operation: "fetchFormFieldConfig",
+        status: "failed",
+        category: "DatabaseRead",
+        error: err
+      });
     }
 
     const validation = validateCubeRequestPayload(clean, fieldConfig);
 
     if (!validation.valid) {
+      logServerEvent({
+        feature: "CubeSubmission",
+        functionName: "handler",
+        operation: "validatePayload",
+        status: "failed",
+        category: "ValidationFailure",
+        validationRule: validation.message
+      });
       json(response, 400, { error: validation.message });
       return;
     }
@@ -250,9 +312,25 @@ module.exports = async function handler(request, response) {
       ...clean,
       createdAt: now
     });
+    logServerEvent({
+      feature: "CubeSubmission",
+      functionName: "handler",
+      operation: "createSubmission",
+      status: "succeeded",
+      category: "DatabaseWrite",
+      safeId: reference.id
+    });
     json(response, 200, { id: reference.id });
   } catch (error) {
-    json(response, 400, { error: error.message || "Unable to submit form" });
+    logServerEvent({
+      feature: "CubeSubmission",
+      functionName: "handler",
+      operation: "processSubmission",
+      status: "failed",
+      category: "FormSubmission",
+      error: error
+    });
+    json(response, 400, { error: formatUserFacingError(error, "Unable to submit form") });
   }
 };
 

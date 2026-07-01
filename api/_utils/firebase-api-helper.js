@@ -49,13 +49,82 @@ function serviceAccountJson() {
   return stripWrappingQuotes(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
 }
 
+const SENSITIVE_KEYS = new Set([
+  "password", "token", "apikey", "api_key", "secret", "privatekey", "private_key",
+  "authorization", "auth", "recaptchatoken", "idtoken", "bearer", "creditcard", "payment"
+]);
+
+function sanitizeForLog(data) {
+  if (data === null || data === undefined) return data;
+  if (typeof data !== "object") return data;
+  if (Array.isArray(data)) return data.map(sanitizeForLog);
+  const clean = {};
+  for (const [key, val] of Object.entries(data)) {
+    const lower = key.toLowerCase().replace(/[^a-z]/g, "");
+    if (SENSITIVE_KEYS.has(lower) || lower.includes("password") || lower.includes("token") || lower.includes("secret") || lower.includes("key")) {
+      clean[key] = "[REDACTED]";
+    } else {
+      clean[key] = sanitizeForLog(val);
+    }
+  }
+  return clean;
+}
+
+function logServerEvent(context) {
+  const payload = {
+    timestamp: new Date().toISOString(),
+    feature: context.feature || "General",
+    functionName: context.functionName || "unknown",
+    operation: context.operation || "unknown",
+    status: context.status || "info",
+    category: context.category || "General",
+    safeId: context.safeId || context.recordId || undefined,
+    userAction: context.userAction || undefined,
+    validationRule: context.validationRule || undefined,
+    systemStep: context.systemStep || undefined,
+    expected: context.expected !== undefined ? sanitizeForLog(context.expected) : undefined,
+    actual: context.actual !== undefined ? sanitizeForLog(context.actual) : undefined,
+    error: context.error ? (typeof context.error === "object" ? context.error.message || String(context.error) : String(context.error)) : undefined
+  };
+  Object.keys(payload).forEach((k) => payload[k] === undefined && delete payload[k]);
+  if (payload.status === "failed") {
+    console.error(`[Observability Error]`, JSON.stringify(payload));
+  } else {
+    console.log(`[Observability Info]`, JSON.stringify(payload));
+  }
+}
+
+function formatUserFacingError(err, fallbackMessage = "Unable to process request due to a server error. Please try again later.") {
+  if (!err) return fallbackMessage;
+  const msg = typeof err === "string" ? err : err.message || "";
+  if (!msg) return fallbackMessage;
+  const safeMatches = [
+    "reCAPTCHA", "Unexpected", "Invalid", "Public submissions cannot",
+    "Missing Firebase ID token", "This account is not allowed", "Submission API",
+    "Too many", "Extra field", "Unable to submit form", "Unable to manage dropdown options.",
+    "Unknown dropdown"
+  ];
+  if (safeMatches.some((s) => msg.includes(s))) {
+    return msg;
+  }
+  return fallbackMessage;
+}
+
 function parseServiceAccount(raw) {
   if (!raw) return null;
 
   let account;
   try {
     account = JSON.parse(raw);
-  } catch {
+  } catch (err) {
+    logServerEvent({
+      feature: "FirebaseHelper",
+      functionName: "parseServiceAccount",
+      operation: "parseJSON",
+      status: "failed",
+      category: "ConfigError",
+      error: err
+    });
     throw new Error(
       "Invalid Firebase service account JSON. Use valid JSON with double-quoted property names, or set FIREBASE_SERVICE_ACCOUNT_JSON_BASE64 to a base64-encoded service account JSON file."
     );
@@ -75,18 +144,30 @@ function initFirebaseAdmin(currentAdmin) {
 
   if (admin.apps && admin.apps.length) return admin;
 
-  const account = parseServiceAccount(serviceAccountJson());
-  if (account) {
+  try {
+    const account = parseServiceAccount(serviceAccountJson());
+    if (account) {
+      admin.initializeApp({
+        credential: admin.credential.cert(account)
+      });
+      return admin;
+    }
+
     admin.initializeApp({
-      credential: admin.credential.cert(account)
+      credential: admin.credential.applicationDefault()
     });
     return admin;
+  } catch (err) {
+    logServerEvent({
+      feature: "FirebaseHelper",
+      functionName: "initFirebaseAdmin",
+      operation: "initializeApp",
+      status: "failed",
+      category: "ConfigError",
+      error: err
+    });
+    throw err;
   }
-
-  admin.initializeApp({
-    credential: admin.credential.applicationDefault()
-  });
-  return admin;
 }
 
 module.exports = {
@@ -95,5 +176,8 @@ module.exports = {
   stripWrappingQuotes,
   serviceAccountJson,
   parseServiceAccount,
-  initFirebaseAdmin
+  initFirebaseAdmin,
+  logServerEvent,
+  formatUserFacingError,
+  sanitizeForLog
 };

@@ -1,6 +1,21 @@
 (function () {
   "use strict";
 
+  function logDashboardObs(context) {
+    const obs = window.CubeSyncObservability || (window.CubeSyncFormData && window.CubeSyncFormData.Observability);
+    if (obs && typeof obs.logClientEvent === "function") {
+      obs.logClientEvent(context);
+    }
+  }
+
+  function formatDashboardError(error, fallback) {
+    const obs = window.CubeSyncObservability || (window.CubeSyncFormData && window.CubeSyncFormData.Observability);
+    if (obs && typeof obs.formatClientError === "function") {
+      return obs.formatClientError(error, fallback);
+    }
+    return error ? error.message || fallback : fallback;
+  }
+
   const state = {
     forms: [],
     selectedId: null,
@@ -1172,9 +1187,17 @@
     state.loading = false;
     state.forms = [];
     renderForms();
+    logDashboardObs({
+      feature: "DashboardForms",
+      functionName: "loadForms/subscribe",
+      operation: "listCubeRequests",
+      status: "failed",
+      category: "DatabaseRead",
+      error: error
+    });
     setSurfaceStatus(elements.detailStatus, "Unable to load requests. Retry after the connection or Firestore access is restored.", "error");
     elements.detailTitle.textContent = "Firestore error";
-    elements.detailContent.innerHTML = `<p>${escapeHtml(error && error.message ? error.message : "Unable to load forms from Firestore.")}</p>`;
+    elements.detailContent.innerHTML = `<p>${escapeHtml(formatDashboardError(error, error && error.message ? error.message : "Unable to load forms from Firestore."))}</p>`;
     setDetailButtons(false);
   }
 
@@ -1444,6 +1467,14 @@
       setSurfaceStatus(elements.fieldConfigStatus, "Field settings saved.", "success");
       elements.fieldConfigDialog.close();
     } catch (error) {
+      logDashboardObs({
+        feature: "DashboardSettings",
+        functionName: "saveFieldConfig",
+        operation: "saveFormFieldConfig",
+        status: "failed",
+        category: "DatabaseWrite",
+        error: error
+      });
       const detail = classifyActionError(error, "Unable to save form field settings.");
       setSurfaceStatus(elements.fieldConfigStatus, detail.message, detail.tone);
     } finally {
@@ -1572,6 +1603,14 @@
       try {
         await auth.signInWithGoogle();
       } catch (error) {
+        logDashboardObs({
+          feature: "DashboardAuth",
+          functionName: "bindAuthGate",
+          operation: "signInWithGoogle",
+          status: "failed",
+          category: "AuthenticationCheck",
+          error: error
+        });
         const detail = classifyActionError(error, "Unable to sign in with Google.");
         setSurfaceStatus(elements.authGateStatus, detail.message, detail.tone);
       } finally {
@@ -2002,6 +2041,15 @@
       state.selectedId = id;
       await loadForms();
     } catch (error) {
+      logDashboardObs({
+        feature: "DashboardEdit",
+        functionName: "saveEditedForm",
+        operation: "updateCubeRequest",
+        status: "failed",
+        category: "DatabaseWrite",
+        safeId: id,
+        error: error
+      });
       console.error("CubeSync dashboard save failed", error);
       const detail = classifyActionError(error, "Unable to save changes to Firestore.");
       setSurfaceStatus(elements.editFormStatus, detail.message, detail.tone);
@@ -2025,6 +2073,15 @@
       if (state.selectedId === id) state.selectedId = null;
       await loadForms();
     } catch (error) {
+      logDashboardObs({
+        feature: "DashboardDelete",
+        functionName: "deleteForm",
+        operation: "deleteCubeRequest",
+        status: "failed",
+        category: "DatabaseWrite",
+        safeId: id,
+        error: error
+      });
       const detail = classifyActionError(error, "Unable to delete this Firestore form.");
       setSurfaceStatus(elements.detailStatus, detail.message, detail.tone);
     }

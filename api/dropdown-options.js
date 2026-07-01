@@ -9,7 +9,9 @@ const {
   setApiHeaders,
   stripWrappingQuotes,
   parseServiceAccount,
-  initFirebaseAdmin
+  initFirebaseAdmin,
+  logServerEvent,
+  formatUserFacingError
 } = require("./_utils/firebase-api-helper");
 const STAFF_ALLOWLIST = require("../shared/staff-allowlist.json");
 
@@ -33,12 +35,43 @@ function bearerToken(request) {
 async function requireStaff(request) {
   const token = bearerToken(request);
   if (!token) {
+    const err = new Error("Missing Firebase ID token.");
+    logServerEvent({
+      feature: "DropdownOptions",
+      functionName: "requireStaff",
+      operation: "extractToken",
+      status: "failed",
+      category: "AuthenticationCheck",
+      error: err
+    });
+    throw err;
+  }
+  let decoded;
+  try {
+    decoded = await admin.auth().verifyIdToken(token);
+  } catch (err) {
+    logServerEvent({
+      feature: "DropdownOptions",
+      functionName: "requireStaff",
+      operation: "verifyIdToken",
+      status: "failed",
+      category: "AuthenticationCheck",
+      error: err
+    });
     throw new Error("Missing Firebase ID token.");
   }
-  const decoded = await admin.auth().verifyIdToken(token);
   const email = String(decoded.email || "").trim().toLowerCase();
   if (!email || !CUBESYNC_ALLOWED_EMAILS.has(email)) {
-    throw new Error("This account is not allowed to manage autocomplete lists.");
+    const err = new Error("This account is not allowed to manage autocomplete lists.");
+    logServerEvent({
+      feature: "DropdownOptions",
+      functionName: "requireStaff",
+      operation: "checkAllowlist",
+      status: "failed",
+      category: "PermissionCheck",
+      validationRule: "Staff allowlist email match"
+    });
+    throw err;
   }
   return decoded;
 }
@@ -54,6 +87,13 @@ async function saveOptions(db, values) {
     ...clean,
     updatedAt: admin.firestore.FieldValue.serverTimestamp()
   }, { merge: true });
+  logServerEvent({
+    feature: "DropdownOptions",
+    functionName: "saveOptions",
+    operation: "overwriteOptions",
+    status: "succeeded",
+    category: "DatabaseWrite"
+  });
   return clean;
 }
 
@@ -66,6 +106,13 @@ async function addOptions(db, values) {
   if (!Object.keys(update).length) return additions;
   update.updatedAt = admin.firestore.FieldValue.serverTimestamp();
   await db.collection(SETTINGS_COLLECTION).doc(DROPDOWN_OPTIONS_DOC_ID).set(update, { merge: true });
+  logServerEvent({
+    feature: "DropdownOptions",
+    functionName: "addOptions",
+    operation: "unionOptions",
+    status: "succeeded",
+    category: "DatabaseWrite"
+  });
   return additions;
 }
 
@@ -104,9 +151,25 @@ module.exports = async function handler(request, response) {
       json(response, 200, { options: await saveOptions(db, values) });
       return;
     }
+    logServerEvent({
+      feature: "DropdownOptions",
+      functionName: "handler",
+      operation: "executeAction",
+      status: "failed",
+      category: "ValidationFailure",
+      validationRule: "Action must be add or save"
+    });
     json(response, 400, { error: "Unknown dropdown options action." });
   } catch (error) {
-    json(response, 400, { error: error.message || "Unable to manage dropdown options." });
+    logServerEvent({
+      feature: "DropdownOptions",
+      functionName: "handler",
+      operation: request.method === "POST" ? (request.body && request.body.action || "post") : "get",
+      status: "failed",
+      category: "APIError",
+      error: error
+    });
+    json(response, 400, { error: formatUserFacingError(error, error.message || "Unable to manage dropdown options.") });
   }
 };
 

@@ -1,8 +1,12 @@
 (function (root, factory) {
+  const exported = factory();
   if (typeof module === "object" && module.exports) {
-    module.exports = factory();
+    module.exports = exported;
   } else {
-    root.CubeSyncFormData = factory();
+    root.CubeSyncFormData = exported;
+    if (exported && exported.Observability) {
+      root.CubeSyncObservability = exported.Observability;
+    }
   }
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
@@ -1702,6 +1706,70 @@
     return "";
   }
 
+  const SENSITIVE_CLIENT_KEYS = new Set([
+    "password", "token", "apikey", "api_key", "secret", "privatekey", "private_key",
+    "authorization", "auth", "recaptchatoken", "idtoken", "bearer", "creditcard", "payment"
+  ]);
+
+  function sanitizeClientData(data) {
+    if (data === null || data === undefined) return data;
+    if (typeof data !== "object") return data;
+    if (Array.isArray(data)) return data.map(sanitizeClientData);
+    const clean = {};
+    for (const [key, val] of Object.entries(data)) {
+      const lower = key.toLowerCase().replace(/[^a-z]/g, "");
+      if (SENSITIVE_CLIENT_KEYS.has(lower) || lower.includes("password") || lower.includes("token") || lower.includes("secret") || lower.includes("key")) {
+        clean[key] = "[REDACTED]";
+      } else {
+        clean[key] = sanitizeClientData(val);
+      }
+    }
+    return clean;
+  }
+
+  function logClientEvent(context) {
+    if (typeof console === "undefined") return;
+    const payload = {
+      timestamp: new Date().toISOString(),
+      feature: context.feature || "ClientGeneral",
+      functionName: context.functionName || "unknown",
+      operation: context.operation || "unknown",
+      status: context.status || "info",
+      category: context.category || "General",
+      safeId: context.safeId || context.recordId || undefined,
+      userAction: context.userAction || undefined,
+      validationRule: context.validationRule || undefined,
+      systemStep: context.systemStep || undefined,
+      expected: context.expected !== undefined ? sanitizeClientData(context.expected) : undefined,
+      actual: context.actual !== undefined ? sanitizeClientData(context.actual) : undefined,
+      error: context.error ? (typeof context.error === "object" ? context.error.message || String(context.error) : String(context.error)) : undefined
+    };
+    Object.keys(payload).forEach((k) => payload[k] === undefined && delete payload[k]);
+    if (payload.status === "failed") {
+      if (typeof console.error === "function") console.error(`[Client Observability Error]`, JSON.stringify(payload));
+    } else if (payload.status === "warning") {
+      if (typeof console.warn === "function") console.warn(`[Client Observability Warning]`, JSON.stringify(payload));
+    } else {
+      if (typeof console.log === "function") console.log(`[Client Observability Info]`, JSON.stringify(payload));
+    }
+  }
+
+  function formatClientError(err, fallbackMessage = "Something went wrong. Please try again.") {
+    if (!err) return fallbackMessage;
+    const msg = typeof err === "string" ? err : err.message || "";
+    if (!msg) return fallbackMessage;
+    if (msg.includes("Failed to fetch") || msg.includes("NetworkError") || msg.includes("ERR_INTERNET_DISCONNECTED") || msg.includes("Load failed")) {
+      return "Unable to connect to server. Please check your network connection and try again.";
+    }
+    return msg;
+  }
+
+  const Observability = {
+    sanitizeClientData,
+    logClientEvent,
+    formatClientError
+  };
+
   return {
     COLLECTION_NAME,
     SETTINGS_COLLECTION,
@@ -1767,6 +1835,7 @@
     buildCubeRequestUpdatePatch,
     EDIT_HISTORY_SENSITIVE_FIELDS,
     buildEditHistoryChanges,
-    changesRequireReason
+    changesRequireReason,
+    Observability
   };
 });
