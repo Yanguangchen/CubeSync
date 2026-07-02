@@ -406,6 +406,27 @@ test("buildCubeRequestUpdatePatch only sends changed fields", () => {
   assert.deepEqual(customFieldsCleanup, {});
 });
 
+test("dashboard update patch supports changing both slump fields as free text", () => {
+  const patch = buildCubeRequestUpdatePatch(
+    {
+      slumpMeasured: 75,
+      slumpSpecified: 100,
+      results: [{ specifiedSlump: 100, meanSlump: 75 }]
+    },
+    {
+      slumpMeasured: "75-80 mm",
+      slumpSpecified: "100 +/- 25 mm",
+      results: [{ specifiedSlump: "100 +/- 25 mm", meanSlump: "75-80 mm" }]
+    }
+  );
+
+  assert.equal(patch.slumpMeasured, "75-80 mm");
+  assert.equal(patch.slumpSpecified, "100 +/- 25 mm");
+  assert.equal(patch.results.length, 1);
+  assert.equal(patch.results[0].meanSlump, "75-80 mm");
+  assert.equal(patch.results[0].specifiedSlump, "100 +/- 25 mm");
+});
+
 test("sanitizeCubeRequestUpdatePayload normalizes update-only edge cases", () => {
   const sanitized = sanitizeCubeRequestUpdatePayload({
     status: "   ",

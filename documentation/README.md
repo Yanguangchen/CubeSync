@@ -370,6 +370,7 @@ Known WorkGrid permission-policy watch items:
 | `test-item-lock.md` | Explanation of test item lockdown to BS EN 12390-3: 2019 standard |
 | `RPA_SELECTOR_REFERENCE.md` | Stable CSS selectors and field names for RPA automation |
 | `mobile-responsiveness-postmortem.md` | Postmortem: mobile responsiveness issues, root causes, and fixes — read when adding CSS grids or flex layouts |
+| `firestore-rules-expression-limit-postmortem.md` | Postmortem: multi-field dashboard saves rejected as "permission denied" by Firestore's 1,000-expression rules cap — **read before editing any validator in `firestore.rules`** |
 | `security-audit.md` | Security & test-coverage audit: public-API hardening (done) and outstanding gaps (CORS, rules emulator tests, rules validation, allowlist sync) |
 
 ## Deployment

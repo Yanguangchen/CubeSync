@@ -70,6 +70,7 @@ const CUBESYNC_ALLOWED_EMAILS = [
   "ma@rakmat.com.sg",
   "khun@rakmat.com.sg",
   "yanguangchen@webwizardsg.com",
+  "webwizardssg@gmail.com",
   "santofokir605@gmail.com",
   "nckeyong@gmail.com",
   "nck@rakmat.com.sg",

@@ -79,9 +79,10 @@ test("Firestore rules enforce CubeSync staff allowlist for direct client access"
   assert.match(rules, /allow create, update: if isCubeSyncStaff\(\) &&\s*isValidDropdownOptions/);
   assert.match(rules, /customRequestFields/);
   assert.match(rules, /isValidExtraFields/);
-  assert.match(rules, /isValidExtraFieldKey/);
-  assert.match(rules, /isValidExtraFieldEntry/);
-  assert.match(rules, /value\.size\(\) > 49 \? isValidCubeResult\(value\[49\]\)/);
+  // Create-time results validation spot-checks the first 5 rows only; deeper
+  // per-row checks exceed Firestore's 1,000-expressions-per-request cap.
+  assert.match(rules, /value\.size\(\) > 4 \? isValidCubeResult\(value\[4\]\)/);
+  assert.doesNotMatch(rules, /value\.size\(\) > 5 \? isValidCubeResult\(value\[5\]\)/);
   assert.match(rules, /'extraFields'/);
   // formFieldConfig is publicly readable so the customer forms can apply field visibility.
   assert.match(rules, /match \/settings\/formFieldConfig[\s\S]*allow get: if true/);
@@ -177,6 +178,67 @@ test("Firestore rules allow current CubeSync dashboard save payloads", () => {
   assert.match(rules, /value is string && value\.size\(\) <= 64/);
 });
 
+test("Firestore rules accept free-text slump values from dashboard edits", () => {
+  const rules = fs.readFileSync("firestore.rules", "utf8");
+  const resultValidator = rules.match(
+    /function isValidCubeResult\(row\)[\s\S]*?(?=\n {4}(?:function|match))/
+  );
+  const updateValidator = rules.match(
+    /function isValidCubeRequestUpdate\(\)[\s\S]*?(?=\n {4}(?:function|match))/
+  );
+
+  assert.ok(resultValidator, "result-row validator must exist");
+  assert.match(resultValidator[0], /optCubeStrOrNum\(row, 'specifiedSlump', 32\)/);
+  assert.match(resultValidator[0], /optCubeStrOrNum\(row, 'meanSlump', 32\)/);
+
+  assert.ok(updateValidator, "dashboard update validator must exist");
+  assert.match(
+    updateValidator[0],
+    /changed\.hasAny\(\['slumpMeasured'\]\)[\s\S]*?optCubeStrOrNum\(request\.resource\.data, 'slumpMeasured', 32\)/
+  );
+  assert.match(
+    updateValidator[0],
+    /changed\.hasAny\(\['slumpSpecified'\]\)[\s\S]*?optCubeStrOrNum\(request\.resource\.data, 'slumpSpecified', 32\)/
+  );
+
+  const flexibleValueValidator = rules.match(
+    /function optCubeStrOrNum\(data, field, maxLen\)[\s\S]*?(?=\n {4}(?:function|match))/
+  );
+  assert.ok(flexibleValueValidator, "string-or-number validator must exist");
+  assert.match(flexibleValueValidator[0], /data\[field\] is string/);
+  assert.match(flexibleValueValidator[0], /data\[field\] is number/);
+});
+
+test("Firestore rules keep multi-field dashboard saves under the 1,000-expression cap", () => {
+  const rules = fs.readFileSync("firestore.rules", "utf8");
+  const updateFn = rules.match(
+    /function isValidCubeRequestUpdate\(\)[\s\S]*?(?=\n {4}(?:function|match))/
+  );
+  assert.ok(updateFn, "isValidCubeRequestUpdate function must exist in rules");
+
+  // Firestore evaluates at most 1,000 rule expressions per request and rejects
+  // anything over the cap with the same "permission denied" as a real rule
+  // failure. Editing several dashboard fields in one save used to blow the cap
+  // because the document diff was recomputed for every field (~37 times) and
+  // every result row was deep-validated on every update.
+  const diffCalls = updateFn[0].match(/\.diff\(resource\.data\)/g) || [];
+  assert.equal(
+    diffCalls.length,
+    1,
+    "update validator must compute the document diff exactly once via a let binding"
+  );
+  assert.match(
+    updateFn[0],
+    /let changed = request\.resource\.data\.diff\(resource\.data\)\.affectedKeys\(\);/
+  );
+
+  // Deep per-row results validation stays create-only; updates get a cheap
+  // shape check so records with many result sets remain editable.
+  assert.doesNotMatch(updateFn[0], /isValidCubeResults\(/);
+  assert.match(updateFn[0], /request\.resource\.data\.results is list/);
+  assert.match(updateFn[0], /request\.resource\.data\.results\.size\(\) <= 50/);
+});
+
 test("Firestore rules permit submittedAt and attemptCount injected by dashboard saves", () => {
   const rules = fs.readFileSync("firestore.rules", "utf8");
   const js = fs.readFileSync("firestore.js", "utf8");
@@ -246,4 +308,3 @@ test("staff allowlist remains strictly synchronized across json, firestore.js, a
     .filter(Boolean);
   assert.deepEqual(rulesEmails, authoritativeList, "firestore.rules allowlist must match shared/staff-allowlist.json");
 });
-
