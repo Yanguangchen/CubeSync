@@ -541,7 +541,6 @@ service cloud.firestore {
           'ownerUserId',
           'companyName',
           'projectName',
-          'workers',
           'invoiceNumber',
           'reportNumber',
           'userName',
@@ -575,7 +574,6 @@ service cloud.firestore {
         data.ownerUserId is string && data.ownerUserId.size() <= 128 &&
         optStrWithin(data, 'companyName', 200) &&
         strWithin(data.projectName, 1, 200) &&
-        optStrWithin(data, 'workers', 500) &&
         optStrWithin(data, 'invoiceNumber', 128) &&
         optStrWithin(data, 'reportNumber', 128) &&
         strWithin(data.userName, 1, 120) &&
@@ -625,7 +623,6 @@ service cloud.firestore {
           'contact',
           'companyName',
           'projectName',
-          'workers',
           'details',
           'teamMemberIds',
           'teamMembers',
@@ -645,7 +642,6 @@ service cloud.firestore {
         strWithin(request.resource.data.contact, 1, 200) &&
         optStrWithin(request.resource.data, 'companyName', 200) &&
         optStrWithin(request.resource.data, 'projectName', 200) &&
-        optStrWithin(request.resource.data, 'workers', 500) &&
         strWithin(request.resource.data.details, 1, 2000) &&
         request.resource.data.startTime is string &&
         request.resource.data.endTime is string &&
@@ -742,7 +738,6 @@ service cloud.firestore {
         'contact',
         'companyName',
         'projectName',
-        'workers',
         'invoiceNumber',
         'reportNumber',
         'details',
@@ -796,8 +791,6 @@ service cloud.firestore {
           optStrWithin(request.resource.data, 'companyName', 200)) &&
         (!bookingChanged('projectName') ||
           optStrWithin(request.resource.data, 'projectName', 200)) &&
-        (!bookingChanged('workers') ||
-          optStrWithin(request.resource.data, 'workers', 500)) &&
         (!bookingChanged('invoiceNumber') ||
           optStrWithin(request.resource.data, 'invoiceNumber', 128)) &&
         (!bookingChanged('reportNumber') ||
