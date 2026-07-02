@@ -859,10 +859,11 @@ test("readFormFieldConfigFromEditor reads valid custom field rows and ignores in
   ]);
 });
 
-test("isRequestFieldFilled distinguishes optional numeric blanks from valid numbers", () => {
+test("isRequestFieldFilled distinguishes optional text blanks from entered slump values", () => {
   assert.equal(isRequestFieldFilled("slumpMeasured", ""), false);
   assert.equal(isRequestFieldFilled("slumpMeasured", null), false);
   assert.equal(isRequestFieldFilled("slumpMeasured", 0), true);
+  assert.equal(isRequestFieldFilled("slumpMeasured", "N/A"), true);
   assert.equal(isRequestFieldFilled("customerBilling", "  Acme  "), true);
   assert.equal(isRequestFieldFilled("customerBilling", "   "), false);
 });

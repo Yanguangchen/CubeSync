@@ -688,7 +688,7 @@ test("dashboard.js edit form handles all request fields", async () => {
 
   assert.equal(updatedData.internalDate, "2026-06-20");
   assert.equal(updatedData.dateOfCast, "2026-06-20");
-  assert.equal(updatedData.slumpMeasured, 15);
+  assert.equal(updatedData.slumpMeasured, "15");
   assert.ok(!("projectCode" in updatedData));
   assert.ok(!("customFields" in updatedData));
 });

@@ -27,6 +27,7 @@ describe("cubesync-form-markup.js", () => {
       assert.ok(html.includes('name="specimenRef42"'));
       assert.ok(html.includes('name="barcode42"'));
       assert.ok(html.includes('name="specifiedSlump42"'));
+      assert.match(html, /type="text" name="meanSlump42"/);
       assert.ok(html.includes('aria-label="Row 42 barcode text"'));
       assert.ok(html.includes('aria-label="Remove row 42"'));
     });

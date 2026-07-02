@@ -110,10 +110,8 @@
     invoiceNumber: "Invoice Number"
   };
   const NUMBER_FIELDS = new Set([
-    "slumpMeasured",
-    "slumpSpecified",
+    "__customNumber",
     "setNo",
-    "meanSlump",
     "age"
   ]);
   const CHECKBOX_FIELDS = new Set([
@@ -798,7 +796,7 @@
     }
 
     if (type === "number") {
-      return normalizeValue("slumpMeasured", control.value);
+      return normalizeValue("__customNumber", control.value);
     }
 
     return normalizeText(control.value);
@@ -924,7 +922,7 @@
     }
 
     if (def.type === "number") {
-      return normalizeValue("slumpMeasured", value);
+      return normalizeValue("__customNumber", value);
     }
 
     return normalizeText(value);

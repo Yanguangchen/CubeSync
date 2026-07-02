@@ -27,7 +27,7 @@
     specimenRef: { type: "text", ariaSuffix: "specimen reference" },
     barcode: { type: "text", ariaSuffix: "barcode text", barcode: true },
     specifiedSlump: { type: "text", ariaSuffix: "specified slump" },
-    meanSlump: { type: "number", min: "0", step: "1", ariaSuffix: "mean slump" },
+    meanSlump: { type: "text", ariaSuffix: "mean slump" },
     resultGrade: { type: "text", ariaSuffix: "concrete grade" },
     resultDateOfCast: { type: "date", ariaSuffix: "date of cast" },
     age: { type: "number", min: "0", step: "1", ariaSuffix: "age in days" },

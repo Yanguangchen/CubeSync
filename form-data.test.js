@@ -431,7 +431,7 @@ test("sanitizeCubeRequestUpdatePayload normalizes update-only edge cases", () =>
       specimenRef: "A",
       barcode: "",
       specifiedSlump: "",
-      meanSlump: null,
+      meanSlump: "",
       resultGrade: "",
       resultDateOfCast: "",
       age: 7,
@@ -489,8 +489,8 @@ test("dashboardEditToCubeRequest falls back across legacy dashboard field names"
   assert.equal(request.supplierDisplay, "Legacy Supplier");
   assert.equal(request.dateOfCast, "2026-06-24");
   assert.equal(request.dateTimeSampled, "2026-06-25");
-  assert.equal(request.slumpMeasured, null);
-  assert.equal(request.slumpSpecified, 100);
+  assert.equal(request.slumpMeasured, "not-a-number");
+  assert.equal(request.slumpSpecified, "100");
   assert.equal(request.enableManualCubeJobNumber, true);
 });
 

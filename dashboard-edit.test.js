@@ -57,8 +57,8 @@ test("dashboardEditToCubeRequest maps primary field names", () => {
   assert.equal(request.testItem, "BS EN 12390-3 : 2019");
   assert.equal(request.supplier, "Supplier X");
   assert.equal(request.supplierDisplay, "Supplier X Ltd");
-  assert.equal(request.slumpMeasured, 120);
-  assert.equal(request.slumpSpecified, 100);
+  assert.equal(request.slumpMeasured, "120");
+  assert.equal(request.slumpSpecified, "100");
   assert.equal(request.specimenSize, "150 x 150 x 150");
   assert.equal(request.reportGrade, "C40/50");
   assert.equal(request.personInCharge, "PIC");
@@ -127,13 +127,13 @@ test("dashboardEditToCubeRequest flags enableManualCubeJobNumber when present", 
   assert.equal(present.enableManualCubeJobNumber, true);
 });
 
-test("dashboardEditToCubeRequest coerces blank slump values to null", () => {
+test("dashboardEditToCubeRequest preserves slump values as free text", () => {
   const request = dashboardEditToCubeRequest(formDataFrom({
     slumpMeasured: "",
     slumpSpecified: "abc"
   }));
-  assert.equal(request.slumpMeasured, null);
-  assert.equal(request.slumpSpecified, null);
+  assert.equal(request.slumpMeasured, "");
+  assert.equal(request.slumpSpecified, "abc");
 });
 
 test("getCubeRequestFormValue returns empty string for falsy data", () => {
