@@ -287,6 +287,17 @@ button:active {
   background: #25b963 !important;
 }
 
+.whatsapp-button-fail {
+  background: linear-gradient(to bottom, #e05a5a 0%, #a40000 100%) !important;
+  border-color: #710000 !important;
+  text-shadow: 1px 1px 1px #710000 !important;
+}
+
+.whatsapp-button-fail:hover {
+  background: #c62828 !important;
+  border-color: #710000 !important;
+}
+
 .form-table {
   background: white !important;
   border: 1px solid #808080 !important;
