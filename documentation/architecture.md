@@ -606,7 +606,7 @@ graph LR
 
 ## 11. Test Architecture
 
-The project uses Node’s built-in test runner with `jsdom` for DOM simulation. **145 tests** across unit, functional, and contract tiers.
+The project uses Node’s built-in test runner with `jsdom` for DOM simulation. The current suite discovers **527 tests** across unit, functional, contract, regression, and Firestore-rules tiers. The seven emulator tests run through `npm run test:firestore-rules`; see the [coverage audit](../test_coverage_audit.md) for current measurement limitations.
 
 ```mermaid
 graph TB

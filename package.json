@@ -6,8 +6,9 @@
   "scripts": {
     "build": "node scripts/write-env.js",
     "lint": "eslint .",
-    "test": "node --test --experimental-test-coverage",
-    "test:firestore-rules": "firebase emulators:exec --only firestore --project cubesync-rules-test \"node --test firestore-rules-emulator.test.js\"",
+    "test": "npm run test:app && npm run test:firestore-rules",
+    "test:app": "node scripts/run-app-tests.js",
+    "test:firestore-rules": "node scripts/run-firestore-rules-tests.js",
     "validate-env": "node scripts/validate-env.js"
   },
   "dependencies": {

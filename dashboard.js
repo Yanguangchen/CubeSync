@@ -151,11 +151,43 @@
     state.pendingDetailStatus = message ? { message, tone: tone || "info" } : null;
   }
 
-  function classifyActionError(error, fallbackMessage) {
+  function classifyActionError(error, fallbackMessage, meta) {
     const code = String(error && error.code || "").trim();
     const message = String(error && error.message || "").trim();
     const lowerCode = code.toLowerCase();
     const lowerMessage = message.toLowerCase();
+
+    // Consult the shared Firestore-limit classifier first. It recognizes the
+    // 1,000-expression security-rule cap (which is reported as an ordinary
+    // permission-denied) and the document-size limit, so a large multi-field
+    // save that trips the cap is surfaced as such instead of being mislabeled
+    // an access problem. See the postmortem referenced in cubesync-form-data.js.
+    const obs = window.CubeSyncObservability || (window.CubeSyncFormData && window.CubeSyncFormData.Observability);
+    if (obs && typeof obs.classifyFirestoreError === "function") {
+      const limit = obs.classifyFirestoreError(error, meta || {});
+      if (limit && limit.likelyExpressionCap) {
+        logDashboardObs({
+          feature: "DashboardEdit",
+          functionName: "classifyActionError",
+          operation: (meta && meta.operation) || "firestoreWrite",
+          status: "failed",
+          category: limit.category,
+          systemStep: limit.hint,
+          error: error
+        });
+        return {
+          tone: "error",
+          message: "Save blocked — this edit may exceed Firestore's security-rule limit. " +
+            "Try saving fewer fields at once, then retry."
+        };
+      }
+      if (limit && limit.category === "FirestoreDocumentTooLarge") {
+        return {
+          tone: "error",
+          message: "This record is too large to save. Remove some result rows or extra fields."
+        };
+      }
+    }
 
     if (lowerCode === "permission-denied" || lowerCode === "unauthenticated") {
       return {
@@ -1928,6 +1960,11 @@
     if (submitButton) submitButton.disabled = true;
     setSurfaceStatus(elements.editFormStatus, "Saving changes...", "info");
 
+    // Captured for the catch handler: how many fields this save changed. A
+    // multi-field patch that is denied is the fingerprint of the 1,000-
+    // expression rules cap, so classifyActionError needs this count.
+    let changedFieldCount = 0;
+
     try {
       // Sync legacy hidden fields from standard visible fields before serializing
       const syncLegacy = (legacyName, standardName) => {
@@ -1970,6 +2007,7 @@
       const patch = typeof helper.buildCubeRequestUpdatePatch === "function"
         ? helper.buildCubeRequestUpdatePatch(existing, payload)
         : payload;
+      changedFieldCount = Object.keys(patch).length;
 
       if (!Object.keys(patch).length) {
         elements.editDialog.close();
@@ -2051,7 +2089,15 @@
         error: error
       });
       console.error("CubeSync dashboard save failed", error);
-      const detail = classifyActionError(error, "Unable to save changes to Firestore.");
+      // A dashboard edit only reaches here for an allowlisted staff account, so
+      // a permission-denied on a multi-field patch is far more likely the
+      // 1,000-expression rule cap than a real access failure — pass that
+      // context so classifyActionError can tell them apart.
+      const detail = classifyActionError(error, "Unable to save changes to Firestore.", {
+        operation: "updateCubeRequest",
+        allowlistedUser: true,
+        changedFieldCount
+      });
       setSurfaceStatus(elements.editFormStatus, detail.message, detail.tone);
     } finally {
       if (submitButton) submitButton.disabled = false;

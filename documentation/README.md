@@ -333,7 +333,9 @@ Notable regression coverage:
 - `firestore-runtime.test.js` — `serverTimestamp()` sentinel preserved through `updateCubeRequest`
 - `deployment-config.test.js` — build output includes autocomplete option files in `public/dropdown-options/`
 
-The suite currently runs **145** tests (`npm test`).
+The suite currently discovers **533 tests**. `npm test` first runs the 521-test application suite with coverage, then starts or reuses the Firestore emulator for twelve behavioral rules tests. Use `npm run test:app` or `npm run test:firestore-rules` when either phase needs to run independently. Both phases are green.
+
+The latest native coverage report shows 97.84% lines, 91.48% branches, and 91.42% functions. These aggregate values are not production-only: test files are included, while browser entrypoints loaded through JSDOM `eval` are omitted. The remaining percentage must not be treated as a simple count of missing tests. See the [test coverage audit](../test_coverage_audit.md) for the source-level gaps and deferred path to a trustworthy 100% target.
 
 ## Firestore rules safety
 

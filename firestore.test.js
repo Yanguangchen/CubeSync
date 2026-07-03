@@ -79,10 +79,10 @@ test("Firestore rules enforce CubeSync staff allowlist for direct client access"
   assert.match(rules, /allow create, update: if isCubeSyncStaff\(\) &&\s*isValidDropdownOptions/);
   assert.match(rules, /customRequestFields/);
   assert.match(rules, /isValidExtraFields/);
-  // Create-time results validation spot-checks the first 5 rows only; deeper
-  // per-row checks exceed Firestore's 1,000-expressions-per-request cap.
-  assert.match(rules, /value\.size\(\) > 4 \? isValidCubeResult\(value\[4\]\)/);
-  assert.doesNotMatch(rules, /value\.size\(\) > 5 \? isValidCubeResult\(value\[5\]\)/);
+  // Result arrays are shape/size checked; deep per-row checks exceed
+  // Firestore's expression cap on maximal documents.
+  assert.match(rules, /function isValidCubeResults\(value\)[\s\S]*value is list[\s\S]*value\.size\(\) <= 50/);
+  assert.doesNotMatch(rules, /value\.size\(\) > 0 \? isValidCubeResult/);
   assert.match(rules, /'extraFields'/);
   // formFieldConfig is publicly readable so the customer forms can apply field visibility.
   assert.match(rules, /match \/settings\/formFieldConfig[\s\S]*allow get: if true/);

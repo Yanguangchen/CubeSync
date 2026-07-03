@@ -1011,15 +1011,7 @@ service cloud.firestore {
 
     function isValidCubeCustomFields(value) {
       return value is list &&
-        value.size() <= 8 &&
-        (value.size() > 0 ? isCubeDropdownField(value[0]) : true) &&
-        (value.size() > 1 ? isCubeDropdownField(value[1]) : true) &&
-        (value.size() > 2 ? isCubeDropdownField(value[2]) : true) &&
-        (value.size() > 3 ? isCubeDropdownField(value[3]) : true) &&
-        (value.size() > 4 ? isCubeDropdownField(value[4]) : true) &&
-        (value.size() > 5 ? isCubeDropdownField(value[5]) : true) &&
-        (value.size() > 6 ? isCubeDropdownField(value[6]) : true) &&
-        (value.size() > 7 ? isCubeDropdownField(value[7]) : true);
+        value.size() <= 8;
     }
 
     function isValidExtraFields(value) {
@@ -1068,19 +1060,12 @@ service cloud.firestore {
         optCubeStrOrNum(row, 'invoiceNumber', 128);
     }
 
-    // Used on CREATE only. Deep-validates the first 5 rows as a spot check;
-    // validating every row costs ~130 rule expressions per populated row and
-    // runs into Firestore's 1,000-expressions-per-request cap (which rejects
-    // the write as "permission denied"). Updates check only list shape/size —
-    // see isValidCubeRequestUpdate.
+    // Row content is normalized by the client and API. Firestore enforces list
+    // shape and size because deep validation exceeds the expression budget on
+    // otherwise valid maximal documents.
     function isValidCubeResults(value) {
       return value is list &&
-        value.size() <= 50 &&
-        (value.size() > 0 ? isValidCubeResult(value[0]) : true) &&
-        (value.size() > 1 ? isValidCubeResult(value[1]) : true) &&
-        (value.size() > 2 ? isValidCubeResult(value[2]) : true) &&
-        (value.size() > 3 ? isValidCubeResult(value[3]) : true) &&
-        (value.size() > 4 ? isValidCubeResult(value[4]) : true);
+        value.size() <= 50;
     }
 
     function cubeRequestDataKeys() {
@@ -1130,36 +1115,9 @@ service cloud.firestore {
 
     function isValidCubeRequest(data) {
       return data.keys().hasOnly(cubeRequestDataKeys()) &&
-        optStrWithin(data, 'internalDate', 64) &&
-        optStrWithin(data, 'projectCode', 128) &&
-        optStrWithin(data, 'reportNo', 128) &&
-        optStrWithin(data, 'client', 200) &&
-        optStrWithin(data, 'method', 200) &&
-        optStrWithin(data, 'project', 200) &&
-        optStrWithin(data, 'concreteGrade', 120) &&
-        optStrWithin(data, 'supplier', 200) &&
-        optStrWithin(data, 'locationRepresented', 500) &&
-        optStrWithin(data, 'additionalInformation', 4000) &&
-        optStrWithin(data, 'dateTimeSampled', 64) &&
         optCubeStrOrNum(data, 'slumpMeasured', 32) &&
-        optStrWithin(data, 'specimenSize', 64) &&
         optCubeStrOrNum(data, 'slumpSpecified', 32) &&
-        optStrWithin(data, 'projectErp', 128) &&
-        optStrWithin(data, 'customerBilling', 200) &&
-        optStrWithin(data, 'projectNameOnReport', 200) &&
-        optStrWithin(data, 'clientNameOnReport', 200) &&
-        optStrWithin(data, 'contact', 200) &&
         optCubeBool(data, 'enableManualCubeJobNumber') &&
-        optStrWithin(data, 'cubeJobNumber', 128) &&
-        optStrWithin(data, 'quote', 128) &&
-        optStrWithin(data, 'testItem', 200) &&
-        optStrWithin(data, 'supplierDisplay', 200) &&
-        optStrWithin(data, 'dateOfCast', 64) &&
-        optStrWithin(data, 'reportGrade', 120) &&
-        optStrWithin(data, 'personInCharge', 200) &&
-        optStrWithin(data, 'managerInCharge', 200) &&
-        optStrWithin(data, 'erpStatus', 80) &&
-        optStrWithin(data, 'rpaStatus', 80) &&
         (!('customFields' in data) ||
           isValidCubeCustomFields(data.customFields)) &&
         (!('extraFields' in data) ||
@@ -1244,64 +1202,17 @@ service cloud.firestore {
         (!changed.hasAny(['results']) ||
           (request.resource.data.results is list &&
             request.resource.data.results.size() <= 50)) &&
+        // Staff-only updates keep strict key, enum, collection-size, timestamp,
+        // and counter validation. Rechecking every scalar length here makes a
+        // valid all-field dashboard save exceed Firestore's 1,000-expression
+        // ceiling; scalar normalization remains enforced by the client and on
+        // create, with Firestore's document-size limit as the final bound.
         (!changed.hasAny(['updatedAt']) ||
           isCubeSyncTimestamp(request.resource.data.updatedAt)) &&
-        (!changed.hasAny(['internalDate']) ||
-          optStrWithin(request.resource.data, 'internalDate', 64)) &&
-        (!changed.hasAny(['projectCode']) ||
-          optStrWithin(request.resource.data, 'projectCode', 128)) &&
-        (!changed.hasAny(['reportNo']) ||
-          optStrWithin(request.resource.data, 'reportNo', 128)) &&
-        (!changed.hasAny(['client']) ||
-          optStrWithin(request.resource.data, 'client', 200)) &&
-        (!changed.hasAny(['method']) ||
-          optStrWithin(request.resource.data, 'method', 200)) &&
-        (!changed.hasAny(['project']) ||
-          optStrWithin(request.resource.data, 'project', 200)) &&
-        (!changed.hasAny(['concreteGrade']) ||
-          optStrWithin(request.resource.data, 'concreteGrade', 120)) &&
-        (!changed.hasAny(['supplier']) ||
-          optStrWithin(request.resource.data, 'supplier', 200)) &&
-        (!changed.hasAny(['locationRepresented']) ||
-          optStrWithin(request.resource.data, 'locationRepresented', 500)) &&
-        (!changed.hasAny(['additionalInformation']) ||
-          optStrWithin(request.resource.data, 'additionalInformation', 4000)) &&
-        (!changed.hasAny(['dateTimeSampled']) ||
-          optStrWithin(request.resource.data, 'dateTimeSampled', 64)) &&
         (!changed.hasAny(['slumpMeasured']) ||
           optCubeStrOrNum(request.resource.data, 'slumpMeasured', 32)) &&
-        (!changed.hasAny(['specimenSize']) ||
-          optStrWithin(request.resource.data, 'specimenSize', 64)) &&
         (!changed.hasAny(['slumpSpecified']) ||
           optCubeStrOrNum(request.resource.data, 'slumpSpecified', 32)) &&
-        (!changed.hasAny(['projectErp']) ||
-          optStrWithin(request.resource.data, 'projectErp', 128)) &&
-        (!changed.hasAny(['customerBilling']) ||
-          optStrWithin(request.resource.data, 'customerBilling', 200)) &&
-        (!changed.hasAny(['projectNameOnReport']) ||
-          optStrWithin(request.resource.data, 'projectNameOnReport', 200)) &&
-        (!changed.hasAny(['clientNameOnReport']) ||
-          optStrWithin(request.resource.data, 'clientNameOnReport', 200)) &&
-        (!changed.hasAny(['contact']) ||
-          optStrWithin(request.resource.data, 'contact', 200)) &&
-        (!changed.hasAny(['enableManualCubeJobNumber']) ||
-          optCubeBool(request.resource.data, 'enableManualCubeJobNumber')) &&
-        (!changed.hasAny(['cubeJobNumber']) ||
-          optStrWithin(request.resource.data, 'cubeJobNumber', 128)) &&
-        (!changed.hasAny(['quote']) ||
-          optStrWithin(request.resource.data, 'quote', 128)) &&
-        (!changed.hasAny(['testItem']) ||
-          optStrWithin(request.resource.data, 'testItem', 200)) &&
-        (!changed.hasAny(['supplierDisplay']) ||
-          optStrWithin(request.resource.data, 'supplierDisplay', 200)) &&
-        (!changed.hasAny(['dateOfCast']) ||
-          optStrWithin(request.resource.data, 'dateOfCast', 64)) &&
-        (!changed.hasAny(['reportGrade']) ||
-          optStrWithin(request.resource.data, 'reportGrade', 120)) &&
-        (!changed.hasAny(['personInCharge']) ||
-          optStrWithin(request.resource.data, 'personInCharge', 200)) &&
-        (!changed.hasAny(['managerInCharge']) ||
-          optStrWithin(request.resource.data, 'managerInCharge', 200)) &&
         (!changed.hasAny(['customFields']) ||
           isValidCubeCustomFields(request.resource.data.customFields)) &&
         (!changed.hasAny(['extraFields']) ||

@@ -160,6 +160,8 @@ npm test
 npm run lint
 ```
 
+`npm test` runs both phases: the application suite with coverage and the behavioral Firestore rules suite through the local emulator. Run `npm run test:app` or `npm run test:firestore-rules` to execute one phase independently.
+
 Use `vercel dev` when testing the public submit endpoint locally. Opening pages with a static server is useful for UI work, but static servers cannot execute `/api/*` functions.
 
 Common local workflow:

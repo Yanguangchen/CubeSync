@@ -1,6 +1,6 @@
 # CubeSync — Security & Test-Coverage Audit
 
-_Date: 2026-06-27_
+_Updated: 2026-07-03_
 
 Audit of the CubeSync code paths (public submission API, client auth/CRUD,
 Firestore rules) and the test suite. The WorkGrid rules in `firestore.rules`
@@ -10,8 +10,12 @@ helpers were assessed.
 ## Test coverage snapshot
 
 `npm test` (Node's built-in test runner with `--experimental-test-coverage`)
-passes 474 tests across 443 top-level subtests. The current aggregate coverage
-for instrumented files is 97.73% lines, 92.67% branches, and 90.62% functions.
+discovers 533 tests across the application and Firestore rules phases. The
+default command starts or reuses the emulator automatically. The dedicated
+`npm run test:firestore-rules` command passes all twelve rules tests. Current
+aggregate coverage is 97.84% lines, 91.48% branches, and 91.42% functions.
+These figures include test files and omit eval-loaded browser entrypoints, so
+they are not a valid production-only 100% baseline.
 
 **Instrumentation blind spot:** the main browser entrypoints below are exercised
 through jsdom functional tests, but they still do not appear as first-class
@@ -25,9 +29,10 @@ browser scripts rather than `require`ing them as modules:
 | `rpa-view.js` | Exercised by RPA view tests, not instrumented as a source file |
 | `firestore.js` | Real file read + eval'd in `firestore-runtime.test.js`; not counted as source coverage |
 
-**Largest measured gap:** `app.js` is now the lowest-coverage production source
-in the report at 68.92% lines / 54.55% branches / 67.39% functions. Most other
-shared modules and server-side paths are above 90% line coverage.
+**Largest structural gap:** `dashboard.js` (2,403 lines) is exercised by several
+functional suites but omitted from file-level coverage because it is injected
+into JSDOM as source text. `app.js` is measured at 96.76% lines / 73.39%
+branches / 98.11% functions.
 
 ## Findings & remediation status
 
@@ -71,8 +76,7 @@ Tests: `api-handler-unit.test.js` ("reCAPTCHA fails when hostname does not match
 
 ## Largest outstanding test gap
 
-**No behavioral tests for `firestore.rules`.** `firestore.test.js` verifies the rules by `readFileSync` + regex `assert.match` — it checks the *text*, never evaluates authorization. ~1,200 lines of access control (allowlist enforcement, `isValidCubeRequestUpdate`, status/enum checks, immutable fields) have zero behavioral verification.
-**Proposed:** add `@firebase/rules-unit-testing` emulator tests asserting `assertFails`/`assertSucceeds` for the CubeSync collection — non-staff denied, staff allowed, oversized/invalid payloads denied, immutable fields locked.
+**Coverage instrumentation remains incomplete.** Behavioral Firestore rules tests now verify staff and non-staff access, invalid status rejection, dashboard updates, disallowed keys, and public settings access. The largest remaining issue is that browser entrypoints executed through JSDOM/eval are not attributed to their source files. Work toward a production-only 100% target is deferred; it requires importable browser modules and coverage configuration that excludes test files while including unexecuted production files.
 
 ## Recommended next steps (priority order)
 
@@ -81,5 +85,5 @@ Tests: `api-handler-unit.test.js` ("reCAPTCHA fails when hostname does not match
 3. ~~Tighten rules validation (all 50 result rows + `extraFields` deep validation)~~ — **done.**
 4. ~~De-duplicate staff allowlist + add sync test~~ — **done.**
 5. ~~reCAPTCHA hostname verification against allowlist~~ — **done.**
-6. Firestore rules emulator tests (behavioral testing with `@firebase/rules-unit-testing`).
-
+6. ~~Firestore rules emulator tests (behavioral testing with `@firebase/rules-unit-testing`)~~ — **done.**
+7. Production-only coverage instrumentation and a 100% target — **deferred.**

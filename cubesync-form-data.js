@@ -1752,20 +1752,165 @@
     }
   }
 
+  // Firestore enforces a set of hard limits that all surface as ordinary write
+  // failures. The most treacherous is the security-rules budget: Firestore
+  // evaluates at most 1,000 rule expressions per request and rejects anything
+  // over the cap with the SAME `permission-denied` error as a genuine rule
+  // failure (see documentation/firestore-rules-expression-limit-postmortem.md).
+  // A save that fails only when several fields change at once — while the same
+  // fields saved one at a time succeed — is the classic signature. Without the
+  // classification below, that cap hit is indistinguishable from an auth
+  // problem and sends every future debugger down the wrong path.
+  const FIRESTORE_LIMIT_HINTS = {
+    FirestoreRulesExpressionCap:
+      "Firestore evaluates at most 1,000 security-rule expressions per request " +
+      "and denies anything over the cap with the same permission error as a " +
+      "real rule failure. See documentation/firestore-rules-expression-limit-postmortem.md.",
+    FirestoreRulesExpressionCapSuspected:
+      "A multi-field write was denied while the account is allowed to write. " +
+      "This is the classic signature of exceeding Firestore's 1,000-expression " +
+      "security-rule cap rather than a genuine access denial. Try saving fewer " +
+      "fields at once and see documentation/firestore-rules-expression-limit-postmortem.md.",
+    FirestoreDocumentTooLarge:
+      "A Firestore document cannot exceed 1 MiB (1,048,576 bytes). Reduce the " +
+      "number or size of result rows / extra fields on this record.",
+    FirestoreValueTooLarge:
+      "A single field value exceeds a Firestore size limit (e.g. 1,500 bytes " +
+      "for an indexed string). Shorten the value.",
+    FirestoreQuotaExhausted:
+      "Firestore write quota or rate was exhausted. Retry after a short backoff.",
+    FirestoreUnavailable:
+      "Firestore was temporarily unavailable or the request timed out. Retry."
+  };
+
+  // Substrings the emulator (and, when present, the backend) attach to a
+  // cap-exceeded denial. Detecting them is definitive; production often strips
+  // the detail, in which case we fall back to the multi-field heuristic below.
+  function messageSignalsExpressionCap(lowerMessage) {
+    return (
+      lowerMessage.includes("maximum of 1000 expressions") ||
+      lowerMessage.includes("maximum of 1,000 expressions") ||
+      (lowerMessage.includes("expressions to evaluate") &&
+        lowerMessage.includes("maximum"))
+    );
+  }
+
+  // Classify a Firestore write failure against the platform's hard limits.
+  // `meta` carries what the caller knows that the error object does not:
+  //   - changedFieldCount: number of fields in the write (multi-field = cap risk)
+  //   - allowlistedUser:   true when the signed-in account is permitted to write
+  //   - operation:         e.g. "updateCubeRequest" (for observability only)
+  // Returns null when the error is not a recognizable Firestore-limit failure,
+  // so callers can fall through to their generic handling.
+  function classifyFirestoreError(err, meta = {}) {
+    if (!err) return null;
+    const code = String((err && err.code) || "").trim().toLowerCase();
+    const message = String(
+      (typeof err === "string" ? err : err && err.message) || ""
+    ).trim();
+    const lowerMessage = message.toLowerCase();
+
+    const build = (category, tone) => ({
+      category,
+      tone,
+      likelyExpressionCap:
+        category === "FirestoreRulesExpressionCap" ||
+        category === "FirestoreRulesExpressionCapSuspected",
+      hint: FIRESTORE_LIMIT_HINTS[category] || "",
+      code: code || undefined,
+      message
+    });
+
+    // 1. Definitive expression-cap signal from the rules engine.
+    if (messageSignalsExpressionCap(lowerMessage)) {
+      return build("FirestoreRulesExpressionCap", "error");
+    }
+
+    // 2. Document / value size limits (reported as invalid-argument).
+    if (
+      code === "invalid-argument" ||
+      lowerMessage.includes("invalid-argument") ||
+      lowerMessage.includes("bytes") ||
+      lowerMessage.includes("maximum size")
+    ) {
+      if (
+        lowerMessage.includes("1048576") ||
+        lowerMessage.includes("1048487") ||
+        lowerMessage.includes("longer than") ||
+        lowerMessage.includes("document") ||
+        lowerMessage.includes("maximum size")
+      ) {
+        return build("FirestoreDocumentTooLarge", "error");
+      }
+      if (lowerMessage.includes("1500") || lowerMessage.includes("index")) {
+        return build("FirestoreValueTooLarge", "error");
+      }
+    }
+
+    // 3. Permission denied — the ambiguous case. A genuine auth failure and a
+    //    silent expression-cap hit are the same code/message on the client, so
+    //    use the caller's context to tell them apart: a multi-field write from
+    //    an allowed account that still gets denied is almost certainly the cap.
+    if (code === "permission-denied" || code === "unauthenticated") {
+      const changedFieldCount = Number(meta.changedFieldCount) || 0;
+      const suspectCap =
+        code === "permission-denied" &&
+        meta.allowlistedUser === true &&
+        changedFieldCount >= 2;
+      if (suspectCap) {
+        return build("FirestoreRulesExpressionCapSuspected", "error");
+      }
+      return build("FirestorePermissionDenied", "warning");
+    }
+
+    // 4. Quota / rate limits.
+    if (code === "resource-exhausted" || lowerMessage.includes("quota")) {
+      return build("FirestoreQuotaExhausted", "error");
+    }
+
+    // 5. Transient backend / deadline issues.
+    if (
+      code === "unavailable" ||
+      code === "deadline-exceeded" ||
+      code === "internal" ||
+      lowerMessage.includes("service unavailable")
+    ) {
+      return build("FirestoreUnavailable", "error");
+    }
+
+    return null;
+  }
+
   function formatClientError(err, fallbackMessage = "Something went wrong. Please try again.") {
     if (!err) return fallbackMessage;
     const msg = typeof err === "string" ? err : err.message || "";
-    if (!msg) return fallbackMessage;
     if (msg.includes("Failed to fetch") || msg.includes("NetworkError") || msg.includes("ERR_INTERNET_DISCONNECTED") || msg.includes("Load failed")) {
       return "Unable to connect to server. Please check your network connection and try again.";
     }
+    const limit = classifyFirestoreError(err);
+    if (limit) {
+      if (limit.likelyExpressionCap) {
+        return "This save was blocked. The edit may exceed Firestore's security-rule " +
+          "size limit — try saving fewer fields at once, then retry.";
+      }
+      if (limit.category === "FirestoreDocumentTooLarge") {
+        return "This record is too large to save. Remove some result rows or extra " +
+          "fields and try again.";
+      }
+      if (limit.category === "FirestoreQuotaExhausted" || limit.category === "FirestoreUnavailable") {
+        return "The request did not complete. Please retry in a moment.";
+      }
+    }
+    if (!msg) return fallbackMessage;
     return msg;
   }
 
   const Observability = {
     sanitizeClientData,
     logClientEvent,
-    formatClientError
+    formatClientError,
+    classifyFirestoreError,
+    FIRESTORE_LIMIT_HINTS
   };
 
   return {

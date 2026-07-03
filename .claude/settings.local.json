@@ -41,7 +41,17 @@
       "Bash(firebase login:list)",
       "Bash(firebase --help)",
       "WebFetch(domain:firebase.google.com)",
-      "Bash(echo \"exit: $?\")"
+      "Bash(echo \"exit: $?\")",
+      "Bash(npx firebase *)",
+      "Bash(awk 'NR>=1900 && NR<=1945 && \\(/function saveEditedForm/ || /patch/ || /try \\\\{/\\)' dashboard.js)",
+      "Bash(awk -F: '$1>=1900 && $1<=2060')",
+      "Bash(grep -vE \"^\\(#|i |✔|✖ +Script|>|$\\)\")",
+      "Bash(firebase emulators:exec --only firestore --project cubesync-rules-test \"node --test _calibrate.test.js\")",
+      "Bash(firebase emulators:exec --only firestore --project cubesync-rules-test \"node --test _calib2.test.js\")",
+      "Bash(firebase emulators:exec --only firestore --project cubesync-rules-test \"node --test _calib3.test.js\")",
+      "Bash(firebase emulators:exec --only firestore --project cubesync-rules-test \"node --test _calib4.test.js\")",
+      "Bash(firebase emulators:exec --only firestore --project cubesync-rules-test \"node --test _calib5.test.js\")",
+      "Bash(firebase emulators:exec --only firestore --project cubesync-rules-test \"node --test _calib6.test.js\")"
     ]
   }
 }

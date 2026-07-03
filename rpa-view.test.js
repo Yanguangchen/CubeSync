@@ -39,6 +39,15 @@ test("RPA dashboard opens Firestore cube request documents", () => {
   assert.doesNotMatch(js, /cubesync\.rpa\.forms/);
 });
 
+test("RPA dashboard provides the configured WhatsApp Web ERP update", () => {
+  const html = readFile("rpa-dashboard.html");
+
+  assert.match(html, /id="whatsappErpButton"/);
+  assert.match(html, /https:\/\/web\.whatsapp\.com\/send\?phone=6583483117&amp;text=RPA%20robot%20has%20transferred%20data%20to%20ERP%20system%2C%20have%20a%20good%20day!/);
+  assert.match(html, /target="_blank"/);
+  assert.match(html, /rel="noopener noreferrer"/);
+});
+
 test("RPA form view renders all shared form fields and result fields", () => {
   const html = readFile("rpa-view.html");
   const js = readFile("rpa-view.js");

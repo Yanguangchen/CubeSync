@@ -234,7 +234,8 @@ body {
 }
 
 button,
-.top-actions a {
+.top-actions a,
+.whatsapp-button {
   background: linear-gradient(to bottom, #ffffff 0%, #f0f0f0 50%, #e0e0e0 100%) !important;
   border: 1px solid #003c74 !important;
   border-radius: 3px !important;
@@ -247,7 +248,8 @@ button,
 }
 
 button:hover,
-.top-actions a:hover {
+.top-actions a:hover,
+.whatsapp-button:hover {
   background: #e5f1fb !important;
   border-color: #0054e3 !important;
 }
@@ -268,6 +270,21 @@ button:active {
 
 .export-button:hover {
   background: #52c028 !important;
+}
+
+.whatsapp-button {
+  align-items: center;
+  background: linear-gradient(to bottom, #36d473 0%, #128c4a 100%) !important;
+  border-color: #075e38 !important;
+  color: white !important;
+  display: inline-flex;
+  font-weight: bold !important;
+  text-shadow: 1px 1px 1px #075e38 !important;
+  white-space: nowrap;
+}
+
+.whatsapp-button:hover {
+  background: #25b963 !important;
 }
 
 .form-table {
@@ -493,7 +510,8 @@ input[type="date"],
 
   .xp-toolbar > button,
   .xp-toolbar > #datePicker,
-  .xp-toolbar > .export-button {
+  .xp-toolbar > .export-button,
+  .xp-toolbar > .whatsapp-button {
     flex: 1 1 auto;
   }
 

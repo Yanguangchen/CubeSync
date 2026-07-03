@@ -1,12 +1,12 @@
 # CubeSync — Test Coverage Audit
 
-**Date:** 2026-07-02 · **Default run:** 520 pass, 7 fail · **Runtime:** 6.86s
+**Date:** 2026-07-03 · **Default run:** 520 pass, 7 fail · **Runtime:** 7.67s
 
 ---
 
 ## Executive Summary
 
-The reported aggregate is strong, but it is not a trustworthy production-coverage baseline: Node includes test files in the denominator, while several of the largest browser modules are executed through JSDOM `eval` and omitted entirely. The seven default-run failures are also a runner-configuration problem rather than failing rules assertions: `npm test` discovers the emulator-only suite without starting the Firestore emulator; all seven rules tests pass when run against the existing emulator.
+The reported aggregate is strong, but it is not a trustworthy production-coverage baseline: Node includes test files in the denominator, while several of the largest browser modules are executed through JSDOM `eval` and omitted entirely. The seven default-run failures are also a runner-configuration problem rather than failing rules assertions: `npm test` discovers the emulator-only suite without starting the Firestore emulator; all seven rules tests pass through the dedicated emulator command.
 
 | Metric | Value | Rating |
 |---|---:|---|
@@ -105,4 +105,4 @@ npm run test:firestore-rules
 FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 node --test firestore-rules-emulator.test.js
 ```
 
-The standalone emulator command initially could not start because port 8080 was already occupied by a Java Firestore emulator. Connecting the suite to that running emulator produced 7 passes and 0 failures.
+The dedicated emulator command started Firestore, produced 7 passes and 0 failures in 2.48 seconds, and shut the emulator down cleanly.
