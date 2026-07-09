@@ -218,6 +218,27 @@ boundary directly:
 These replace reliance on static text checks for this class of bug — they fail
 loudly (`permission-denied`) the moment a validator goes back over budget.
 
+The same emulator suite was then broadened beyond the cap boundary to cover the
+authorization invariants that previously had **no runtime test** — 27 tests
+total, spanning:
+
+- **cubeRequests negatives** — non-staff cannot create/update/delete; invalid
+  `template`, out-of-range `version`/`attemptCount`, and non-list `results` are
+  rejected (proving the retained checks still deny, not just that valid writes
+  pass).
+- **editHistory** — append-only (create allowed; update/delete denied).
+- **settings/dropdownOptions** — public read, staff-only write, no delete.
+- **users/{uid}** — a worker may edit only name/phone; `role`/`status`/`teamId`
+  are locked (self-escalation denied); admins may change any field; PII is
+  owner-or-admin readable; self-created profiles must be an active worker on the
+  onboarding allowlist.
+- **bookings/{id}** — active-profile gate; `createdBy` must equal the caller;
+  `createdBy`/`createdAt` immutable on update; unknown keys rejected.
+- **counters/reportNumbers + reportNumbers** — the counter starts at 1 and
+  advances by exactly one; a report number can be claimed only when its
+  `sequence` matches the counter (verified with an atomic `getAfter` batch) and
+  is immutable once written.
+
 ## The fix (`firestore.rules`, CubeSync block only)
 
 The guiding principle from the original fix — *validate shape/keys/enums/bounds

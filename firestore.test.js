@@ -79,10 +79,11 @@ test("Firestore rules enforce CubeSync staff allowlist for direct client access"
   assert.match(rules, /allow create, update: if isCubeSyncStaff\(\) &&\s*isValidDropdownOptions/);
   assert.match(rules, /customRequestFields/);
   assert.match(rules, /isValidExtraFields/);
-  // Result arrays are shape/size checked; deep per-row checks exceed
-  // Firestore's expression cap on maximal documents.
-  assert.match(rules, /function isValidCubeResults\(value\)[\s\S]*value is list[\s\S]*value\.size\(\) <= 50/);
-  assert.doesNotMatch(rules, /value\.size\(\) > 0 \? isValidCubeResult/);
+  // Result arrays are shape/size checked inline; deep per-row content
+  // validators were removed because they exceed Firestore's expression cap on
+  // maximal documents (see firestore-rules-expression-limit-postmortem.md).
+  assert.match(rules, /data\.results is list && data\.results\.size\(\) <= 50/);
+  assert.doesNotMatch(rules, /function isValidCubeResults?\(/);
   assert.match(rules, /'extraFields'/);
   // formFieldConfig is publicly readable so the customer forms can apply field visibility.
   assert.match(rules, /match \/settings\/formFieldConfig[\s\S]*allow get: if true/);
@@ -157,21 +158,9 @@ test("Firestore rules allow current CubeSync dashboard save payloads", () => {
     assert.match(rules, new RegExp(`'${field}'`));
   }
 
-  for (const resultField of [
-    "setNo",
-    "size",
-    "specimenRef",
-    "barcode",
-    "specifiedSlump",
-    "meanSlump",
-    "resultGrade",
-    "resultDateOfCast",
-    "age",
-    "dateOfTest",
-    "invoiceNumber"
-  ]) {
-    assert.match(rules, new RegExp(`'${resultField}'`));
-  }
+  // Result-row fields are intentionally no longer enumerated in the rules:
+  // deep per-row validation was removed for the expression cap and the row
+  // content is normalized by the client (cubesync-form-data.js) and the API.
 
   assert.match(rules, /function isValidCubeCustomFields/);
   assert.match(rules, /isValidCubeCustomFields\(request\.resource\.data\.customFields\)/);
@@ -180,33 +169,37 @@ test("Firestore rules allow current CubeSync dashboard save payloads", () => {
 
 test("Firestore rules accept free-text slump values from dashboard edits", () => {
   const rules = fs.readFileSync("firestore.rules", "utf8");
-  const resultValidator = rules.match(
-    /function isValidCubeResult\(row\)[\s\S]*?(?=\n {4}(?:function|match))/
-  );
   const updateValidator = rules.match(
     /function isValidCubeRequestUpdate\(\)[\s\S]*?(?=\n {4}(?:function|match))/
   );
-
-  assert.ok(resultValidator, "result-row validator must exist");
-  assert.match(resultValidator[0], /optCubeStrOrNum\(row, 'specifiedSlump', 32\)/);
-  assert.match(resultValidator[0], /optCubeStrOrNum\(row, 'meanSlump', 32\)/);
-
+  const dataKeysFn = rules.match(
+    /function cubeRequestDataKeys\(\)[\s\S]*?(?=\n {4}(?:function|match))/
+  );
   assert.ok(updateValidator, "dashboard update validator must exist");
-  assert.match(
-    updateValidator[0],
-    /changed\.hasAny\(\['slumpMeasured'\]\)[\s\S]*?optCubeStrOrNum\(request\.resource\.data, 'slumpMeasured', 32\)/
-  );
-  assert.match(
-    updateValidator[0],
-    /changed\.hasAny\(\['slumpSpecified'\]\)[\s\S]*?optCubeStrOrNum\(request\.resource\.data, 'slumpSpecified', 32\)/
-  );
+  assert.ok(dataKeysFn, "cubeRequestDataKeys function must exist");
 
-  const flexibleValueValidator = rules.match(
-    /function optCubeStrOrNum\(data, field, maxLen\)[\s\S]*?(?=\n {4}(?:function|match))/
-  );
-  assert.ok(flexibleValueValidator, "string-or-number validator must exist");
-  assert.match(flexibleValueValidator[0], /data\[field\] is string/);
-  assert.match(flexibleValueValidator[0], /data\[field\] is number/);
+  // Slump fields accept arbitrary free text (and numbers). The rules allowlist
+  // them on both create and update but intentionally do NOT type/length-check
+  // their content — the client (cubesync-form-data.js) and the API normalize
+  // it. Per-field content validation here previously pushed maximal writes over
+  // Firestore's 1,000-expression cap (see
+  // firestore-rules-expression-limit-postmortem.md), so it was removed.
+  for (const field of ["slumpMeasured", "slumpSpecified"]) {
+    assert.match(
+      dataKeysFn[0],
+      new RegExp(`'${field}'`),
+      `${field} must be in cubeRequestDataKeys (create allowlist)`
+    );
+    assert.match(
+      updateValidator[0],
+      new RegExp(`'${field}'`),
+      `${field} must be in the update allowlist`
+    );
+  }
+
+  // Content validation for these fields is deliberately absent from the rules.
+  assert.doesNotMatch(updateValidator[0], /optCubeStrOrNum\(request\.resource\.data, 'slump/);
+  assert.doesNotMatch(rules, /function optCubeStrOrNum\(/);
 });
 
 test("Firestore rules keep multi-field dashboard saves under the 1,000-expression cap", () => {
