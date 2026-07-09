@@ -169,3 +169,116 @@ and DocuAlign):
 4. **Don't trust the emulator or static tests for this class of bug** — neither
    enforces the cap. The regression test pins the structural properties
    (single diff, no deep row validation on update) instead.
+
+---
+
+# Follow-up: the 2026-07-02 fix was still over the cap
+
+**Date fixed:** 2026-07-09 (project `crewhub-43647` / CubeSync block only)
+**Labels:** bug, firestore, security-rules, dashboard
+
+## What changed since the original postmortem
+
+Two assumptions in the section above turned out to be **wrong**, and a new
+runtime test surfaced them:
+
+1. **The emulator *does* enforce the 1,000-expression cap.** `firebase-tools`
+   14.10.1's Firestore emulator rejects an over-budget request with
+   `7 PERMISSION_DENIED: Unable to evaluate the expression as the maximum of
+   1000 expressions to evaluate has been reached`, observable in
+   `firestore-debug.log`. The "only production enforces the cap" claim in *Why
+   it wasn't caught* (#2) and *How to prevent recurrence* (#4) no longer holds —
+   we now have an emulator-driven regression suite that reproduces the denial.
+
+2. **The 2026-07-02 budget estimate (~330 expressions) was optimistic.** The
+   emulator's actual per-request accounting is far heavier than the hand count
+   in *Where the expression budget went*. Under it:
+   - A create with just **two sparsely-populated result rows** blew the cap.
+   - A **fully-populated create** (50 rows + all scalar fields + `customFields`
+     + 25 `extraFields`) blew the cap.
+   - An update touching **~20 top-level fields at once** blew the cap, even
+     though the diff was already bound once with `let` and `results` was
+     shape-checked only.
+
+   So the earlier fix (single diff + shape-only `results` on update + 5-row
+   create spot check) was necessary but **not sufficient**.
+
+## New regression tests
+
+`firestore-rules-emulator.test.js` (run via
+`npm run test:firestore-rules`, which boots the real emulator through
+`firebase emulators:exec`) executes the rules against live data and pins the
+boundary directly:
+
+- `staff can create a cubeRequest with shape-valid (sparsely-populated) result rows`
+- `staff can create a maximal cubeRequest under the expression cap`
+- `staff can update approximately 20 dashboard fields at once under the cap`
+- `the emulator rejects an over-complex ruleset` (compiler-complexity self-check)
+
+These replace reliance on static text checks for this class of bug — they fail
+loudly (`permission-denied`) the moment a validator goes back over budget.
+
+## The fix (`firestore.rules`, CubeSync block only)
+
+The guiding principle from the original fix — *validate shape/keys/enums/bounds
+in rules; normalize content in the client* — was extended to **every** scalar
+field on **both** create and update.
+
+### 1. Create no longer deep-validates result rows at all
+
+The 5-row spot check (`isValidCubeResults` → `isValidCubeResult`, ~130
+expressions/row) was removed. `results` now gets the same cheap shape check on
+create as on update:
+
+```diff
+-        (!('results' in data) || isValidCubeResults(data.results)) &&
++        (!('results' in data) ||
++          (data.results is list && data.results.size() <= 50)) &&
+```
+
+`isValidCubeResult` and `isValidCubeResults` were deleted (they had no other
+callers). `optCubeStrOrNum`, orphaned by the change below, was deleted too.
+
+### 2. Create dropped its ~29 per-field string-length guards
+
+`isValidCubeRequest` kept the security-critical checks — the `hasOnly` key
+allowlist, enum fields (`template`, `status`), numeric bounds (`version`,
+`attemptCount`), structural checks (`customFields`, `extraFields`, `results`
+shape), the `enableManualCubeJobNumber` bool, and timestamps — and dropped the
+`optStrWithin` / `optCubeStrOrNum` length guard on each scalar field.
+
+### 3. Update dropped its ~30 per-field `changed.hasAny([x])` guards
+
+Each single-field length guard built a one-element list and did a set
+intersection; ~30 of them was the update-path budget killer. Collapsed to ~10
+`hasAny` probes covering the same critical invariants as create (allowlist,
+enums, numeric bounds, `customFields`/`extraFields`, `results` shape,
+timestamps).
+
+## Why dropping the length guards is an acceptable trade-off
+
+- Only allowlisted, email-verified staff (`isCubeSyncStaff()`) can write
+  `cubeRequests` at all.
+- The client (`cubesync-form-data.js`) and the API normalize field content and
+  length before every save.
+- Firestore's **1 MB document limit** is the hard backstop against oversized
+  writes.
+- No test asserted length- or row-content rejection; the invariants the suite
+  *does* pin (key allowlist via `hasOnly`, `status`/`template` enums, the
+  verified-staff gate) are all still enforced.
+
+Net change: `firestore.rules` −171 lines. Full suite: **12/12** emulator rules
+tests passing.
+
+## Updated prevention guidance
+
+- **Use the emulator suite as the budget oracle.** `npm run test:firestore-rules`
+  now enforces the cap for real — add a boundary test (maximal create, wide
+  multi-field update) whenever you touch a CubeSync validator, and let it, not a
+  hand count, tell you whether you're under budget.
+- **The hand-count in *Where the expression budget went* under-estimates real
+  cost by a wide margin.** Treat any per-field or per-row validator over a
+  ~30-field / multi-row payload as a cap risk until the emulator says otherwise.
+- **Prefer keys + enums + bounds + shape in rules; push content/length
+  validation to the client and API.** This is now the standard for the whole
+  CubeSync block, not just `results`.
