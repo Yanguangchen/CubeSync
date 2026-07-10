@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>CubeSync Metrics</title>
+    <link rel="icon" type="image/png" href="favicon.png">
+    <link rel="apple-touch-icon" href="assets/icon-192.png">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#42d5bb">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/glassmorphic.css">
+    <link rel="stylesheet" href="css/dashboard.css">
+    <script src="cubesync-connectivity.js" defer></script>
+    <script src="cubesync-form-data.js" defer></script>
+    <script src="cubesync-heatmap.js" defer></script>
+    <script src="cubesync-metrics.js" defer></script>
+    <script src="env.js"></script>
+    <script type="module" src="firestore.js"></script>
+    <script src="chime.js" defer></script>
+    <script src="metrics-page.js" defer></script>
+  </head>
+  <body>
+    <div id="pageLoader" class="page-loader" role="status" aria-live="polite">
+      <span class="throbber" aria-hidden="true"></span>
+      <span>Loading…</span>
+    </div>
+    <script>
+      window.addEventListener("DOMContentLoaded", () => {
+        if (window.CubeSyncChime) window.CubeSyncChime.attachButtonChimes();
+      });
+    </script>
+    <div class="bg-blobs" aria-hidden="true">
+      <div class="blob blob-1"></div>
+      <div class="blob blob-2"></div>
+      <div class="blob blob-3"></div>
+      <div class="blob blob-4"></div>
+    </div>
+    <section id="authGate" class="auth-gate glass-panel">
+      <img class="auth-logo" src="assets/logoBanner.png" alt="CubeSync">
+      <p class="eyebrow">Authentication</p>
+      <h1>Sign in to CubeSync</h1>
+      <p>Use your Google account to access Firestore-backed dashboards.</p>
+      <button type="button" id="signInButton">Sign in with Google</button>
+      <p id="authGateStatus" class="surface-status" aria-live="polite" hidden></p>
+    </section>
+
+    <main id="metricsShell" class="dashboard-shell is-hidden">
+      <header class="topbar glass-panel">
+        <div class="brand-block">
+          <img class="dashboard-logo" src="assets/logoBanner.png" alt="CubeSync">
+          <p class="eyebrow">CubeSync</p>
+          <h1>Metrics</h1>
+        </div>
+        <nav class="top-actions" aria-label="Metrics actions">
+          <span id="authUser" class="auth-user"></span>
+          <span id="topbarStatus" class="surface-status surface-status-compact" aria-live="polite" hidden></span>
+          <button type="button" id="signOutButton">Sign out</button>
+          <div class="theme-switch">
+            <div class="theme-switch-face">
+              <input type="checkbox" id="themeToggle" class="theme-switch-input" aria-label="Toggle light and dark mode">
+              <div class="theme-switch-mouth"><div class="theme-switch-tongue"></div></div>
+              <div class="theme-switch-eye theme-switch-eye-1"></div>
+              <div class="theme-switch-eye theme-switch-eye-2"></div>
+            </div>
+          </div>
+          <div class="menu-container">
+            <button type="button" id="menuToggle" class="menu-toggle" aria-label="Toggle navigation menu" aria-expanded="false">
+              <span class="hamburger-bar"></span>
+              <span class="hamburger-bar"></span>
+              <span class="hamburger-bar"></span>
+            </button>
+            <div id="dropdownMenu" class="dropdown-menu">
+              <a href="dashboard.html">Human Dashboard</a>
+              <a href="rpa-dashboard.html" class="rpa-link">RPA Bot Queue</a>
+              <a href="index.html">New Original Form</a>
+              <a href="glassmorphic.html">New Glassmorphic Form</a>
+            </div>
+          </div>
+        </nav>
+      </header>
+
+      <section class="metrics-panel glass-panel" aria-labelledby="metricsTitle">
+        <div class="panel-heading metrics-heading">
+          <div>
+            <p class="eyebrow">Operational metrics</p>
+            <h2 id="metricsTitle">Metrics dashboard <span class="trial-badge">TRIAL</span></h2>
+            <p class="metrics-summary" id="metricsSummary">Usage, workload, automation results, and review trends.</p>
+          </div>
+        </div>
+        <div class="metrics-grid" id="metricsGrid" aria-live="polite"></div>
+        <div class="workload-insight" id="workloadInsight" aria-live="polite"></div>
+      </section>
+
+      <section class="heatmap-panel glass-panel" aria-labelledby="heatmapTitle">
+        <div class="panel-heading heatmap-heading">
+          <div>
+            <p class="eyebrow">Insights</p>
+            <h2 id="heatmapTitle">Submission heatmap <span class="trial-badge">TRIAL</span></h2>
+            <p class="heatmap-summary" id="heatmapSummary">Spot the busiest times for form submissions.</p>
+          </div>
+          <div class="heatmap-modes" role="group" aria-label="Heatmap grouping">
+            <button type="button" class="heatmap-mode-btn" data-heatmap-mode="daily">Daily</button>
+            <button type="button" class="heatmap-mode-btn is-active" data-heatmap-mode="weekly" aria-pressed="true">Weekly</button>
+            <button type="button" class="heatmap-mode-btn" data-heatmap-mode="yearly">Yearly</button>
+          </div>
+        </div>
+        <div class="heatmap-grid heatmap-grid-weekly" id="heatmapGrid" role="img" aria-label="Form submission heatmap"></div>
+      </section>
+    </main>
+
+    <script>if("serviceWorker"in navigator){navigator.serviceWorker.register("./sw.js").catch(()=>{});}</script>
+  </body>
+</html>

@@ -8,6 +8,7 @@ const PUBLIC_DIR = path.join(process.cwd(), "public");
 // See deployment-config.test.js for automated checks that enforce this.
 const STATIC_FILES = [
   "dashboard.html",
+  "metrics.html",
   "glassmorphic.html",
   "index.html",
   "rpa-dashboard.html",
@@ -27,6 +28,7 @@ const STATIC_FILES = [
   "cubesync-notifications.js",
   "cubesync-today-toggle.js",
   "dashboard.js",
+  "metrics-page.js",
   "firestore.js",
   "rpa-dashboard.js",
   "rpa-view.js",

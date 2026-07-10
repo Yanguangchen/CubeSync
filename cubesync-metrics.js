@@ -216,6 +216,12 @@
       rpaStatus === "failed";
   }
 
+  function freeTextFieldCount(record) {
+    const customFields = Array.isArray(record.customFields) ? record.customFields.length : 0;
+    const storedCount = Number(record.customFieldCount || 0);
+    return Math.max(customFields, Number.isFinite(storedCount) ? storedCount : 0);
+  }
+
   function buildMetrics(records, options) {
     const opts = options || {};
     const now = toDate(opts.now) || new Date();
@@ -228,6 +234,7 @@
     let monthlyCount = 0;
     let processedCount = 0;
     let manualReviewCount = 0;
+    let todayFreeTextFieldCount = 0;
 
     forms.forEach((form) => {
       const record = form && form.raw ? Object.assign({}, form.raw, form) : form;
@@ -240,7 +247,10 @@
       if (!date) return;
       dated.push(date);
       hourlyCounts[date.getHours()] += 1;
-      if (isSameDay(date, now)) dailyCount += 1;
+      if (isSameDay(date, now)) {
+        dailyCount += 1;
+        todayFreeTextFieldCount += freeTextFieldCount(record);
+      }
       if (isSameWeek(date, now)) weeklyCount += 1;
       if (isSameMonth(date, now)) monthlyCount += 1;
     });
@@ -270,6 +280,7 @@
       peakCount,
       processedCount,
       manualReviewCount,
+      todayFreeTextFieldCount,
       workloadInsight: buildWorkloadInsightFromDates(dated, now)
     };
   }

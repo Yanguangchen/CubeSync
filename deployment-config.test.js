@@ -85,7 +85,7 @@ test("Vercel deployment serves generated public output", () => {
 test("every script referenced in HTML is included in build STATIC_FILES", () => {
   const buildScript = fs.readFileSync("scripts/write-env.js", "utf8");
 
-  const htmlFiles = ["index.html", "dashboard.html", "glassmorphic.html"];
+  const htmlFiles = ["index.html", "dashboard.html", "metrics.html", "glassmorphic.html"];
   const missingScripts = [];
 
   for (const htmlFile of htmlFiles) {
@@ -112,7 +112,7 @@ test("every script referenced in HTML is included in build STATIC_FILES", () => 
 test("build copies HTML-referenced scripts to public output", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "cubesync-scripts-"));
 
-  const htmlFiles = ["index.html", "dashboard.html", "glassmorphic.html"];
+  const htmlFiles = ["index.html", "dashboard.html", "metrics.html", "glassmorphic.html"];
   const allScripts = new Set();
 
   for (const htmlFile of htmlFiles) {
@@ -153,6 +153,7 @@ test("build script uses .env.local and emits non-empty public env output", () =>
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "cubesync-build-"));
   const staticFiles = [
     "dashboard.html",
+    "metrics.html",
     "glassmorphic.html",
     "index.html",
     "rpa-dashboard.html",
@@ -172,6 +173,7 @@ test("build script uses .env.local and emits non-empty public env output", () =>
     "cubesync-notifications.js",
     "cubesync-today-toggle.js",
     "dashboard.js",
+    "metrics-page.js",
     "firestore.js",
     "rpa-dashboard.js",
     "rpa-view.js",

@@ -1,0 +1,229 @@
+/* Today summary --------------------------------------------------------- */
+.at-a-glance-panel {
+  position: relative;
+  margin-bottom: 16px;
+  padding: 18px;
+  border-color: rgba(13, 148, 136, 0.3);
+  border-radius: 18px;
+  overflow: hidden;
+}
+
+.at-a-glance-panel::before {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 5px;
+  background: #0d9488;
+  content: "";
+}
+
+.at-a-glance-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.at-a-glance-heading h2 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 22px;
+}
+
+.at-a-glance-date {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.at-a-glance-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.glance-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas:
+    "marker label"
+    "marker value"
+    "marker detail";
+  column-gap: 12px;
+  align-items: center;
+  min-height: 126px;
+  padding: 16px;
+  border: 1px solid rgba(15, 118, 110, 0.18);
+  border-radius: 8px;
+  background: rgba(240, 253, 250, 0.76);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.74);
+  transition: transform 0.24s ease, border-color 0.24s ease, box-shadow 0.24s ease, background 0.24s ease;
+}
+
+.glance-card:hover {
+  border-color: rgba(13, 148, 136, 0.42);
+  background: rgba(240, 253, 250, 0.96);
+  box-shadow: 0 14px 28px rgba(15, 118, 110, 0.13), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  transform: translateY(-4px);
+}
+
+.glance-marker {
+  grid-area: marker;
+  display: grid;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  place-items: center;
+  color: #0f766e;
+  background: rgba(20, 184, 166, 0.14);
+  font-size: 14px;
+  font-weight: 800;
+  transition: transform 0.24s ease, background 0.24s ease;
+}
+
+.glance-card:hover .glance-marker {
+  background: rgba(20, 184, 166, 0.22);
+  transform: scale(1.08);
+}
+
+.glance-label {
+  grid-area: label;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.glance-value {
+  grid-area: value;
+  margin: 1px 0;
+  color: var(--ink);
+  font-size: 42px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.glance-detail {
+  grid-area: detail;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.glance-card-review {
+  border-color: rgba(225, 29, 72, 0.34);
+  background: rgba(255, 241, 242, 0.88);
+}
+
+.glance-card-review::after {
+  position: absolute;
+  inset: -2px;
+  border: 2px solid rgba(225, 29, 72, 0.5);
+  border-radius: inherit;
+  content: "";
+  pointer-events: none;
+  animation: glance-review-ring 1.8s ease-out infinite;
+}
+
+.glance-card-review:hover {
+  border-color: rgba(225, 29, 72, 0.58);
+  background: rgba(255, 241, 242, 1);
+  box-shadow: 0 16px 30px rgba(190, 18, 60, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.82);
+}
+
+.glance-card-review .glance-marker {
+  color: #be123c;
+  background: rgba(225, 29, 72, 0.13);
+}
+
+.glance-card-review .glance-value {
+  color: #be123c;
+}
+
+@keyframes glance-review-ring {
+  0%, 22% {
+    opacity: 0.72;
+    transform: scale(1);
+  }
+  70% {
+    opacity: 0;
+    transform: scale(1.035, 1.12);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+
+[data-theme="dark"] .at-a-glance-panel {
+  border-color: rgba(45, 212, 191, 0.26);
+}
+
+[data-theme="dark"] .glance-card {
+  border-color: rgba(45, 212, 191, 0.2);
+  background: rgba(15, 118, 110, 0.12);
+  box-shadow: none;
+}
+
+[data-theme="dark"] .glance-card-review {
+  border-color: rgba(251, 113, 133, 0.34);
+  background: rgba(159, 18, 57, 0.16);
+}
+
+[data-theme="dark"] .glance-card:hover {
+  background: rgba(15, 118, 110, 0.2);
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.28);
+}
+
+[data-theme="dark"] .glance-card-review:hover {
+  background: rgba(159, 18, 57, 0.26);
+  box-shadow: 0 16px 30px rgba(0, 0, 0, 0.32);
+}
+
+[data-theme="dark"] .glance-card-review .glance-value,
+[data-theme="dark"] .glance-card-review .glance-marker {
+  color: #fda4af;
+}
+
+.dashboard-shell:not(.is-hidden) .at-a-glance-panel {
+  animation: dashboard-ease-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) 0.05s both;
+}
+
+@media (max-width: 760px) {
+  .at-a-glance-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .glance-card {
+    min-height: 104px;
+  }
+}
+
+@media (max-width: 480px) {
+  .at-a-glance-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .glance-value {
+    font-size: 36px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-shell:not(.is-hidden) .at-a-glance-panel,
+  .glance-card-review::after {
+    animation: none;
+  }
+
+  .glance-card,
+  .glance-marker {
+    transition: none;
+  }
+
+  .glance-card:hover,
+  .glance-card:hover .glance-marker {
+    transform: none;
+  }
+}

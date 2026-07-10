@@ -25,7 +25,6 @@
     project: "all",
     sort: "date-desc",
     todayOnly: false,
-    heatmapMode: "weekly",
     loading: false,
     fieldConfig: null,
     dropdownOptions: {},
@@ -279,10 +278,6 @@
     return window.CubeSyncDashboardFilters;
   }
 
-  function heatmapHelper() {
-    return window.CubeSyncHeatmap;
-  }
-
   function metricsHelper() {
     return window.CubeSyncMetrics;
   }
@@ -364,27 +359,6 @@
     }
   }
 
-  // Forms the heatmap should analyse: the same facet filters as the table
-  // (search/status/client/project) so the heatmap reflects the current view,
-  // but never the "today only" or sort options — the whole point of the
-  // heatmap is to look across submission history. Raw Firestore records are
-  // returned because they retain the real submission timestamps (with the
-  // time-of-day needed for the Daily view); normalized forms keep only dates.
-  function heatmapSourceForms() {
-    const helper = dashboardFilters();
-    let forms = state.forms;
-    if (helper && typeof helper.applyDashboardFilters === "function") {
-      forms = helper.applyDashboardFilters(state.forms, {
-        search: state.search,
-        status: state.status,
-        client: state.client,
-        project: state.project
-      });
-    }
-    return forms.map((form) => (form && form.raw ? form.raw : form));
-  }
-
-
   function formatMetricNumber(value, options) {
     if (typeof value === "string") {
       return value;
@@ -399,215 +373,59 @@
   }
 
 
-  function workloadSignalLabel(signal) {
-    if (signal === "high") return "Unusually high activity";
-    if (signal === "low") return "Unusually quiet activity";
-    return "Activity within expected range";
-  }
-
-  function workloadTrendLabel(trend) {
-    if (trend === "rising") return "Rising trend";
-    if (trend === "falling") return "Falling trend";
-    return "Steady trend";
-  }
-
-  function formatWorkloadPeriodList(periods) {
-    if (!Array.isArray(periods) || periods.length === 0) return "Not enough history yet";
-    return periods.map((period) => period.label + " (avg " + formatMetricNumber(period.average, { maximumFractionDigits: 1 }) + ")").join(", ");
-  }
-
-  function renderWorkloadChart(points, upcoming) {
-    const history = Array.isArray(points) ? points : [];
-    const forecast = Array.isArray(upcoming) ? upcoming : [];
-    const combined = history.map((point) => Number(point.count || 0))
-      .concat(forecast.map((point) => Number(point.expected || 0)));
-    const max = Math.max(1, ...combined);
-    const chartWidth = 560;
-    const chartHeight = 160;
-    const padding = 18;
-    const plotWidth = chartWidth - (padding * 2);
-    const plotHeight = chartHeight - (padding * 2);
-    const historyCount = history.length;
-    const totalPoints = historyCount + forecast.length;
-    if (totalPoints === 0) {
-      return '<div class="workload-chart-empty">No dated submissions yet.</div>';
-    }
-
-    function pointFor(index, value) {
-      const denominator = Math.max(1, totalPoints - 1);
-      const x = padding + ((index / denominator) * plotWidth);
-      const y = padding + (plotHeight - ((Number(value || 0) / max) * plotHeight));
-      return x.toFixed(1) + "," + y.toFixed(1);
-    }
-
-    const historyPoints = history.map((point, index) => pointFor(index, point.count)).join(" ");
-    const forecastPoints = forecast.map((point, index) => pointFor(historyCount + index, point.expected)).join(" ");
-    const separatorX = historyCount > 0 ? padding + ((Math.max(0, historyCount - 1) / Math.max(1, totalPoints - 1)) * plotWidth) : padding;
-    const latestHistory = history.length ? history[history.length - 1] : null;
-    const forecastTitle = forecast.length
-      ? "Forecast: " + forecast.map((point) => point.label + " " + formatMetricNumber(point.expected, { maximumFractionDigits: 1 })).join(", ")
-      : "Forecast unavailable";
-
-    return `
-      <svg class="workload-chart" viewBox="0 0 ${chartWidth} ${chartHeight}" role="img" aria-label="Historical workload and seven day forecast line chart">
-        <title>Historical workload and seven day forecast</title>
-        <desc>${escapeHtml(forecastTitle)}</desc>
-        <line class="workload-chart-axis" x1="${padding}" y1="${chartHeight - padding}" x2="${chartWidth - padding}" y2="${chartHeight - padding}"></line>
-        <line class="workload-chart-axis" x1="${padding}" y1="${padding}" x2="${padding}" y2="${chartHeight - padding}"></line>
-        ${historyPoints ? `<polyline class="workload-chart-history" points="${historyPoints}"></polyline>` : ""}
-        ${latestHistory && forecastPoints ? `<polyline class="workload-chart-forecast" points="${pointFor(historyCount - 1, latestHistory.count)} ${forecastPoints}"></polyline>` : ""}
-        <line class="workload-chart-separator" x1="${separatorX.toFixed(1)}" y1="${padding}" x2="${separatorX.toFixed(1)}" y2="${chartHeight - padding}"></line>
-        <text class="workload-chart-label" x="${padding}" y="${chartHeight - 4}">Past 28 days</text>
-        <text class="workload-chart-label workload-chart-label-end" x="${chartWidth - padding}" y="${chartHeight - 4}">Next 7 days</text>
-      </svg>
-    `;
-  }
-
-  function renderWorkloadInsight(insight) {
-    const panel = elements.workloadInsight;
-    if (!panel) return;
-    if (!insight) {
-      panel.innerHTML = "";
-      return;
-    }
-    const busiestUpcoming = insight.busiestUpcoming || { label: "—", expected: 0 };
-    panel.innerHTML = `
-      <article class="workload-insight-card workload-insight-${escapeHtml(insight.activitySignal || "normal")}">
-        <div class="workload-insight-copy">
-          <p class="metric-label">Predictive workload insight</p>
-          <h3>${escapeHtml(workloadSignalLabel(insight.activitySignal))}</h3>
-          <p>
-            Expected tomorrow: <strong>${escapeHtml(formatMetricNumber(insight.expectedTomorrow, { maximumFractionDigits: 1 }))} forms</strong> ·
-            ${escapeHtml(workloadTrendLabel(insight.trend))} ·
-            28-day baseline: ${escapeHtml(formatMetricNumber(insight.recentAverage, { maximumFractionDigits: 1 }))} forms/day.
-          </p>
-          <dl class="workload-insight-list">
-            <div><dt>Recurring busy periods</dt><dd>${escapeHtml(formatWorkloadPeriodList(insight.busyPeriods))}</dd></div>
-            <div><dt>Quiet periods</dt><dd>${escapeHtml(formatWorkloadPeriodList(insight.quietPeriods))}</dd></div>
-            <div><dt>Next likely peak</dt><dd>${escapeHtml(busiestUpcoming.label)} · ${escapeHtml(formatMetricNumber(busiestUpcoming.expected, { maximumFractionDigits: 1 }))} expected forms</dd></div>
-          </dl>
-        </div>
-        <div class="workload-chart-wrap">${renderWorkloadChart(insight.chart, insight.upcoming)}</div>
-      </article>
-    `;
-  }
-
-  function renderMetrics() {
-    const grid = elements.metricsGrid;
-    if (!grid) {
-      return;
-    }
+  function renderAtAGlance() {
+    const grid = elements.atAGlanceGrid;
+    if (!grid) return;
 
     const helper = metricsHelper();
     if (!helper || typeof helper.buildMetrics !== "function") {
       grid.innerHTML = "";
-      renderWorkloadInsight(null);
-      if (elements.metricsSummary) {
-        elements.metricsSummary.textContent = "Metrics are unavailable until the metrics helper loads.";
-      }
       return;
     }
 
-    const metrics = helper.buildMetrics(heatmapSourceForms());
-    const peakLabel = metrics.peakPeriods.length
-      ? metrics.peakPeriods.slice(0, 2).map((period) => period.label).join(", ")
-      : "—";
-    const peakDetail = metrics.peakCount > 0
-      ? metrics.peakCount + " submission" + (metrics.peakCount === 1 ? "" : "s") + " at peak"
-      : "No dated submissions yet";
-
+    const metrics = helper.buildMetrics(state.forms);
     const cards = [
-      { label: "Today", value: metrics.dailyCount, detail: "Form submissions today" },
-      { label: "This week", value: metrics.weeklyCount, detail: "Form submissions this week" },
-      { label: "This month", value: metrics.monthlyCount, detail: "Form submissions this month" },
       {
-        label: "Avg / day",
-        value: formatMetricNumber(metrics.averagePerDay, { maximumFractionDigits: 1 }),
-        detail: "Across dated records in view"
+        marker: "01",
+        label: "Forms submitted",
+        value: metrics.dailyCount,
+        detail: "Received today"
       },
       {
-        label: "Expected tomorrow",
-        value: formatMetricNumber(metrics.workloadInsight.expectedTomorrow, { maximumFractionDigits: 1 }),
-        detail: workloadTrendLabel(metrics.workloadInsight.trend)
+        marker: "02",
+        label: "Free-text fields",
+        value: metrics.todayFreeTextFieldCount,
+        detail: "Entered across today’s forms"
       },
-      { label: "Peak period", value: peakLabel, detail: peakDetail, wide: true },
-      { label: "Total records", value: metrics.totalRecords, detail: "Records in the current view" },
-      { label: "Processed", value: metrics.processedCount, detail: "ERP success, submitted, or archived" },
-      { label: "Manual review", value: metrics.manualReviewCount, detail: "Free-text or failed/error records" }
+      {
+        marker: "!",
+        label: "Problematic forms",
+        value: metrics.manualReviewCount,
+        detail: "Total requiring review",
+        review: true
+      }
     ];
 
     grid.innerHTML = cards.map((card) => `
-      <article class="metric-card${card.wide ? " metric-card-wide" : ""}">
-        <span class="metric-label">${escapeHtml(card.label)}</span>
-        <strong class="metric-value">${escapeHtml(formatMetricNumber(card.value))}</strong>
-        <span class="metric-detail">${escapeHtml(card.detail)}</span>
+      <article class="glance-card${card.review ? " glance-card-review" : ""}">
+        <span class="glance-marker" aria-hidden="true">${escapeHtml(card.marker)}</span>
+        <span class="glance-label">${escapeHtml(card.label)}</span>
+        <strong class="glance-value">${escapeHtml(formatMetricNumber(card.value))}</strong>
+        <span class="glance-detail">${escapeHtml(card.detail)}</span>
       </article>
     `).join("");
 
-    renderWorkloadInsight(metrics.workloadInsight);
-
-    if (elements.metricsSummary) {
-      const total = metrics.totalRecords;
-      if (total === 0) {
-        elements.metricsSummary.textContent = "No records match the current filters yet.";
-      } else {
-        elements.metricsSummary.textContent =
-          formatMetricNumber(total) + " records in view · " +
-          formatMetricNumber(metrics.processedCount) + " processed · " +
-          formatMetricNumber(metrics.manualReviewCount) + " requiring review.";
-      }
-    }
-  }
-
-  // Compact axis label for a bucket, e.g. "9 AM" -> "9a", "Monday" -> "Mon".
-  function heatmapShortLabel(label, mode) {
-    if (mode === "daily") {
-      const match = /^(\d+)\s*(AM|PM)$/.exec(label);
-      if (match) {
-        return match[1] + (match[2] === "AM" ? "a" : "p");
-      }
-      return label;
-    }
-    return label.slice(0, 3);
-  }
-
-  function renderHeatmap() {
-    const grid = elements.heatmapGrid;
-    if (!grid) {
-      return;
-    }
-
-    const helper = heatmapHelper();
-    if (!helper || typeof helper.buildHeatmap !== "function") {
-      grid.innerHTML = "";
-      return;
-    }
-
-    const result = helper.buildHeatmap(heatmapSourceForms(), { mode: state.heatmapMode });
-    grid.className = "heatmap-grid heatmap-grid-" + result.mode;
-
-    grid.innerHTML = result.buckets.map((bucket) => {
-      const countLabel = bucket.count + " submission" + (bucket.count === 1 ? "" : "s");
-      const title = bucket.label + ": " + countLabel;
-      const busiest = result.busiest && result.busiest.key === bucket.key && result.max > 0;
-      const emptyClass = bucket.count === 0 ? " is-empty" : "";
-      const busyClass = busiest ? " is-busiest" : "";
-      return `
-        <div class="heatmap-cell${emptyClass}${busyClass}" style="--heat: ${bucket.intensity.toFixed(3)}" title="${escapeHtml(title)}" role="img" aria-label="${escapeHtml(title)}">
-          <span class="heatmap-cell-bar" aria-hidden="true"></span>
-          <span class="heatmap-cell-count">${bucket.count}</span>
-          <span class="heatmap-cell-label">${escapeHtml(heatmapShortLabel(bucket.label, result.mode))}</span>
-        </div>`;
-    }).join("");
-
-    if (elements.heatmapSummary) {
-      if (result.total === 0) {
-        elements.heatmapSummary.textContent = "No submissions match the current filters yet.";
-      } else if (result.busiest) {
-        const totalLabel = result.total + " submission" + (result.total === 1 ? "" : "s");
-        elements.heatmapSummary.textContent =
-          "Busiest: " + result.busiest.label + " (" + result.busiest.count + " of " + totalLabel + ").";
-      }
+    if (elements.atAGlanceDate) {
+      const now = new Date();
+      const filters = dashboardFilters();
+      elements.atAGlanceDate.dateTime = filters && typeof filters.currentIsoDate === "function"
+        ? filters.currentIsoDate(now)
+        : [now.getFullYear(), String(now.getMonth() + 1).padStart(2, "0"), String(now.getDate()).padStart(2, "0")].join("-");
+      elements.atAGlanceDate.textContent = now.toLocaleDateString(undefined, {
+        weekday: "long",
+        day: "numeric",
+        month: "long"
+      });
     }
   }
 
@@ -816,8 +634,7 @@
   }
 
   function renderForms() {
-    renderHeatmap();
-    renderMetrics();
+    renderAtAGlance();
 
     if (state.loading) {
       setListMessage("Loading Firestore forms...");
@@ -2203,7 +2020,7 @@
       "detailTabs", "detailHistoryContent",
       "reasonDialog", "reasonForm", "reasonInput", "reasonChangeList", "reasonStatus", "cancelReasonButton",
       "statusFilter", "clientFilter", "projectFilter", "sortOrder",
-      "todayToggle", "todayOnlyToggle", "metricsGrid", "metricsSummary", "workloadInsight", "heatmapGrid", "heatmapSummary", "notifyButton",
+      "todayToggle", "todayOnlyToggle", "atAGlanceGrid", "atAGlanceDate", "notifyButton",
       "editDialog", "editForm", "editFormStatus", "editCubeJobCollisionHint", "closeEditorButton", "cancelEditButton",
       "detailViewButton", "detailEditButton", "detailPrintButton", "detailDeleteButton", "detailHideButton",
       "printArea", "fieldSettingsButton", "fieldConfigDialog", "fieldConfigForm",
@@ -2297,19 +2114,6 @@
       elements.notifyButton.addEventListener("click", handleNotifyButtonClick);
       refreshNotifyButton();
     }
-
-    const heatmapModeButtons = document.querySelectorAll("[data-heatmap-mode]");
-    heatmapModeButtons.forEach((button) => {
-      button.addEventListener("click", function () {
-        state.heatmapMode = button.getAttribute("data-heatmap-mode");
-        heatmapModeButtons.forEach((other) => {
-          const active = other === button;
-          other.classList.toggle("is-active", active);
-          other.setAttribute("aria-pressed", active ? "true" : "false");
-        });
-        renderHeatmap();
-      });
-    });
 
     elements.detailViewButton.addEventListener("click", () => openEditor(state.selectedId));
     elements.detailEditButton.addEventListener("click", () => openEditor(state.selectedId));

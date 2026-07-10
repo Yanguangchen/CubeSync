@@ -43,6 +43,7 @@ test("buildMetrics reports daily weekly monthly workload and operational totals"
   assert.equal(metrics.monthlyCount, 4);
   assert.equal(metrics.processedCount, 3);
   assert.equal(metrics.manualReviewCount, 3);
+  assert.equal(metrics.todayFreeTextFieldCount, 1);
   assert.equal(metrics.peakCount, 2);
   // Peak label reflects local timezone, so derive it from the timestamp rather than hardcoding "9 AM".
   const peakHour = new Date("2026-06-27T09:00:00Z").getHours();
@@ -66,6 +67,27 @@ test("buildMetrics accepts normalized dashboard forms with raw records", () => {
   assert.equal(metrics.dailyCount, 1);
   assert.equal(metrics.processedCount, 1);
   assert.equal(metrics.manualReviewCount, 1);
+  assert.equal(metrics.todayFreeTextFieldCount, 1);
+});
+
+test("buildMetrics totals free-text fields only across today's submissions", () => {
+  const metrics = buildMetrics([
+    {
+      submittedAt: "2026-06-27T08:00:00Z",
+      customFields: ["supplier", "projectErp"]
+    },
+    {
+      submittedAt: "2026-06-27T09:00:00Z",
+      customFields: ["supplier"],
+      customFieldCount: 3
+    },
+    {
+      submittedAt: "2026-06-26T09:00:00Z",
+      customFields: ["supplier", "projectErp", "specimenSize"]
+    }
+  ], { now: "2026-06-27T12:00:00Z" });
+
+  assert.equal(metrics.todayFreeTextFieldCount, 5);
 });
 
 test("resolveTimestamp falls back across CubeSync date fields", () => {

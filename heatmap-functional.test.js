@@ -3,13 +3,11 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 
-const barcodeJs = fs.readFileSync("barcode.js", "utf8");
 const formDataJs = fs.readFileSync("cubesync-form-data.js", "utf8");
-const filtersJs = fs.readFileSync("cubesync-dashboard-filters.js", "utf8");
 const heatmapJs = fs.readFileSync("cubesync-heatmap.js", "utf8");
 const metricsJs = fs.readFileSync("cubesync-metrics.js", "utf8");
-const dashboardJs = fs.readFileSync("dashboard.js", "utf8");
-const html = fs.readFileSync("dashboard.html", "utf8");
+const metricsPageJs = fs.readFileSync("metrics-page.js", "utf8");
+const html = fs.readFileSync("metrics.html", "utf8");
 
 // June 2026: the 1st is a Monday, so the 22nd is also a Monday and the 24th a
 // Wednesday. Jan 10 2026 is a Saturday. These anchor deterministic buckets.
@@ -41,7 +39,7 @@ function bootDashboard(records) {
     deleteCubeRequest: async () => {}
   };
 
-  [barcodeJs, formDataJs, filtersJs, heatmapJs, metricsJs, dashboardJs].forEach((js) => {
+  [formDataJs, heatmapJs, metricsJs, metricsPageJs].forEach((js) => {
     const script = window.document.createElement("script");
     script.textContent = js;
     window.document.head.appendChild(script);
@@ -200,35 +198,17 @@ test("heatmap summary reports an empty state when nothing matches", async () => 
 });
 
 /* ----------------------------------------------------------------------- *
- * Filter integration
+ * All records
  * ----------------------------------------------------------------------- */
 
-test("heatmap respects the status filter", async () => {
+test("metrics page heatmap analyses every record without dashboard filters", async () => {
   const window = bootDashboard(SAMPLE);
   await settle();
 
-  const statusFilter = window.document.getElementById("statusFilter");
-  statusFilter.value = "Draft";
-  statusFilter.dispatchEvent(new window.Event("change"));
-
+  // The dedicated metrics page has no status/today filters; the heatmap always
+  // reflects the full submission history.
   const counts = cellCounts(window);
-  assert.equal(counts.reduce((a, b) => a + b, 0), 1); // only the Draft form (C)
-  assert.equal(counts[3], 1); // Wednesday
-  assert.match(window.document.getElementById("heatmapSummary").textContent, /Wednesday/);
-});
-
-test("heatmap ignores the 'today only' toggle so history is preserved", async () => {
-  const window = bootDashboard(SAMPLE);
-  await settle();
-
-  const before = cellCounts(window).reduce((a, b) => a + b, 0);
-  const toggle = window.document.getElementById("todayOnlyToggle");
-  toggle.checked = true;
-  toggle.dispatchEvent(new window.Event("change"));
-
-  const after = cellCounts(window).reduce((a, b) => a + b, 0);
-  assert.equal(after, before); // todayOnly must not shrink the heatmap
-  assert.equal(after, 4);
+  assert.equal(counts.reduce((a, b) => a + b, 0), 4);
 });
 
 /* ----------------------------------------------------------------------- *

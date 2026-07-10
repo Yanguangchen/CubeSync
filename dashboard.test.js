@@ -19,14 +19,22 @@ test("dashboard frontend exposes form CRUD controls", () => {
 
   assert.match(html, /<title>Concrete Cube Dashboard<\/title>/);
   assert.match(html, /<h1>Human Dashboard<\/h1>/);
-  assert.match(html, /metricsGrid/);
-  assert.match(html, /workloadInsight/);
-  assert.match(html, /Metrics dashboard/);
-  assert.match(html, /metricsTitle[^>]*>Metrics dashboard <span class="trial-badge">TRIAL<\/span>/);
-  assert.match(js, /renderMetrics/);
+  assert.match(html, /atAGlanceGrid/);
+  assert.match(html, /At a glance/);
+  // Metrics dashboard + heatmap moved to the dedicated metrics.html page.
+  assert.match(html, /href="metrics\.html"/);
+  assert.doesNotMatch(html, /metricsGrid/);
+  assert.doesNotMatch(html, /heatmapGrid/);
+  assert.doesNotMatch(html, /workloadInsight/);
+  assert.doesNotMatch(js, /renderMetrics/);
+  assert.doesNotMatch(js, /renderHeatmap/);
+  assert.doesNotMatch(js, /renderWorkloadInsight/);
+  assert.match(js, /renderAtAGlance/);
   assert.match(js, /CubeSyncMetrics/);
-  assert.match(js, /renderWorkloadInsight/);
-  assert.match(css, /\.metrics-grid/);
+  assert.match(css, /\.at-a-glance-grid/);
+  assert.match(css, /glance-card-review::after/);
+  assert.match(css, /glance-review-ring 1\.8s ease-out infinite/);
+  assert.match(css, /\.glance-card:hover/);
   assert.match(css, /\.workload-insight/);
   assert.doesNotMatch(html, /<h1>Concrete Cube Dashboard<\/h1>/);
   assert.match(html, /css\/dashboard\.css/);
