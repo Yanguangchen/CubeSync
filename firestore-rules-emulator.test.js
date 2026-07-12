@@ -545,6 +545,21 @@ test("editHistory entries are append-only: staff create allowed, update and dele
   );
 });
 
+test("staff can read editHistory across requests via a collection-group query; others cannot", async () => {
+  await testEnv.clearFirestore();
+  const entry = { changes: ["client"], createdAt: "2026-01-01T00:00:00Z" };
+  await seedDoc("cubeRequests/req-cg1/editHistory", "s1", entry);
+  await seedDoc("cubeRequests/req-cg2/editHistory", "s2", entry);
+
+  const staff = authedDb("staff-cg", STAFF_EMAIL);
+  const snapshot = await assertSucceeds(staff.collectionGroup("editHistory").get());
+  assert.equal(snapshot.size, 2);
+
+  const outsider = authedDb("outsider-cg", NON_STAFF_EMAIL);
+  await assertFails(outsider.collectionGroup("editHistory").get());
+  await assertFails(unauthedDb().collectionGroup("editHistory").get());
+});
+
 // ---------------------------------------------------------------------------
 // settings/dropdownOptions — public read, staff-only write, no delete
 // ---------------------------------------------------------------------------

@@ -1078,6 +1078,16 @@ service cloud.firestore {
       }
     }
 
+    // Collection-group read for the metrics activity leaderboard and daily
+    // completions chart (listAllEditHistory in firestore.js). The nested
+    // editHistory match above cannot satisfy collection-group queries, which
+    // require a /{path=**} match. editHistory is a CubeSync-only subcollection
+    // name (no WorkGrid collection uses it), reads stay gated to CubeSync
+    // staff, and writes remain governed solely by the nested match above.
+    match /{path=**}/editHistory/{sessionId} {
+      allow read: if isCubeSyncStaff();
+    }
+
     function isValidFormFieldConfig(data) {
       return data.keys().hasOnly(['requestFields', 'resultFields', 'requestLabels', 'resultLabels', 'customRequestFields', 'showResultsSection', 'updatedAt']) &&
         data.requestFields is map &&

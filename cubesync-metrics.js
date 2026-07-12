@@ -232,7 +232,9 @@
 
   // A collision is the same cube job number appearing on more than one request.
   // Grouping is case-insensitive so "AB-1" and "ab-1" are treated as the same
-  // number; the first-seen spelling is kept for display.
+  // number; the first-seen spelling is kept for display. Groups also note when
+  // any colliding record is dated today, so the dashboard can call out
+  // collisions introduced by today's submissions.
   function buildCubeJobCollisions(entries) {
     const groups = new Map();
     entries.forEach((entry) => {
@@ -243,17 +245,30 @@
       if (existing) {
         existing.count += 1;
         existing.ids.push(entry.id);
+        existing.involvesToday = existing.involvesToday || entry.isToday === true;
       } else {
-        groups.set(key, { jobNumber: value, count: 1, ids: [entry.id] });
+        groups.set(key, {
+          jobNumber: value,
+          count: 1,
+          ids: [entry.id],
+          involvesToday: entry.isToday === true
+        });
       }
     });
 
     const collisions = [];
     let affectedRecords = 0;
+    let todayCollisionCount = 0;
     groups.forEach((group) => {
       if (group.count > 1) {
-        collisions.push({ jobNumber: group.jobNumber, count: group.count, ids: group.ids });
+        collisions.push({
+          jobNumber: group.jobNumber,
+          count: group.count,
+          ids: group.ids,
+          involvesToday: group.involvesToday
+        });
         affectedRecords += group.count;
+        if (group.involvesToday) todayCollisionCount += 1;
       }
     });
     collisions.sort((a, b) => b.count - a.count || a.jobNumber.localeCompare(b.jobNumber));
@@ -261,7 +276,125 @@
     return {
       collisionCount: collisions.length,
       affectedRecords: affectedRecords,
+      todayCollisionCount: todayCollisionCount,
       groups: collisions
+    };
+  }
+
+  // Edit-history entries record who saved a change (dashboard.js writes
+  // editedByEmail/editedByName) and embed the changed fields. A "Ready
+  // promotion" is a history entry whose changes include status → Ready.
+  function isReadyPromotionEntry(entry) {
+    const changes = entry && Array.isArray(entry.changes) ? entry.changes : [];
+    return changes.some((change) => change && change.field === "status" &&
+      statusText(change.newValue) === "ready");
+  }
+
+  function leaderboardUserKey(entry) {
+    const email = statusText(entry.editedByEmail);
+    if (email) return email;
+    const name = String(entry.editedByName == null ? "" : entry.editedByName).trim();
+    return name ? "name:" + name.toLowerCase() : "unknown";
+  }
+
+  // Aggregate edit-history entries into a per-user activity leaderboard:
+  // edit sessions, individual field changes, Ready promotions, last activity.
+  function buildActivityLeaderboard(historyEntries) {
+    const entries = Array.isArray(historyEntries) ? historyEntries : [];
+    const users = new Map();
+    let totalReadyPromotions = 0;
+
+    entries.forEach((entry) => {
+      if (!entry || typeof entry !== "object") return;
+      const key = leaderboardUserKey(entry);
+      let user = users.get(key);
+      if (!user) {
+        user = {
+          name: "",
+          email: String(entry.editedByEmail == null ? "" : entry.editedByEmail).trim().toLowerCase(),
+          editSessions: 0,
+          fieldChanges: 0,
+          readyCount: 0,
+          lastActivity: null
+        };
+        users.set(key, user);
+      }
+
+      const name = String(entry.editedByName == null ? "" : entry.editedByName).trim();
+      if (name && !user.name) user.name = name;
+
+      user.editSessions += 1;
+      user.fieldChanges += Array.isArray(entry.changes) ? entry.changes.length : 0;
+      if (isReadyPromotionEntry(entry)) {
+        user.readyCount += 1;
+        totalReadyPromotions += 1;
+      }
+
+      const at = toDate(entry.createdAt);
+      if (at && (!user.lastActivity || at > user.lastActivity)) {
+        user.lastActivity = at;
+      }
+    });
+
+    const list = Array.from(users.values());
+    list.forEach((user) => {
+      if (!user.name) user.name = user.email || "Unknown user";
+    });
+    list.sort((a, b) =>
+      b.editSessions - a.editSessions ||
+      b.readyCount - a.readyCount ||
+      a.name.localeCompare(b.name));
+
+    return {
+      users: list,
+      totalSessions: entries.length,
+      totalReadyPromotions: totalReadyPromotions
+    };
+  }
+
+  // Daily count of forms set to Ready over the trailing window, derived from
+  // Ready-promotion history entries. A request re-promoted on the same day
+  // counts once for that day.
+  function buildDailyCompletions(historyEntries, options) {
+    const opts = options || {};
+    const now = toDate(opts.now) || new Date();
+    const windowDays = Number.isInteger(opts.days) && opts.days > 0 ? opts.days : 28;
+    const entries = Array.isArray(historyEntries) ? historyEntries : [];
+
+    const countsByDay = new Map();
+    const seen = new Set();
+    entries.forEach((entry) => {
+      if (!isReadyPromotionEntry(entry)) return;
+      const at = toDate(entry.createdAt);
+      if (!at) return;
+      const dayKey = isoDateKey(startOfDay(at));
+      if (entry.requestId) {
+        const dedupeKey = String(entry.requestId) + "|" + dayKey;
+        if (seen.has(dedupeKey)) return;
+        seen.add(dedupeKey);
+      }
+      countsByDay.set(dayKey, (countsByDay.get(dayKey) || 0) + 1);
+    });
+
+    const today = startOfDay(now);
+    const days = [];
+    let total = 0;
+    let busiest = null;
+    for (let offset = windowDays - 1; offset >= 0; offset -= 1) {
+      const date = addDays(today, -offset);
+      const key = isoDateKey(date);
+      const count = countsByDay.get(key) || 0;
+      const day = { date: key, label: key.slice(5), weekday: dayLabel(date.getDay()), count: count };
+      days.push(day);
+      total += count;
+      if (count > 0 && (!busiest || count > busiest.count)) busiest = day;
+    }
+
+    return {
+      days: days,
+      total: total,
+      todayCount: countsByDay.get(isoDateKey(today)) || 0,
+      busiest: busiest
     };
   }
 
@@ -286,13 +419,20 @@
 
       if (isProcessed(record)) processedCount += 1;
       if (requiresManualReview(record)) manualReviewCount += 1;
-      cubeJobEntries.push({ id: record.id != null ? record.id : form && form.id, cubeJobNumber: record.cubeJobNumber, reportNo: record.reportNo });
+      const cubeJobEntry = {
+        id: record.id != null ? record.id : form && form.id,
+        cubeJobNumber: record.cubeJobNumber,
+        reportNo: record.reportNo,
+        isToday: false
+      };
+      cubeJobEntries.push(cubeJobEntry);
 
       const date = resolveTimestamp(record, opts.fields);
       if (!date) return;
       dated.push(date);
       hourlyCounts[date.getHours()] += 1;
       if (isSameDay(date, now)) {
+        cubeJobEntry.isToday = true;
         dailyCount += 1;
         todayFreeTextFieldCount += freeTextFieldCount(record);
       }
@@ -334,6 +474,8 @@
   return {
     toDate,
     resolveTimestamp,
-    buildMetrics
+    buildMetrics,
+    buildActivityLeaderboard,
+    buildDailyCompletions
   };
 });

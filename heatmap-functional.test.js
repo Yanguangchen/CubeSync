@@ -22,7 +22,7 @@ const MON_B = ts(new Date(2026, 5, 22, 9, 45)); // Monday 09:xx
 const WED_C = ts(new Date(2026, 5, 24, 14, 0)); // Wednesday 14:00
 const SAT_D = ts(new Date(2026, 0, 10, 16, 0)); // Saturday 16:00 (January)
 
-function bootDashboard(records) {
+function bootDashboard(records, storeOverrides) {
   const dom = new JSDOM(html, { runScripts: "dangerously", url: "http://localhost/" });
   const { window } = dom;
   window.alert = () => {};
@@ -33,11 +33,11 @@ function bootDashboard(records) {
     isAllowedUser: () => true,
     currentUser: () => ({ email: "test@rakmat.com.sg" })
   };
-  window.CubeSyncFirestore = {
+  window.CubeSyncFirestore = Object.assign({
     listCubeRequests: async () => records,
     updateCubeRequest: async () => {},
     deleteCubeRequest: async () => {}
-  };
+  }, storeOverrides || {});
 
   [formDataJs, heatmapJs, metricsJs, metricsPageJs].forEach((js) => {
     const script = window.document.createElement("script");
@@ -209,6 +209,82 @@ test("metrics page heatmap analyses every record without dashboard filters", asy
   // reflects the full submission history.
   const counts = cellCounts(window);
   assert.equal(counts.reduce((a, b) => a + b, 0), 4);
+});
+
+/* ----------------------------------------------------------------------- *
+ * Activity leaderboard & daily completions
+ * ----------------------------------------------------------------------- */
+
+function isoHoursAgo(hours) {
+  return new Date(Date.now() - (hours * 60 * 60 * 1000)).toISOString();
+}
+
+const READY_CHANGE = { field: "status", previousValue: "Draft", newValue: "Ready" };
+
+test("activity leaderboard ranks editors and counts Ready promotions", async () => {
+  const window = bootDashboard(SAMPLE, {
+    listAllEditHistory: async () => [
+      { id: "s1", requestId: "a", editedByEmail: "alice@rakmat.com.sg", editedByName: "Alice", createdAt: isoHoursAgo(1), changes: [READY_CHANGE] },
+      { id: "s2", requestId: "b", editedByEmail: "alice@rakmat.com.sg", editedByName: "Alice", createdAt: isoHoursAgo(2), changes: [{ field: "quote", newValue: "Q" }] },
+      { id: "s3", requestId: "c", editedByEmail: "bob@rakmat.com.sg", editedByName: "Bob", createdAt: isoHoursAgo(3), changes: [READY_CHANGE] }
+    ]
+  });
+  await settle();
+
+  const rows = Array.from(window.document.querySelectorAll("#leaderboardContent tbody tr"));
+  assert.equal(rows.length, 2);
+  assert.match(rows[0].textContent, /Alice/);
+  assert.ok(rows[0].classList.contains("leaderboard-top"));
+  assert.match(rows[1].textContent, /Bob/);
+
+  const summary = window.document.getElementById("leaderboardSummary");
+  assert.match(summary.textContent, /3 edit sessions/);
+  assert.match(summary.textContent, /2 Ready promotions/);
+});
+
+test("daily completions chart counts today's Ready promotions once per request", async () => {
+  const window = bootDashboard(SAMPLE, {
+    listAllEditHistory: async () => [
+      { id: "s1", requestId: "a", editedByEmail: "alice@rakmat.com.sg", createdAt: isoHoursAgo(1), changes: [READY_CHANGE] },
+      // Re-promotion of the same request today counts once.
+      { id: "s2", requestId: "a", editedByEmail: "alice@rakmat.com.sg", createdAt: isoHoursAgo(2), changes: [READY_CHANGE] },
+      { id: "s3", requestId: "b", editedByEmail: "bob@rakmat.com.sg", createdAt: isoHoursAgo(3), changes: [READY_CHANGE] },
+      // A plain edit is not a completion.
+      { id: "s4", requestId: "c", editedByEmail: "bob@rakmat.com.sg", createdAt: isoHoursAgo(4), changes: [{ field: "quote", newValue: "Q" }] }
+    ]
+  });
+  await settle();
+
+  const chart = window.document.getElementById("completionsChart");
+  assert.ok(chart.querySelector("svg.workload-chart"), "expected a completions line chart");
+
+  const summary = window.document.getElementById("completionsSummary");
+  assert.match(summary.textContent, /2 forms set to Ready in the last 28 days/);
+  assert.match(summary.textContent, /2 today/);
+});
+
+test("activity panels explain when the collection-group rules are not deployed", async () => {
+  const window = bootDashboard(SAMPLE, {
+    listAllEditHistory: async () => {
+      const error = new Error("Missing or insufficient permissions.");
+      error.code = "permission-denied";
+      throw error;
+    }
+  });
+  await settle();
+
+  const board = window.document.getElementById("leaderboardContent");
+  assert.match(board.textContent, /Firestore rules/);
+  const chart = window.document.getElementById("completionsChart");
+  assert.match(chart.textContent, /Firestore rules/);
+});
+
+test("activity panels fall back gracefully when listAllEditHistory is unavailable", async () => {
+  const window = bootDashboard(SAMPLE);
+  await settle();
+
+  const board = window.document.getElementById("leaderboardContent");
+  assert.match(board.textContent, /require an updated firestore\.js/);
 });
 
 /* ----------------------------------------------------------------------- *

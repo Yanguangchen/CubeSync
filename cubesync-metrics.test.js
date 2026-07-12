@@ -1,7 +1,12 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 
-const { buildMetrics, resolveTimestamp } = require("./cubesync-metrics");
+const {
+  buildMetrics,
+  resolveTimestamp,
+  buildActivityLeaderboard,
+  buildDailyCompletions
+} = require("./cubesync-metrics");
 
 test("buildMetrics reports daily weekly monthly workload and operational totals", () => {
   const now = new Date("2026-06-27T12:00:00Z");
@@ -132,6 +137,112 @@ test("buildMetrics detects cube job collisions across the legacy reportNo alias"
 
   assert.equal(metrics.cubeJobCollisions.collisionCount, 1);
   assert.equal(metrics.cubeJobCollisions.groups[0].count, 2);
+});
+
+function historyEntry(overrides) {
+  return Object.assign({
+    requestId: "req-1",
+    editedByEmail: "alice@rakmat.com.sg",
+    editedByName: "Alice",
+    createdAt: "2026-07-10T09:00:00Z",
+    changes: [{ field: "quote", newValue: "Q-1" }]
+  }, overrides);
+}
+
+function readyChange() {
+  return { field: "status", previousValue: "Draft", newValue: "Ready" };
+}
+
+test("buildActivityLeaderboard ranks users by edit sessions and Ready promotions", () => {
+  const entries = [
+    historyEntry({ requestId: "a", editedByEmail: "alice@rakmat.com.sg" }),
+    historyEntry({ requestId: "b", editedByEmail: "alice@rakmat.com.sg", changes: [readyChange()] }),
+    historyEntry({ requestId: "c", editedByEmail: "alice@rakmat.com.sg", changes: [{ field: "contact", newValue: "x" }, readyChange()] }),
+    historyEntry({ requestId: "d", editedByEmail: "bob@rakmat.com.sg", editedByName: "Bob" }),
+    historyEntry({ requestId: "e", editedByEmail: "BOB@rakmat.com.sg", editedByName: "Bob", changes: [readyChange()] })
+  ];
+
+  const board = buildActivityLeaderboard(entries);
+
+  assert.equal(board.users.length, 2);
+  assert.equal(board.users[0].email, "alice@rakmat.com.sg");
+  assert.equal(board.users[0].name, "Alice");
+  assert.equal(board.users[0].editSessions, 3);
+  assert.equal(board.users[0].readyCount, 2);
+  assert.equal(board.users[0].fieldChanges, 4);
+  // Case-insensitive email grouping merges BOB@ and bob@.
+  assert.equal(board.users[1].editSessions, 2);
+  assert.equal(board.users[1].readyCount, 1);
+  assert.equal(board.totalSessions, 5);
+  assert.equal(board.totalReadyPromotions, 3);
+});
+
+test("buildActivityLeaderboard falls back to name for entries without an email", () => {
+  const board = buildActivityLeaderboard([
+    historyEntry({ editedByEmail: "", editedByName: "Legacy User" }),
+    historyEntry({ editedByEmail: "", editedByName: "" })
+  ]);
+
+  const names = board.users.map((user) => user.name);
+  assert.ok(names.includes("Legacy User"));
+  assert.ok(names.includes("Unknown user"));
+});
+
+test("buildActivityLeaderboard tracks each user's last activity timestamp", () => {
+  const board = buildActivityLeaderboard([
+    historyEntry({ createdAt: "2026-07-01T09:00:00Z" }),
+    historyEntry({ createdAt: "2026-07-11T09:00:00Z" }),
+    historyEntry({ createdAt: "2026-07-05T09:00:00Z" })
+  ]);
+
+  assert.equal(board.users[0].lastActivity.toISOString(), "2026-07-11T09:00:00.000Z");
+});
+
+test("buildDailyCompletions counts Ready promotions per day over the window", () => {
+  const now = new Date("2026-07-12T15:00:00Z");
+  const result = buildDailyCompletions([
+    historyEntry({ requestId: "a", createdAt: "2026-07-12T08:00:00Z", changes: [readyChange()] }),
+    historyEntry({ requestId: "b", createdAt: "2026-07-12T09:00:00Z", changes: [readyChange()] }),
+    historyEntry({ requestId: "c", createdAt: "2026-07-10T09:00:00Z", changes: [readyChange()] }),
+    // Plain edit without a Ready promotion must not count.
+    historyEntry({ requestId: "d", createdAt: "2026-07-12T10:00:00Z" }),
+    // Outside the window.
+    historyEntry({ requestId: "e", createdAt: "2026-01-01T10:00:00Z", changes: [readyChange()] })
+  ], { now, days: 28 });
+
+  assert.equal(result.days.length, 28);
+  assert.equal(result.days[result.days.length - 1].count, 2);
+  assert.equal(result.total, 3);
+  assert.equal(result.todayCount, 2);
+  assert.equal(result.busiest.count, 2);
+});
+
+test("buildDailyCompletions counts a re-promoted request once per day", () => {
+  const now = new Date("2026-07-12T15:00:00Z");
+  const result = buildDailyCompletions([
+    historyEntry({ requestId: "a", createdAt: "2026-07-12T08:00:00Z", changes: [readyChange()] }),
+    historyEntry({ requestId: "a", createdAt: "2026-07-12T11:00:00Z", changes: [readyChange()] }),
+    historyEntry({ requestId: "a", createdAt: "2026-07-11T11:00:00Z", changes: [readyChange()] })
+  ], { now });
+
+  assert.equal(result.todayCount, 1);
+  assert.equal(result.total, 2);
+});
+
+test("buildMetrics flags cube job collisions that involve a form dated today", () => {
+  const now = new Date("2026-07-12T15:00:00Z");
+  const metrics = buildMetrics([
+    { id: "a", cubeJobNumber: "CJ-1", submittedAt: "2026-07-12T09:00:00Z" },
+    { id: "b", cubeJobNumber: "CJ-1", submittedAt: "2026-07-01T09:00:00Z" },
+    { id: "c", cubeJobNumber: "CJ-2", submittedAt: "2026-07-01T09:00:00Z" },
+    { id: "d", cubeJobNumber: "CJ-2", submittedAt: "2026-07-02T09:00:00Z" }
+  ], { now });
+
+  const collisions = metrics.cubeJobCollisions;
+  assert.equal(collisions.collisionCount, 2);
+  assert.equal(collisions.todayCollisionCount, 1);
+  assert.equal(collisions.groups.find((group) => group.jobNumber === "CJ-1").involvesToday, true);
+  assert.equal(collisions.groups.find((group) => group.jobNumber === "CJ-2").involvesToday, false);
 });
 
 test("resolveTimestamp falls back across CubeSync date fields", () => {

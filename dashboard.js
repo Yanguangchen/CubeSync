@@ -384,6 +384,12 @@
     }
 
     const metrics = helper.buildMetrics(state.forms);
+    const collisions = metrics.cubeJobCollisions || { todayCollisionCount: 0, groups: [] };
+    const todayCollisionGroups = (collisions.groups || []).filter((group) => group.involvesToday);
+    const collisionDetail = todayCollisionGroups.length
+      ? "Duplicated: " + todayCollisionGroups.slice(0, 2).map((group) => group.jobNumber).join(", ") +
+        (todayCollisionGroups.length > 2 ? ", +" + (todayCollisionGroups.length - 2) + " more" : "")
+      : "No duplicate cube job numbers today";
     const cards = [
       {
         marker: "01",
@@ -403,6 +409,13 @@
         value: metrics.manualReviewCount,
         detail: "Total requiring review",
         review: true
+      },
+      {
+        marker: "#",
+        label: "Cube job collisions",
+        value: collisions.todayCollisionCount,
+        detail: collisionDetail,
+        review: collisions.todayCollisionCount > 0
       }
     ];
 

@@ -38,7 +38,9 @@
 
 .at-a-glance-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  /* auto-fit keeps the row balanced as cards are added (now 4: submissions,
+     free-text, problematic, cube job collisions). */
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 10px;
 }
 

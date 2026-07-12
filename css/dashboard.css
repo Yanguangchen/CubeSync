@@ -1877,6 +1877,69 @@ textarea:focus {
   }
 }
 
+.completions-chart {
+  margin-top: 4px;
+}
+
+.completions-chart .workload-chart {
+  width: 100%;
+  height: auto;
+}
+
+.activity-notice {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.leaderboard-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.leaderboard-table th,
+.leaderboard-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line-strong);
+  text-align: left;
+  vertical-align: top;
+}
+
+.leaderboard-table th {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.leaderboard-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.leaderboard-rank {
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.leaderboard-top .leaderboard-rank,
+.leaderboard-top .leaderboard-name {
+  color: var(--brand-mint-strong, #2bb8a0);
+  font-weight: 700;
+}
+
+.leaderboard-name {
+  display: block;
+  font-weight: 600;
+}
+
+.leaderboard-email {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .workload-insight {
   margin-top: 12px;
 }

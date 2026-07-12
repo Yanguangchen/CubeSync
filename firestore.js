@@ -11,6 +11,7 @@ import {
   addDoc,
   arrayUnion,
   collection,
+  collectionGroup,
   deleteDoc,
   doc,
   getDoc,
@@ -306,6 +307,19 @@ async function listEditHistory(requestId) {
     });
 }
 
+// Fetch every request's edit-history entries in one collection-group query,
+// for the metrics activity leaderboard and daily-completions chart. Each entry
+// carries the parent request id. Requires the collection-group read rule for
+// editHistory in firestore.rules (deploy rules before relying on this).
+async function listAllEditHistory() {
+  const snapshot = await getDocs(collectionGroup(db, EDIT_HISTORY_SUBCOLLECTION));
+  return snapshot.docs.map((entry) => ({
+    id: entry.id,
+    requestId: entry.ref.parent.parent ? entry.ref.parent.parent.id : "",
+    ...entry.data()
+  }));
+}
+
 async function getFormFieldConfig() {
   const snapshot = await getDoc(settingsDocument(FORM_FIELD_CONFIG_DOC_ID));
   return snapshot.exists() ? snapshot.data() : null;
@@ -442,6 +456,7 @@ window.CubeSyncFirestore = {
   deleteCubeRequest,
   addEditHistoryEntry,
   listEditHistory,
+  listAllEditHistory,
   getFormFieldConfig,
   saveFormFieldConfig,
   getDropdownOptions,
