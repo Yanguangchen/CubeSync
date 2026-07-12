@@ -1838,6 +1838,17 @@ textarea:focus {
   grid-column: span 2;
 }
 
+/* Highlight the cube job number collision card when duplicates are detected so
+   staff can spot conflicting job numbers at a glance. */
+.metric-card-alert {
+  border-color: var(--error, #b42318);
+  background: var(--error-soft, rgba(180, 35, 24, 0.10));
+}
+
+.metric-card-alert .metric-value {
+  color: var(--error, #b42318);
+}
+
 .metric-label,
 .metric-detail {
   display: block;

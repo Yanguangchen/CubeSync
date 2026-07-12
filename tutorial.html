@@ -1,0 +1,431 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Getting Started · CubeSync</title>
+    <link rel="icon" type="image/png" href="favicon.png">
+    <link rel="apple-touch-icon" href="assets/icon-192.png">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#42d5bb">
+    <style>
+      :root {
+        --brand-mint: #42d5bb;
+        --brand-mint-strong: #2bb8a0;
+        --brand-blue: #52a0fc;
+        --brand-blue-strong: #3a8ae8;
+        --brand-sky: #8bcffb;
+        --brand-sky-soft: #d4edfd;
+        --ink: #17323b;
+        --ink-soft: #47606a;
+        --line: rgba(23, 50, 59, 0.12);
+        --surface: #ffffff;
+        --page: #eef4f8;
+        --draft: #8bcffb;
+        --ready: #42d5bb;
+        --archived: #b7c4cb;
+        --radius: 16px;
+        --shadow: 0 10px 30px rgba(23, 50, 59, 0.08);
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        color: var(--ink);
+        background:
+          linear-gradient(135deg, rgba(66, 213, 187, 0.12) 0%, rgba(82, 160, 252, 0.10) 50%, rgba(139, 207, 251, 0.14) 100%),
+          var(--page);
+        line-height: 1.6;
+      }
+
+      a { color: var(--brand-blue-strong); }
+
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 14px clamp(16px, 5vw, 48px);
+        background: rgba(255, 255, 255, 0.7);
+        backdrop-filter: blur(8px);
+        border-bottom: 1px solid var(--line);
+        position: sticky;
+        top: 0;
+        z-index: 10;
+      }
+      .topbar .brand { font-weight: 700; letter-spacing: 0.02em; }
+      .topbar .brand span { color: var(--brand-mint-strong); }
+      .topbar nav { display: flex; gap: 8px; flex-wrap: wrap; }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 9px 16px;
+        border-radius: 999px;
+        font-weight: 600;
+        font-size: 0.9rem;
+        text-decoration: none;
+        border: 1px solid transparent;
+        cursor: pointer;
+        transition: transform 0.08s ease, background 0.15s ease;
+      }
+      .btn:active { transform: translateY(1px); }
+      .btn-primary { background: var(--brand-mint); color: #04302a; }
+      .btn-primary:hover { background: var(--brand-mint-strong); }
+      .btn-ghost { background: rgba(255,255,255,0.6); color: var(--ink); border-color: var(--line); }
+      .btn-ghost:hover { background: #fff; }
+
+      .hero {
+        max-width: 920px;
+        margin: 0 auto;
+        padding: clamp(40px, 8vw, 80px) clamp(16px, 5vw, 24px) 24px;
+        text-align: center;
+      }
+      .hero .eyebrow {
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: var(--brand-blue-strong);
+      }
+      .hero h1 {
+        font-size: clamp(2rem, 6vw, 3rem);
+        margin: 12px 0 10px;
+        line-height: 1.1;
+      }
+      .hero p { font-size: 1.1rem; color: var(--ink-soft); max-width: 640px; margin: 0 auto; }
+      .hero .cta { margin-top: 26px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+
+      main { max-width: 920px; margin: 0 auto; padding: 16px clamp(16px, 5vw, 24px) 80px; }
+
+      section { margin-top: 48px; }
+      h2 {
+        font-size: 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 6px;
+      }
+      h2 .num {
+        display: inline-grid;
+        place-items: center;
+        width: 34px;
+        height: 34px;
+        border-radius: 10px;
+        background: var(--brand-mint);
+        color: #04302a;
+        font-size: 1rem;
+        font-weight: 800;
+        flex: none;
+      }
+      .lead { color: var(--ink-soft); margin: 0 0 18px; }
+
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        padding: 22px 24px;
+        box-shadow: var(--shadow);
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+        gap: 16px;
+      }
+      .tile {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        padding: 18px 20px;
+        box-shadow: var(--shadow);
+      }
+      .tile h3 { margin: 4px 0 6px; font-size: 1.05rem; }
+      .tile p { margin: 0; color: var(--ink-soft); font-size: 0.95rem; }
+      .tile .who {
+        display: inline-block;
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        padding: 3px 9px;
+        border-radius: 999px;
+        background: var(--brand-sky-soft);
+        color: var(--brand-blue-strong);
+      }
+
+      ol.steps { list-style: none; counter-reset: step; margin: 0; padding: 0; }
+      ol.steps > li {
+        counter-increment: step;
+        position: relative;
+        padding: 14px 0 14px 52px;
+        border-bottom: 1px solid var(--line);
+      }
+      ol.steps > li:last-child { border-bottom: 0; }
+      ol.steps > li::before {
+        content: counter(step);
+        position: absolute;
+        left: 0;
+        top: 12px;
+        width: 34px;
+        height: 34px;
+        display: grid;
+        place-items: center;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--brand-mint), var(--brand-blue));
+        color: #fff;
+        font-weight: 800;
+      }
+      ol.steps strong { display: block; }
+      ol.steps small { color: var(--ink-soft); }
+
+      .flow {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: stretch;
+        gap: 12px;
+      }
+      .status {
+        flex: 1 1 200px;
+        border-radius: 14px;
+        padding: 16px 18px;
+        color: #06302a;
+        position: relative;
+      }
+      .status h4 { margin: 0 0 6px; font-size: 1.05rem; }
+      .status p { margin: 0; font-size: 0.9rem; color: rgba(6, 48, 42, 0.75); }
+      .status.draft { background: var(--brand-sky-soft); border: 1px solid var(--brand-sky); }
+      .status.ready { background: rgba(66, 213, 187, 0.22); border: 1px solid var(--brand-mint); }
+      .status.archived { background: rgba(183, 196, 203, 0.28); border: 1px solid var(--archived); color: #3a4c53; }
+      .status .tag {
+        display: inline-block;
+        font-size: 0.68rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        padding: 2px 8px;
+        border-radius: 999px;
+        margin-bottom: 8px;
+        background: rgba(255,255,255,0.7);
+      }
+
+      table.tips { width: 100%; border-collapse: collapse; }
+      table.tips th, table.tips td {
+        text-align: left;
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--line);
+        vertical-align: top;
+        font-size: 0.94rem;
+      }
+      table.tips th { color: var(--brand-blue-strong); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; }
+      table.tips td:first-child { font-weight: 600; white-space: nowrap; }
+
+      .callout {
+        display: flex;
+        gap: 12px;
+        background: var(--brand-sky-soft);
+        border: 1px solid var(--brand-sky);
+        border-radius: 12px;
+        padding: 14px 16px;
+        margin-top: 16px;
+        font-size: 0.95rem;
+      }
+      .callout .ico { font-size: 1.2rem; line-height: 1.4; }
+
+      code.kbd {
+        background: rgba(23,50,59,0.06);
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        padding: 1px 6px;
+        font-size: 0.85em;
+      }
+
+      footer {
+        text-align: center;
+        padding: 30px 20px 50px;
+        color: var(--ink-soft);
+        font-size: 0.9rem;
+      }
+      footer a { margin: 0 8px; }
+
+      @media (prefers-reduced-motion: no-preference) {
+        section { animation: rise 0.5s ease both; }
+        @keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">Cube<span>Sync</span></div>
+      <nav>
+        <a class="btn btn-ghost" href="dashboard.html">Dashboard</a>
+        <a class="btn btn-primary" href="glassmorphic.html">Open the form →</a>
+      </nav>
+    </header>
+
+    <div class="hero">
+      <div class="eyebrow">Welcome to CubeSync</div>
+      <h1>Concrete cube test requests, done digitally.</h1>
+      <p>
+        CubeSync replaces the paper cube request form for R.A.K. Materials Consultants.
+        This quick tour shows you how to submit a request, how staff review them, and what
+        happens after. It takes about three minutes.
+      </p>
+      <div class="cta">
+        <a class="btn btn-primary" href="glassmorphic.html">Submit a request</a>
+        <a class="btn btn-ghost" href="#tour">Take the tour ↓</a>
+      </div>
+    </div>
+
+    <main id="tour">
+      <!-- 1. The pages -->
+      <section>
+        <h2><span class="num">1</span> Know your pages</h2>
+        <p class="lead">CubeSync has a few pages. Pick the one that matches what you need to do.</p>
+        <div class="grid">
+          <div class="tile">
+            <span class="who">Anyone</span>
+            <h3>Digital form</h3>
+            <p>The recommended <strong>stepped</strong> request form. Guides you field by field and catches mistakes early.</p>
+          </div>
+          <div class="tile">
+            <span class="who">Anyone</span>
+            <h3>Original form</h3>
+            <p>A PDF-faithful single-page version of the same form. Same fields, familiar layout.</p>
+          </div>
+          <div class="tile">
+            <span class="who">Staff</span>
+            <h3>Dashboard</h3>
+            <p>Search, review, edit, print, delete and triage submissions. Manage field settings and dropdowns.</p>
+          </div>
+          <div class="tile">
+            <span class="who">Staff · Bots</span>
+            <h3>RPA queue</h3>
+            <p>Date-filtered queue of <strong>Ready</strong> requests, with CSV/ZIP export for automated processing.</p>
+          </div>
+        </div>
+        <div class="callout">
+          <span class="ico">💡</span>
+          <div>Switch between the <strong>Digital</strong> and <strong>Original</strong> forms with the toggle at the top of either form. Staff pages ask you to sign in with Google.</div>
+        </div>
+      </section>
+
+      <!-- 2. Submit a request -->
+      <section>
+        <h2><span class="num">2</span> Submit a request</h2>
+        <p class="lead">For customers and site staff. The Digital form is the easiest way in.</p>
+        <div class="card">
+          <ol class="steps">
+            <li><strong>Open the Digital form</strong><small>From the home page or the top navigation.</small></li>
+            <li><strong>Fill the required fields</strong><small>Customer (Billing), Contact, Grade, Supplier, Location, Date of cast, slumps, Size, and the Persons in charge. The live form marks exactly what's required.</small></li>
+            <li><strong>Use the autocomplete suggestions</strong><small>Start typing and pick a match. Typing something new is allowed — it just gets flagged for staff to review.</small></li>
+            <li><strong>Add at least one test-result row</strong><small>Set number, size, specimen reference and dates. A barcode is generated automatically.</small></li>
+            <li><strong>Complete the “I'm not a robot” check</strong><small>This protects the system from spam submissions.</small></li>
+            <li><strong>Click Save</strong><small>Your request is stored as a <strong>Draft</strong> for staff to review. Done!</small></li>
+          </ol>
+        </div>
+        <div class="callout">
+          <span class="ico">⚠️</span>
+          <div>If the form won't submit, it jumps back to the first empty required field and highlights it. Fill that field and try again.</div>
+        </div>
+      </section>
+
+      <!-- 3. The lifecycle -->
+      <section>
+        <h2><span class="num">3</span> What happens next</h2>
+        <p class="lead">Every request moves through three states. Only staff can move it forward.</p>
+        <div class="flow">
+          <div class="status draft">
+            <span class="tag">Step 1</span>
+            <h4>Draft</h4>
+            <p>Every new submission lands here automatically. It's waiting for staff to review.</p>
+          </div>
+          <div class="status ready">
+            <span class="tag">Step 2</span>
+            <h4>Ready</h4>
+            <p>Staff approve it. Only <strong>Ready</strong> requests enter the RPA/ERP queue for processing.</p>
+          </div>
+          <div class="status archived">
+            <span class="tag">Step 3</span>
+            <h4>Archived</h4>
+            <p>Completed or set-aside requests, tucked out of the active working list.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 4. Staff dashboard -->
+      <section>
+        <h2><span class="num">4</span> Review on the dashboard</h2>
+        <p class="lead">For staff. Sign in with an approved Google account to manage submissions.</p>
+        <div class="grid">
+          <div class="tile"><h3>🔍 Search &amp; filter</h3><p>Filter the list, sort columns, and flip on <strong>Today only</strong> to focus on today's work.</p></div>
+          <div class="tile"><h3>✏️ Edit &amp; save</h3><p>Open a request, change any field, and save — only what you changed is written back.</p></div>
+          <div class="tile"><h3>🟠 Free-text review</h3><p>Values typed instead of picked are tinted orange with a badge, so you can verify customer entries.</p></div>
+          <div class="tile"><h3>✅ Set status</h3><p>Promote to <strong>Ready</strong> or move to <strong>Archived</strong>. Print a request as a single A4 sheet.</p></div>
+        </div>
+        <div class="callout">
+          <span class="ico">🧩</span>
+          <div>Setting a request to <strong>Ready</strong> also promotes any new free-text values into the shared dropdown lists, so everyone gets them as suggestions next time.</div>
+        </div>
+      </section>
+
+      <!-- 5. Configure without code -->
+      <section>
+        <h2><span class="num">5</span> Configure the forms</h2>
+        <p class="lead">Staff can tailor the public forms from <strong>Dashboard → Field settings</strong> — no code required.</p>
+        <div class="card">
+          <table class="tips">
+            <tr><th>You want to…</th><th>Do this</th></tr>
+            <tr><td>Show/hide a field</td><td>Toggle request fields or result columns on/off in <strong>Field settings</strong>.</td></tr>
+            <tr><td>Rename a field for customers</td><td>Edit its label — this changes only what customers see; internal data stays the same.</td></tr>
+            <tr><td>Add a new field</td><td>Add a <strong>custom request field</strong> (text, number, date, checkbox or textarea) and enable it.</td></tr>
+            <tr><td>Update dropdown suggestions</td><td>Open <strong>Manage options</strong> to edit the shared autocomplete lists for everyone.</td></tr>
+          </table>
+        </div>
+      </section>
+
+      <!-- 6. Troubleshooting -->
+      <section>
+        <h2><span class="num">6</span> If something goes wrong</h2>
+        <p class="lead">The most common bumps and how to clear them.</p>
+        <div class="card">
+          <table class="tips">
+            <tr><th>Symptom</th><th>What to do</th></tr>
+            <tr><td>“reCAPTCHA is still loading”</td><td>Wait a moment and <strong>refresh the page</strong>, then submit again.</td></tr>
+            <tr><td>“reCAPTCHA verification failed”</td><td>Re-tick <strong>I'm not a robot</strong> and submit again.</td></tr>
+            <tr><td>Can't sign in to the dashboard</td><td>Only approved staff have access. Ask an admin to add your Google email.</td></tr>
+            <tr><td>Form jumps to a field</td><td>That required field is empty or invalid — fill it and resubmit.</td></tr>
+            <tr><td>Dropdowns look empty</td><td>Report it to an administrator; the option lists may need attention.</td></tr>
+            <tr><td>Old version keeps showing</td><td>CubeSync caches for offline use — hard-refresh the page or reinstall the app.</td></tr>
+          </table>
+        </div>
+        <div class="callout">
+          <span class="ico">📶</span>
+          <div>CubeSync works offline as an installable app: the forms load without a connection, though signing in and saving still need internet. Install it from your browser's menu (<code class="kbd">Install app</code> / <code class="kbd">Add to Home Screen</code>).</div>
+        </div>
+      </section>
+
+      <section>
+        <div class="hero" style="padding:40px 0 0;">
+          <h2 style="justify-content:center;">Ready to try it?</h2>
+          <p>Fill out your first request now, or head to the dashboard to review submissions.</p>
+          <div class="cta">
+            <a class="btn btn-primary" href="glassmorphic.html">Submit a request</a>
+            <a class="btn btn-ghost" href="dashboard.html">Open the dashboard</a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      CubeSync · R.A.K. Materials Consultants
+      <div style="margin-top:8px;">
+        <a href="glassmorphic.html">Digital form</a>·
+        <a href="index.html">Original form</a>·
+        <a href="dashboard.html">Dashboard</a>
+      </div>
+    </footer>
+  </body>
+</html>
