@@ -222,11 +222,55 @@
     return Math.max(customFields, Number.isFinite(storedCount) ? storedCount : 0);
   }
 
+  // The cube job number is stored on `cubeJobNumber`, with the legacy `reportNo`
+  // alias on older documents. Return the first non-empty, trimmed value.
+  function cubeJobNumberValue(record) {
+    const primary = record.cubeJobNumber == null ? "" : String(record.cubeJobNumber).trim();
+    if (primary) return primary;
+    return record.reportNo == null ? "" : String(record.reportNo).trim();
+  }
+
+  // A collision is the same cube job number appearing on more than one request.
+  // Grouping is case-insensitive so "AB-1" and "ab-1" are treated as the same
+  // number; the first-seen spelling is kept for display.
+  function buildCubeJobCollisions(entries) {
+    const groups = new Map();
+    entries.forEach((entry) => {
+      const value = cubeJobNumberValue(entry);
+      if (!value) return;
+      const key = value.toLowerCase();
+      const existing = groups.get(key);
+      if (existing) {
+        existing.count += 1;
+        existing.ids.push(entry.id);
+      } else {
+        groups.set(key, { jobNumber: value, count: 1, ids: [entry.id] });
+      }
+    });
+
+    const collisions = [];
+    let affectedRecords = 0;
+    groups.forEach((group) => {
+      if (group.count > 1) {
+        collisions.push({ jobNumber: group.jobNumber, count: group.count, ids: group.ids });
+        affectedRecords += group.count;
+      }
+    });
+    collisions.sort((a, b) => b.count - a.count || a.jobNumber.localeCompare(b.jobNumber));
+
+    return {
+      collisionCount: collisions.length,
+      affectedRecords: affectedRecords,
+      groups: collisions
+    };
+  }
+
   function buildMetrics(records, options) {
     const opts = options || {};
     const now = toDate(opts.now) || new Date();
     const forms = Array.isArray(records) ? records : [];
     const dated = [];
+    const cubeJobEntries = [];
     const hourlyCounts = new Array(24).fill(0);
 
     let dailyCount = 0;
@@ -242,6 +286,7 @@
 
       if (isProcessed(record)) processedCount += 1;
       if (requiresManualReview(record)) manualReviewCount += 1;
+      cubeJobEntries.push({ id: record.id != null ? record.id : form && form.id, cubeJobNumber: record.cubeJobNumber, reportNo: record.reportNo });
 
       const date = resolveTimestamp(record, opts.fields);
       if (!date) return;
@@ -281,6 +326,7 @@
       processedCount,
       manualReviewCount,
       todayFreeTextFieldCount,
+      cubeJobCollisions: buildCubeJobCollisions(cubeJobEntries),
       workloadInsight: buildWorkloadInsightFromDates(dated, now)
     };
   }

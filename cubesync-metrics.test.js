@@ -90,6 +90,50 @@ test("buildMetrics totals free-text fields only across today's submissions", () 
   assert.equal(metrics.todayFreeTextFieldCount, 5);
 });
 
+test("buildMetrics flags cube job number collisions across requests", () => {
+  const metrics = buildMetrics([
+    { id: "a", cubeJobNumber: "CJ-100" },
+    { id: "b", cubeJobNumber: "CJ-100" },
+    { id: "c", cubeJobNumber: "cj-100" },
+    { id: "d", cubeJobNumber: "CJ-200" },
+    { id: "e", cubeJobNumber: "CJ-300" },
+    { id: "f", cubeJobNumber: "CJ-300" },
+    { id: "g", cubeJobNumber: "" },
+    { id: "h" }
+  ]);
+
+  const collisions = metrics.cubeJobCollisions;
+  assert.equal(collisions.collisionCount, 2);
+  assert.equal(collisions.affectedRecords, 5);
+  assert.equal(collisions.groups[0].jobNumber, "CJ-100");
+  assert.equal(collisions.groups[0].count, 3);
+  assert.deepEqual(collisions.groups[0].ids, ["a", "b", "c"]);
+  assert.equal(collisions.groups[1].jobNumber, "CJ-300");
+  assert.equal(collisions.groups[1].count, 2);
+});
+
+test("buildMetrics reports no cube job collisions when numbers are unique", () => {
+  const metrics = buildMetrics([
+    { id: "a", cubeJobNumber: "CJ-1" },
+    { id: "b", cubeJobNumber: "CJ-2" },
+    { id: "c" }
+  ]);
+
+  assert.equal(metrics.cubeJobCollisions.collisionCount, 0);
+  assert.equal(metrics.cubeJobCollisions.affectedRecords, 0);
+  assert.deepEqual(metrics.cubeJobCollisions.groups, []);
+});
+
+test("buildMetrics detects cube job collisions across the legacy reportNo alias", () => {
+  const metrics = buildMetrics([
+    { id: "a", cubeJobNumber: "CJ-9" },
+    { id: "b", reportNo: "CJ-9" }
+  ]);
+
+  assert.equal(metrics.cubeJobCollisions.collisionCount, 1);
+  assert.equal(metrics.cubeJobCollisions.groups[0].count, 2);
+});
+
 test("resolveTimestamp falls back across CubeSync date fields", () => {
   assert.equal(resolveTimestamp({ updatedAt: "2026-06-27T10:00:00Z" }).toISOString(), "2026-06-27T10:00:00.000Z");
   assert.equal(resolveTimestamp({ dateOfCast: "2026-06-26" }).toISOString(), "2026-06-26T00:00:00.000Z");

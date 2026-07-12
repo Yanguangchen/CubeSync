@@ -211,6 +211,21 @@
       ? metrics.peakCount + " submission" + (metrics.peakCount === 1 ? "" : "s") + " at peak"
       : "No dated submissions yet";
 
+    const collisions = metrics.cubeJobCollisions || { collisionCount: 0, affectedRecords: 0, groups: [] };
+    let collisionDetail;
+    if (collisions.collisionCount > 0) {
+      const preview = collisions.groups
+        .slice(0, 3)
+        .map((group) => group.jobNumber + " ×" + group.count)
+        .join(", ");
+      const more = collisions.collisionCount > 3 ? ", +" + (collisions.collisionCount - 3) + " more" : "";
+      collisionDetail = collisions.affectedRecords + " records share " +
+        collisions.collisionCount + " cube job #" + (collisions.collisionCount === 1 ? "" : "s") +
+        " · " + preview + more;
+    } else {
+      collisionDetail = "No duplicate cube job numbers";
+    }
+
     const cards = [
       { label: "Today", value: metrics.dailyCount, detail: "Form submissions today" },
       { label: "This week", value: metrics.weeklyCount, detail: "Form submissions this week" },
@@ -228,11 +243,18 @@
       { label: "Peak period", value: peakLabel, detail: peakDetail, wide: true },
       { label: "Total records", value: metrics.totalRecords, detail: "Records in the current view" },
       { label: "Processed", value: metrics.processedCount, detail: "ERP success, submitted, or archived" },
-      { label: "Manual review", value: metrics.manualReviewCount, detail: "Free-text or failed/error records" }
+      { label: "Manual review", value: metrics.manualReviewCount, detail: "Free-text or failed/error records" },
+      {
+        label: "Cube job number collision",
+        value: collisions.collisionCount,
+        detail: collisionDetail,
+        wide: true,
+        alert: collisions.collisionCount > 0
+      }
     ];
 
     grid.innerHTML = cards.map((card) => `
-      <article class="metric-card${card.wide ? " metric-card-wide" : ""}">
+      <article class="metric-card${card.wide ? " metric-card-wide" : ""}${card.alert ? " metric-card-alert" : ""}">
         <span class="metric-label">${escapeHtml(card.label)}</span>
         <strong class="metric-value">${escapeHtml(formatMetricNumber(card.value))}</strong>
         <span class="metric-detail">${escapeHtml(card.detail)}</span>
