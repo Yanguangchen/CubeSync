@@ -149,6 +149,41 @@ test("build copies HTML-referenced scripts to public output", () => {
   }
 });
 
+test("every service-worker APP_SHELL file is copied to public/ by the build", () => {
+  // Regression guard: tutorial.html was precached in sw.js but missing from
+  // STATIC_FILES, so production served 404 for a page the app navigation and
+  // service worker both referenced. Any app-shell file must be in the build.
+  const swSource = fs.readFileSync("sw.js", "utf8");
+  const shellMatch = swSource.match(/APP_SHELL\s*=\s*\[([\s\S]*?)\]/);
+  assert.ok(shellMatch, "Could not find APP_SHELL array in sw.js");
+
+  const buildScript = fs.readFileSync("scripts/write-env.js", "utf8");
+  const staticDirsMatch = buildScript.match(/STATIC_DIRS\s*=\s*\[([\s\S]*?)\]/);
+  const staticDirs = [];
+  if (staticDirsMatch) {
+    const dirRe = /"([^"]+)"/g;
+    let dirEntry;
+    while ((dirEntry = dirRe.exec(staticDirsMatch[1])) !== null) staticDirs.push(dirEntry[1]);
+  }
+
+  const missing = [];
+  const entryRe = /"\.\/([^"]*)"/g;
+  let entry;
+  while ((entry = entryRe.exec(shellMatch[1])) !== null) {
+    const file = entry[1];
+    if (!file) continue; // "./" root entry
+    if (file === "env.js") continue; // generated at build time
+    if (staticDirs.some((dir) => file.startsWith(`${dir}/`))) continue;
+    if (!buildScript.includes(`"${file}"`)) missing.push(file);
+  }
+
+  assert.deepEqual(
+    missing,
+    [],
+    `sw.js APP_SHELL files missing from build STATIC_FILES (will 404 in production): ${missing.join(", ")}`
+  );
+});
+
 test("build script uses .env.local and emits non-empty public env output", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "cubesync-build-"));
   const staticFiles = [
@@ -158,6 +193,7 @@ test("build script uses .env.local and emits non-empty public env output", () =>
     "index.html",
     "rpa-dashboard.html",
     "rpa-view.html",
+    "tutorial.html",
     "app.js",
     "barcode.js",
     "chime.js",

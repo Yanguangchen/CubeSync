@@ -13,6 +13,7 @@ const STATIC_FILES = [
   "index.html",
   "rpa-dashboard.html",
   "rpa-view.html",
+  "tutorial.html",
   "app.js",
   "barcode.js",
   "chime.js",
