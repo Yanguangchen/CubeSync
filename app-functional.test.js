@@ -561,9 +561,11 @@ test("save/print/recaptcha live in a footer at the bottom of the form on both te
       "footer should appear after the request grid"
     );
 
-    // The top toolbar no longer carries the command buttons.
+    // The top toolbar no longer carries the command buttons (it now holds the Guide link instead).
     const topRight = document.querySelector(".page-tools .tool-section.right");
-    assert.equal(topRight, null, "top toolbar should no longer have the command group");
+    ["recaptchaContainer", "saveStatus", "saveFormButton", "printButton"].forEach((id) => {
+      assert.equal(topRight && topRight.querySelector(`#${id}`), null, `top toolbar should not contain ${id}`);
+    });
   }
 });
 
