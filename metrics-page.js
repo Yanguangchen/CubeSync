@@ -9,6 +9,8 @@
 
   const state = {
     records: [],
+    history: null,
+    historyError: null,
     heatmapMode: "weekly",
     loading: false
   };
@@ -276,6 +278,176 @@
     }
   }
 
+  // Single-series line chart of daily Ready completions, drawn in the same
+  // visual language as the workload chart.
+  function renderCompletionsChart(days) {
+    const series = Array.isArray(days) ? days : [];
+    if (!series.length) {
+      return '<div class="workload-chart-empty">No completions recorded yet.</div>';
+    }
+
+    const max = Math.max(1, ...series.map((day) => Number(day.count || 0)));
+    const chartWidth = 560;
+    const chartHeight = 160;
+    const padding = 18;
+    const plotWidth = chartWidth - (padding * 2);
+    const plotHeight = chartHeight - (padding * 2);
+    const denominator = Math.max(1, series.length - 1);
+
+    const points = series.map((day, index) => {
+      const x = padding + ((index / denominator) * plotWidth);
+      const y = padding + (plotHeight - ((Number(day.count || 0) / max) * plotHeight));
+      return x.toFixed(1) + "," + y.toFixed(1);
+    }).join(" ");
+
+    const title = "Daily forms set to Ready, last " + series.length + " days";
+    const detail = series.map((day) => day.label + ": " + day.count).join(", ");
+
+    return `
+      <svg class="workload-chart" viewBox="0 0 ${chartWidth} ${chartHeight}" role="img" aria-label="${escapeHtml(title)}">
+        <title>${escapeHtml(title)}</title>
+        <desc>${escapeHtml(detail)}</desc>
+        <line class="workload-chart-axis" x1="${padding}" y1="${chartHeight - padding}" x2="${chartWidth - padding}" y2="${chartHeight - padding}"></line>
+        <line class="workload-chart-axis" x1="${padding}" y1="${padding}" x2="${padding}" y2="${chartHeight - padding}"></line>
+        <polyline class="workload-chart-history" points="${points}"></polyline>
+        <text class="workload-chart-label" x="${padding}" y="${chartHeight - 4}">${escapeHtml(series[0].label)}</text>
+        <text class="workload-chart-label workload-chart-label-end" x="${chartWidth - padding}" y="${chartHeight - 4}">Today</text>
+      </svg>
+    `;
+  }
+
+  function formatLastActivity(date) {
+    if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+      return "—";
+    }
+    return date.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+  }
+
+  function renderActivity() {
+    const chart = elements.completionsChart;
+    const board = elements.leaderboardContent;
+    if (!chart && !board) {
+      return;
+    }
+
+    const helper = metricsHelper();
+    const helperReady = helper &&
+      typeof helper.buildActivityLeaderboard === "function" &&
+      typeof helper.buildDailyCompletions === "function";
+
+    if (state.historyError || !helperReady) {
+      const message = state.historyError ||
+        "Activity insights are unavailable until the metrics helper loads.";
+      if (chart) chart.innerHTML = `<p class="activity-notice">${escapeHtml(message)}</p>`;
+      if (board) board.innerHTML = `<p class="activity-notice">${escapeHtml(message)}</p>`;
+      return;
+    }
+
+    if (state.history === null) {
+      if (chart) chart.innerHTML = '<p class="activity-notice">Loading edit activity…</p>';
+      if (board) board.innerHTML = '<p class="activity-notice">Loading edit activity…</p>';
+      return;
+    }
+
+    const completions = helper.buildDailyCompletions(state.history);
+    if (chart) {
+      chart.innerHTML = renderCompletionsChart(completions.days);
+    }
+    if (elements.completionsSummary) {
+      elements.completionsSummary.textContent = completions.total === 0
+        ? "No forms were set to Ready in the last 28 days."
+        : formatMetricNumber(completions.total) + " forms set to Ready in the last 28 days · " +
+          formatMetricNumber(completions.todayCount) + " today" +
+          (completions.busiest ? " · busiest day " + completions.busiest.date + " (" + completions.busiest.count + ")" : "") + ".";
+    }
+
+    const leaderboard = helper.buildActivityLeaderboard(state.history);
+    if (board) {
+      if (!leaderboard.users.length) {
+        board.innerHTML = '<p class="activity-notice">No edit activity recorded yet. Edits and Ready promotions made from the dashboard will appear here.</p>';
+      } else {
+        board.innerHTML = `
+          <table class="leaderboard-table">
+            <thead>
+              <tr>
+                <th scope="col">#</th>
+                <th scope="col">User</th>
+                <th scope="col">Edits</th>
+                <th scope="col">Set to Ready</th>
+                <th scope="col">Fields changed</th>
+                <th scope="col">Last active</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${leaderboard.users.map((user, index) => `
+                <tr${index === 0 ? ' class="leaderboard-top"' : ""}>
+                  <td class="leaderboard-rank">${index + 1}</td>
+                  <td>
+                    <span class="leaderboard-name">${escapeHtml(user.name)}</span>
+                    ${user.email && user.email !== user.name ? `<span class="leaderboard-email">${escapeHtml(user.email)}</span>` : ""}
+                  </td>
+                  <td>${escapeHtml(formatMetricNumber(user.editSessions))}</td>
+                  <td>${escapeHtml(formatMetricNumber(user.readyCount))}</td>
+                  <td>${escapeHtml(formatMetricNumber(user.fieldChanges))}</td>
+                  <td>${escapeHtml(formatLastActivity(user.lastActivity))}</td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        `;
+      }
+    }
+    if (elements.leaderboardSummary) {
+      elements.leaderboardSummary.textContent = leaderboard.users.length
+        ? formatMetricNumber(leaderboard.totalSessions) + " edit sessions · " +
+          formatMetricNumber(leaderboard.totalReadyPromotions) + " Ready promotions across " +
+          leaderboard.users.length + " user" + (leaderboard.users.length === 1 ? "" : "s") + "."
+        : "Who edits forms and sets them to Ready the most.";
+    }
+  }
+
+  // Edit-history entries load once per sign-in via a collection-group query.
+  // A permission error most likely means the updated firestore.rules (the
+  // /{path=**}/editHistory read rule) has not been deployed yet.
+  async function loadEditHistory() {
+    const store = formStore();
+    if (!store || typeof store.listAllEditHistory !== "function") {
+      state.historyError = "Activity insights require an updated firestore.js.";
+      renderActivity();
+      return;
+    }
+
+    state.history = null;
+    state.historyError = null;
+    renderActivity();
+
+    try {
+      const entries = await store.listAllEditHistory();
+      state.history = Array.isArray(entries) ? entries : [];
+      logObs({
+        feature: "MetricsPage",
+        functionName: "loadEditHistory",
+        operation: "listAllEditHistory",
+        status: "success",
+        category: "DatabaseRead"
+      });
+    } catch (error) {
+      const isPermission = error && /permission/i.test(String(error.code || error.message || ""));
+      state.historyError = isPermission
+        ? "Activity insights need the updated Firestore rules deployed (collection-group read for editHistory)."
+        : formatObsError(error, "Unable to load edit activity.");
+      logObs({
+        feature: "MetricsPage",
+        functionName: "loadEditHistory",
+        operation: "listAllEditHistory",
+        status: "failed",
+        category: "DatabaseRead",
+        error: error
+      });
+    }
+    renderActivity();
+  }
+
   // Compact axis label for a bucket, e.g. "9 AM" -> "9a", "Monday" -> "Mon".
   function heatmapShortLabel(label, mode) {
     if (mode === "daily") {
@@ -331,6 +503,7 @@
   function render() {
     renderMetrics();
     renderHeatmap();
+    renderActivity();
   }
 
   // Real-time subscription over the raw Firestore records. The metrics and
@@ -412,6 +585,8 @@
   function clearMetrics() {
     stopRecordsSubscription();
     state.records = [];
+    state.history = null;
+    state.historyError = null;
     render();
   }
 
@@ -494,6 +669,7 @@
       clearSurfaceStatus(elements.authGateStatus);
       setLocked(false);
       startRecords();
+      loadEditHistory();
     });
   }
 
@@ -562,6 +738,8 @@
       "authGate", "metricsShell", "signInButton", "signOutButton", "authUser",
       "authGateStatus", "topbarStatus",
       "metricsGrid", "metricsSummary", "workloadInsight",
+      "completionsChart", "completionsSummary",
+      "leaderboardContent", "leaderboardSummary",
       "heatmapGrid", "heatmapSummary",
       "menuToggle", "dropdownMenu"
     ].forEach((id) => {

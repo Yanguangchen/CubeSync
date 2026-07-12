@@ -1762,3 +1762,91 @@ test("a promoted value stops being flagged after the dashboard reloads", async (
     "the promoted supplier should no longer be flagged"
   );
 });
+
+test("at-a-glance panel reports cube job collisions involving today's forms", async () => {
+  const dom = new JSDOM(html, { runScripts: "dangerously", url: "http://localhost/" });
+  const { window } = dom;
+  window.alert = () => {};
+  window.confirm = () => true;
+
+  const todayIso = new Date().toISOString();
+  window.CubeSyncAuth = {
+    onAuthChange: (cb) => cb({ email: "test@rakmat.com.sg" }),
+    isAllowedUser: () => true,
+    currentUser: () => ({ email: "test@rakmat.com.sg" })
+  };
+  window.CubeSyncFirestore = {
+    listCubeRequests: async () => [
+      // CJ-77 is duplicated and one copy arrived today -> a collision today.
+      { id: "1", cubeJobNumber: "CJ-77", client: "A", submittedAt: todayIso },
+      { id: "2", cubeJobNumber: "CJ-77", client: "B", submittedAt: "2026-07-01T09:00:00Z" },
+      // CJ-88 is duplicated only among older forms -> not counted today.
+      { id: "3", cubeJobNumber: "CJ-88", client: "C", submittedAt: "2026-07-01T09:00:00Z" },
+      { id: "4", cubeJobNumber: "CJ-88", client: "D", submittedAt: "2026-07-02T09:00:00Z" }
+    ],
+    updateCubeRequest: async () => {},
+    deleteCubeRequest: async () => {}
+  };
+
+  const metricsJs = fs.readFileSync("cubesync-metrics.js", "utf8");
+  [barcodeJs, formDataJs, metricsJs, dashboardJs].forEach((js) => {
+    const script = window.document.createElement("script");
+    script.textContent = js;
+    window.document.head.appendChild(script);
+  });
+  const event = window.document.createEvent("Event");
+  event.initEvent("DOMContentLoaded", true, true);
+  window.document.dispatchEvent(event);
+  await new Promise((resolve) => setTimeout(resolve, 50));
+
+  const grid = window.document.getElementById("atAGlanceGrid");
+  const collisionCard = Array.from(grid.querySelectorAll(".glance-card"))
+    .find((card) => /Cube job collisions/.test(card.textContent));
+  assert.ok(collisionCard, "expected a cube job collisions glance card");
+  assert.match(collisionCard.querySelector(".glance-value").textContent, /^1$/);
+  assert.match(collisionCard.textContent, /Duplicated: CJ-77/);
+  assert.ok(
+    collisionCard.classList.contains("glance-card-review"),
+    "a collision today should use the review (alert) styling"
+  );
+});
+
+test("at-a-glance collision card shows a calm empty state without collisions today", async () => {
+  const dom = new JSDOM(html, { runScripts: "dangerously", url: "http://localhost/" });
+  const { window } = dom;
+  window.alert = () => {};
+  window.confirm = () => true;
+
+  window.CubeSyncAuth = {
+    onAuthChange: (cb) => cb({ email: "test@rakmat.com.sg" }),
+    isAllowedUser: () => true,
+    currentUser: () => ({ email: "test@rakmat.com.sg" })
+  };
+  window.CubeSyncFirestore = {
+    listCubeRequests: async () => [
+      { id: "1", cubeJobNumber: "CJ-1", client: "A", submittedAt: new Date().toISOString() },
+      { id: "2", cubeJobNumber: "CJ-2", client: "B", submittedAt: "2026-07-01T09:00:00Z" }
+    ],
+    updateCubeRequest: async () => {},
+    deleteCubeRequest: async () => {}
+  };
+
+  const metricsJs = fs.readFileSync("cubesync-metrics.js", "utf8");
+  [barcodeJs, formDataJs, metricsJs, dashboardJs].forEach((js) => {
+    const script = window.document.createElement("script");
+    script.textContent = js;
+    window.document.head.appendChild(script);
+  });
+  const event = window.document.createEvent("Event");
+  event.initEvent("DOMContentLoaded", true, true);
+  window.document.dispatchEvent(event);
+  await new Promise((resolve) => setTimeout(resolve, 50));
+
+  const grid = window.document.getElementById("atAGlanceGrid");
+  const collisionCard = Array.from(grid.querySelectorAll(".glance-card"))
+    .find((card) => /Cube job collisions/.test(card.textContent));
+  assert.ok(collisionCard, "expected a cube job collisions glance card");
+  assert.match(collisionCard.querySelector(".glance-value").textContent, /^0$/);
+  assert.match(collisionCard.textContent, /No duplicate cube job numbers today/);
+  assert.ok(!collisionCard.classList.contains("glance-card-review"));
+});

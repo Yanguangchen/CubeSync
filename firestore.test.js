@@ -61,6 +61,23 @@ test("Firestore module initializes Firebase and exposes cube request CRUD", () =
   }
 });
 
+test("Firestore module supports collection-group edit-history reads for activity metrics", () => {
+  const js = fs.readFileSync("firestore.js", "utf8");
+  const rules = fs.readFileSync("firestore.rules", "utf8");
+
+  // listAllEditHistory powers the metrics leaderboard and daily-completions
+  // chart via one collection-group query, attributing entries to requests.
+  assert.match(js, /collectionGroup,/);
+  assert.match(js, /async function listAllEditHistory\(\)/);
+  assert.match(js, /collectionGroup\(db, EDIT_HISTORY_SUBCOLLECTION\)/);
+  assert.match(js, /requestId: entry\.ref\.parent\.parent/);
+  assert.match(js, /listAllEditHistory,/);
+
+  // The nested editHistory match cannot satisfy collection-group queries, so
+  // the rules must carry a /{path=**} read match gated to CubeSync staff.
+  assert.match(rules, /match \/\{path=\*\*\}\/editHistory\/\{sessionId\} \{\s*allow read: if isCubeSyncStaff\(\);\s*\}/);
+});
+
 test("Firestore rules enforce CubeSync staff allowlist for direct client access", () => {
   const rules = fs.readFileSync("firestore.rules", "utf8");
 
