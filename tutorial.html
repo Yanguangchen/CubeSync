@@ -26,11 +26,19 @@
         --archived: #b7c4cb;
         --radius: 16px;
         --shadow: 0 10px 30px rgba(23, 50, 59, 0.08);
+        --shadow-hover: 0 20px 44px rgba(23, 50, 59, 0.14);
+        --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
       }
 
       * { box-sizing: border-box; }
 
+      html {
+        scroll-behavior: smooth;
+        scroll-padding-top: 88px;
+      }
+
       body {
+        min-height: 100vh;
         margin: 0;
         font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
         color: var(--ink);
@@ -38,9 +46,18 @@
           linear-gradient(135deg, rgba(66, 213, 187, 0.12) 0%, rgba(82, 160, 252, 0.10) 50%, rgba(139, 207, 251, 0.14) 100%),
           var(--page);
         line-height: 1.6;
+        overflow-x: hidden;
       }
 
-      a { color: var(--brand-blue-strong); }
+      a {
+        color: var(--brand-blue-strong);
+        transition: color 180ms ease;
+      }
+
+      a:focus-visible {
+        outline: 3px solid rgba(82, 160, 252, 0.32);
+        outline-offset: 4px;
+      }
 
       .topbar {
         display: flex;
@@ -51,12 +68,20 @@
         background: rgba(255, 255, 255, 0.7);
         backdrop-filter: blur(8px);
         border-bottom: 1px solid var(--line);
+        box-shadow: 0 8px 28px rgba(23, 50, 59, 0.05);
         position: sticky;
         top: 0;
         z-index: 10;
       }
-      .topbar .brand { font-weight: 700; letter-spacing: 0.02em; }
-      .topbar .brand span { color: var(--brand-mint-strong); }
+      .topbar .brand {
+        flex: none;
+        transition: transform 220ms var(--ease-out);
+      }
+      .topbar .brand img {
+        display: block;
+        width: 132px;
+        height: auto;
+      }
       .topbar nav { display: flex; gap: 8px; flex-wrap: wrap; }
       .btn {
         display: inline-flex;
@@ -69,19 +94,38 @@
         text-decoration: none;
         border: 1px solid transparent;
         cursor: pointer;
-        transition: transform 0.08s ease, background 0.15s ease;
+        box-shadow: 0 4px 12px rgba(23, 50, 59, 0.04);
+        transition:
+          transform 220ms var(--ease-out),
+          background 180ms ease,
+          border-color 180ms ease,
+          box-shadow 220ms ease;
       }
       .btn:active { transform: translateY(1px); }
       .btn-primary { background: var(--brand-mint); color: #04302a; }
-      .btn-primary:hover { background: var(--brand-mint-strong); }
       .btn-ghost { background: rgba(255,255,255,0.6); color: var(--ink); border-color: var(--line); }
-      .btn-ghost:hover { background: #fff; }
 
       .hero {
         max-width: 920px;
         margin: 0 auto;
         padding: clamp(40px, 8vw, 80px) clamp(16px, 5vw, 24px) 24px;
         text-align: center;
+      }
+      body > .hero {
+        position: relative;
+        isolation: isolate;
+      }
+      body > .hero::before {
+        content: "";
+        position: absolute;
+        z-index: -1;
+        inset: 8% 4% -8%;
+        border-radius: 50%;
+        background:
+          radial-gradient(circle at 30% 50%, rgba(66, 213, 187, 0.2), transparent 42%),
+          radial-gradient(circle at 72% 42%, rgba(82, 160, 252, 0.18), transparent 44%);
+        filter: blur(32px);
+        pointer-events: none;
       }
       .hero .eyebrow {
         text-transform: uppercase;
@@ -94,13 +138,18 @@
         font-size: clamp(2rem, 6vw, 3rem);
         margin: 12px 0 10px;
         line-height: 1.1;
+        letter-spacing: -0.035em;
+        text-wrap: balance;
       }
       .hero p { font-size: 1.1rem; color: var(--ink-soft); max-width: 640px; margin: 0 auto; }
       .hero .cta { margin-top: 26px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
 
       main { max-width: 920px; margin: 0 auto; padding: 16px clamp(16px, 5vw, 24px) 80px; }
 
-      section { margin-top: 48px; }
+      section {
+        margin-top: 48px;
+        scroll-margin-top: 88px;
+      }
       h2 {
         font-size: 1.5rem;
         display: flex;
@@ -119,6 +168,8 @@
         font-size: 1rem;
         font-weight: 800;
         flex: none;
+        box-shadow: 0 8px 20px rgba(66, 213, 187, 0.24);
+        transition: transform 260ms var(--ease-out), box-shadow 260ms ease;
       }
       .lead { color: var(--ink-soft); margin: 0 0 18px; }
 
@@ -128,6 +179,10 @@
         border-radius: var(--radius);
         padding: 22px 24px;
         box-shadow: var(--shadow);
+        transition:
+          transform 260ms var(--ease-out),
+          border-color 220ms ease,
+          box-shadow 260ms ease;
       }
 
       .grid {
@@ -136,13 +191,33 @@
         gap: 16px;
       }
       .tile {
+        position: relative;
+        overflow: hidden;
         background: var(--surface);
         border: 1px solid var(--line);
         border-radius: var(--radius);
         padding: 18px 20px;
         box-shadow: var(--shadow);
+        transition:
+          transform 260ms var(--ease-out),
+          border-color 220ms ease,
+          box-shadow 260ms ease;
       }
-      .tile h3 { margin: 4px 0 6px; font-size: 1.05rem; }
+      .tile::before {
+        content: "";
+        position: absolute;
+        inset: 0 0 auto;
+        height: 3px;
+        background: linear-gradient(90deg, var(--brand-mint), var(--brand-blue));
+        transform: scaleX(0);
+        transform-origin: left;
+        transition: transform 300ms var(--ease-out);
+      }
+      .tile h3 {
+        margin: 4px 0 6px;
+        font-size: 1.05rem;
+        transition: color 180ms ease, transform 260ms var(--ease-out);
+      }
       .tile p { margin: 0; color: var(--ink-soft); font-size: 0.95rem; }
       .tile .who {
         display: inline-block;
@@ -154,6 +229,7 @@
         border-radius: 999px;
         background: var(--brand-sky-soft);
         color: var(--brand-blue-strong);
+        transition: background 180ms ease, transform 260ms var(--ease-out);
       }
 
       ol.steps { list-style: none; counter-reset: step; margin: 0; padding: 0; }
@@ -162,6 +238,8 @@
         position: relative;
         padding: 14px 0 14px 52px;
         border-bottom: 1px solid var(--line);
+        border-radius: 10px;
+        transition: background 180ms ease, padding 260ms var(--ease-out);
       }
       ol.steps > li:last-child { border-bottom: 0; }
       ol.steps > li::before {
@@ -177,6 +255,8 @@
         background: linear-gradient(135deg, var(--brand-mint), var(--brand-blue));
         color: #fff;
         font-weight: 800;
+        box-shadow: 0 6px 14px rgba(82, 160, 252, 0.18);
+        transition: transform 260ms var(--ease-out), box-shadow 260ms ease;
       }
       ol.steps strong { display: block; }
       ol.steps small { color: var(--ink-soft); }
@@ -193,6 +273,11 @@
         padding: 16px 18px;
         color: #06302a;
         position: relative;
+        box-shadow: 0 8px 20px rgba(23, 50, 59, 0.05);
+        transition:
+          transform 260ms var(--ease-out),
+          box-shadow 260ms ease,
+          filter 220ms ease;
       }
       .status h4 { margin: 0 0 6px; font-size: 1.05rem; }
       .status p { margin: 0; font-size: 0.9rem; color: rgba(6, 48, 42, 0.75); }
@@ -209,6 +294,7 @@
         border-radius: 999px;
         margin-bottom: 8px;
         background: rgba(255,255,255,0.7);
+        transition: transform 260ms var(--ease-out), background 180ms ease;
       }
 
       table.tips { width: 100%; border-collapse: collapse; }
@@ -219,8 +305,15 @@
         vertical-align: top;
         font-size: 0.94rem;
       }
+      table.tips tr {
+        transition: background 180ms ease;
+      }
       table.tips th { color: var(--brand-blue-strong); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; }
-      table.tips td:first-child { font-weight: 600; white-space: nowrap; }
+      table.tips td:first-child {
+        font-weight: 600;
+        white-space: nowrap;
+        transition: color 180ms ease, transform 220ms var(--ease-out);
+      }
 
       .callout {
         display: flex;
@@ -231,8 +324,18 @@
         padding: 14px 16px;
         margin-top: 16px;
         font-size: 0.95rem;
+        box-shadow: 0 8px 22px rgba(82, 160, 252, 0.08);
+        transition:
+          transform 260ms var(--ease-out),
+          border-color 180ms ease,
+          box-shadow 260ms ease;
       }
-      .callout .ico { font-size: 1.2rem; line-height: 1.4; }
+      .callout .ico {
+        font-size: 1.2rem;
+        line-height: 1.4;
+        transform-origin: center;
+        transition: transform 300ms var(--ease-out);
+      }
 
       code.kbd {
         background: rgba(23,50,59,0.06);
@@ -250,15 +353,94 @@
       }
       footer a { margin: 0 8px; }
 
+      @media (hover: hover) and (pointer: fine) {
+        .topbar .brand:hover { transform: translateY(-1px) scale(1.02); }
+        .btn:hover {
+          transform: translateY(-3px);
+          box-shadow: 0 10px 22px rgba(23, 50, 59, 0.12);
+        }
+        .btn-primary:hover { background: var(--brand-mint-strong); }
+        .btn-ghost:hover { background: #fff; border-color: rgba(82, 160, 252, 0.28); }
+        section:hover h2 .num {
+          transform: translateY(-2px) rotate(-4deg) scale(1.06);
+          box-shadow: 0 12px 24px rgba(66, 213, 187, 0.32);
+        }
+        .card:hover,
+        .tile:hover {
+          transform: translateY(-6px);
+          border-color: rgba(82, 160, 252, 0.26);
+          box-shadow: var(--shadow-hover);
+        }
+        .tile:hover::before { transform: scaleX(1); }
+        .tile:hover h3 {
+          color: var(--brand-blue-strong);
+          transform: translateX(3px);
+        }
+        .tile:hover .who {
+          background: rgba(66, 213, 187, 0.2);
+          transform: translateY(-1px);
+        }
+        ol.steps > li:hover {
+          padding-left: 58px;
+          background: linear-gradient(90deg, rgba(66, 213, 187, 0.08), transparent 72%);
+        }
+        ol.steps > li:hover::before {
+          transform: scale(1.08) rotate(-5deg);
+          box-shadow: 0 9px 20px rgba(82, 160, 252, 0.3);
+        }
+        .status:hover {
+          transform: translateY(-6px);
+          box-shadow: var(--shadow-hover);
+          filter: saturate(1.08);
+        }
+        .status:hover .tag {
+          transform: translateY(-2px);
+          background: rgba(255,255,255,0.9);
+        }
+        table.tips tr:not(:first-child):hover {
+          background: rgba(82, 160, 252, 0.07);
+        }
+        table.tips tr:not(:first-child):hover td:first-child {
+          color: var(--brand-blue-strong);
+          transform: translateX(3px);
+        }
+        .callout:hover {
+          transform: translateX(5px);
+          border-color: var(--brand-blue);
+          box-shadow: 0 12px 28px rgba(82, 160, 252, 0.14);
+        }
+        .callout:hover .ico { transform: rotate(-8deg) scale(1.16); }
+      }
+
+      @media (max-width: 620px) {
+        .topbar { align-items: flex-start; }
+        .topbar .brand img { width: 88px; }
+        .topbar nav { justify-content: flex-end; }
+        .topbar .btn { padding: 8px 12px; }
+        .card { overflow-x: auto; padding: 18px; }
+        table.tips { min-width: 560px; }
+      }
+
       @media (prefers-reduced-motion: no-preference) {
         section { animation: rise 0.5s ease both; }
         @keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after {
+          scroll-behavior: auto !important;
+          transition-duration: 0.01ms !important;
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+        }
       }
     </style>
   </head>
   <body>
     <header class="topbar">
-      <div class="brand">Cube<span>Sync</span></div>
+      <div class="brand">
+        <img src="assets/logoBanner.png" alt="CubeSync">
+      </div>
       <nav>
         <a class="btn btn-ghost" href="dashboard.html">Dashboard</a>
         <a class="btn btn-primary" href="glassmorphic.html">Open the form →</a>

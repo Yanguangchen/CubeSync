@@ -1809,6 +1809,12 @@ textarea:focus {
   border-radius: 18px;
 }
 
+.completions-panel {
+  margin-bottom: 16px;
+  padding: 18px;
+  border-radius: 18px;
+}
+
 .metrics-heading {
   margin-bottom: 14px;
 }
