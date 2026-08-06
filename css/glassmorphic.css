@@ -546,8 +546,9 @@ h1 {
 
 .results-table {
   width: 100%;
-  min-width: 1040px;
+  min-width: 1440px;
   border-collapse: collapse;
+  table-layout: fixed;
   font-size: 13px;
 }
 
@@ -598,20 +599,16 @@ h1 {
   background: var(--surface);
 }
 
-.col-test-number,
-.col-marking,
-.col-date-tested,
-.col-age,
-.col-weight,
-.col-load,
-.col-strength,
-.col-failure {
-  width: 8.6%;
-}
-
-.col-barcode {
-  width: 31.2%;
-}
+.col-test-number { width: 4%; }
+.col-marking { width: 6%; }
+.col-barcode { width: 12%; }
+.col-date-tested { width: 7%; }
+.col-age { width: 4%; }
+.col-weight { width: 7%; }
+.col-load { width: 5.5%; }
+.col-strength { width: 8.5%; }
+.col-failure { width: 7%; }
+.result-actions { width: 4%; }
 
 /* ==========================================================================
    Responsive
@@ -628,6 +625,10 @@ h1 {
 
   .results-table {
     min-width: 0;
+  }
+
+  .results-table colgroup {
+    display: none;
   }
 
   .results-table thead tr {
@@ -752,7 +753,9 @@ h1 {
   .page-tools,
   .form-steps,
   .step-controls,
-  .form-actions {
+  .form-actions,
+  .add-row-btn,
+  .result-actions {
     display: none;
   }
 
@@ -821,12 +824,15 @@ h1 {
 
   .results-table {
     min-width: 0;
+    table-layout: fixed;
+    font-size: 8px;
   }
 
   .results-table th {
     min-height: 28px;
-    padding: 4px;
-    font-size: 10px;
+    padding: 2px;
+    font-size: 8px;
+    line-height: 1.1;
     border: 1px solid #1f2937;
     background: #ffffff;
   }

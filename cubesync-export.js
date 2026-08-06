@@ -79,6 +79,10 @@
     { key: "resultDateOfCast", label: "Date of cast" },
     { key: "age", label: "Age (days)" },
     { key: "dateOfTest", label: "Date of test" },
+    { key: "weightKg", label: "WEIGHT AS RECEIVED (kg)" },
+    { key: "loadKn", label: "LOAD (kN)" },
+    { key: "strength", label: "COMPRESSIVE STRENGTH (N/mm²)" },
+    { key: "failureMode", label: "MODE OF FAILURE" },
     { key: "invoiceNumber", label: "Invoice number" }
   ];
 

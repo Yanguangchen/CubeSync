@@ -426,7 +426,7 @@ select:focus {
 
 .results-table {
   width: 100%;
-  min-width: 1080px;
+  min-width: 1440px;
   border-collapse: collapse;
   table-layout: fixed;
   font-size: 11px;
@@ -468,20 +468,16 @@ select:focus {
   text-align: center;
 }
 
-.col-test-number,
-.col-marking,
-.col-date-tested,
-.col-age,
-.col-weight,
-.col-load,
-.col-strength,
-.col-failure {
-  width: 8.8%;
-}
-
-.col-barcode {
-  width: 29.6%;
-}
+.col-test-number { width: 4%; }
+.col-marking { width: 6%; }
+.col-barcode { width: 12%; }
+.col-date-tested { width: 7%; }
+.col-age { width: 4%; }
+.col-weight { width: 7%; }
+.col-load { width: 5.5%; }
+.col-strength { width: 8.5%; }
+.col-failure { width: 7%; }
+.result-actions { width: 4%; }
 
 /* ==========================================================================
    Responsive
@@ -571,7 +567,9 @@ select:focus {
   }
 
   .page-tools,
-  .form-actions {
+  .form-actions,
+  .add-row-btn,
+  .result-actions {
     display: none;
   }
 
@@ -634,12 +632,15 @@ select:focus {
 
   .results-table {
     min-width: 0;
+    table-layout: fixed;
+    font-size: 8px;
   }
 
   .results-table th {
     min-height: 28px;
-    padding: 4px;
-    font-size: 10px;
+    padding: 2px;
+    font-size: 8px;
+    line-height: 1.1;
   }
 
   .results-table td {

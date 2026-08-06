@@ -36,6 +36,10 @@
     resultDateOfCast: "Date Of Cast",
     age: "Age",
     dateOfTest: "Date Of Test",
+    weightKg: "WEIGHT AS RECEIVED (kg)",
+    loadKn: "LOAD (kN)",
+    strength: "COMPRESSIVE STRENGTH (N/mm²)",
+    failureMode: "MODE OF FAILURE",
     invoiceNumber: "Invoice Number"
   };
 

@@ -133,7 +133,7 @@ Legacy aliases (`reportNo`, `client`, `project`, `internalDate`, etc.) are norma
 
 ### Result fields (`RESULT_FIELDS`, one row per set)
 
-`setNo`, `size`, `specimenRef`, `barcode`, `specifiedSlump`, `meanSlump`, `resultGrade`, `resultDateOfCast`, `age`, `dateOfTest`, `invoiceNumber`
+`setNo`, `size`, `specimenRef`, `barcode`, `specifiedSlump`, `meanSlump`, `resultGrade`, `resultDateOfCast`, `age`, `dateOfTest`, `weightKg`, `loadKn`, `strength`, `failureMode`, `invoiceNumber`
 
 Test-result table headers and cells use `data-result-field="{name}"` for column show/hide when field settings disable a column.
 

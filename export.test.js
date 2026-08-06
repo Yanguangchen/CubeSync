@@ -39,6 +39,10 @@ function sampleForm(overrides = {}) {
           resultDateOfCast: "2026-05-24",
           age: 7,
           dateOfTest: "2026-06-17",
+          weightKg: 8.15,
+          loadKn: 755,
+          strength: 33.56,
+          failureMode: "Satisfactory",
           invoiceNumber: "INV-1"
         }
       ]
@@ -353,7 +357,7 @@ test("CSV export keeps test result data on a fixed row", () => {
   assert.equal(rows[CSV_RESULT_HEADER_ROW - 1], resultHeader);
   assert.equal(
     rows[CSV_TEST_DATA_START_ROW - 1],
-    "1,150 x 150 x 150,CUBE-A,RAK-CUBE-001-T-001,600-800,670,C35/45,2026-05-24,7,2026-06-17,INV-1"
+    "1,150 x 150 x 150,CUBE-A,RAK-CUBE-001-T-001,600-800,670,C35/45,2026-05-24,7,2026-06-17,8.15,755,33.56,Satisfactory,INV-1"
   );
 });
 

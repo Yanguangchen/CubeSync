@@ -199,6 +199,21 @@
             </header>
             <div class="table-wrap">
               <table class="results-table">
+                <colgroup>
+                  <col class="col-test-number">
+                  <col>
+                  <col class="col-marking">
+                  <col class="col-barcode">
+                  <col span="4">
+                  <col class="col-age">
+                  <col class="col-date-tested">
+                  <col class="col-weight">
+                  <col class="col-load">
+                  <col class="col-strength">
+                  <col class="col-failure">
+                  <col>
+                  <col class="result-actions">
+                </colgroup>
                 <thead>
                   <tr>
                     <th scope="col" data-result-field="setNo">Set No</th>
@@ -211,8 +226,12 @@
                     <th scope="col" data-result-field="resultDateOfCast">Date Of Cast</th>
                     <th scope="col" data-result-field="age">Age</th>
                     <th scope="col" data-result-field="dateOfTest">Date Of Test</th>
+                    <th scope="col" data-result-field="weightKg">WEIGHT AS RECEIVED (kg)</th>
+                    <th scope="col" data-result-field="loadKn">LOAD (kN)</th>
+                    <th scope="col" data-result-field="strength">COMPRESSIVE STRENGTH (N/mm²)</th>
+                    <th scope="col" data-result-field="failureMode">MODE OF FAILURE</th>
                     <th scope="col" data-result-field="invoiceNumber">Invoice Number</th>
-                    <th scope="col">Action</th>
+                    <th scope="col" class="result-actions">Action</th>
                   </tr>
                 </thead>
                 <tbody data-initial-result-rows="3"></tbody>

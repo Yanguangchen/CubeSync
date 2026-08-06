@@ -2,6 +2,7 @@ const { test, describe } = require("node:test");
 const assert = require("node:assert");
 const { JSDOM } = require("jsdom");
 const {
+  RESULT_COLUMNS,
   resultTableHeadHtml,
   resultRowHtml,
   seedResultRows,
@@ -13,7 +14,11 @@ describe("cubesync-form-markup.js", () => {
     test("generates table header with correct columns and action column", () => {
       const html = resultTableHeadHtml();
       assert.ok(html.includes('<th scope="col" data-result-field="setNo">Set No</th>'));
-      assert.ok(html.includes('<th scope="col">Action</th>'));
+      assert.ok(html.includes('<th scope="col" data-result-field="weightKg">WEIGHT AS RECEIVED (kg)</th>'));
+      assert.ok(html.includes('<th scope="col" data-result-field="loadKn">LOAD (kN)</th>'));
+      assert.ok(html.includes('<th scope="col" data-result-field="strength">COMPRESSIVE STRENGTH (N/mm²)</th>'));
+      assert.ok(html.includes('<th scope="col" data-result-field="failureMode">MODE OF FAILURE</th>'));
+      assert.ok(html.includes('<th scope="col" class="result-actions">Action</th>'));
       assert.ok(html.startsWith("<tr>"));
       assert.ok(html.endsWith("</tr>"));
     });
@@ -28,8 +33,24 @@ describe("cubesync-form-markup.js", () => {
       assert.ok(html.includes('name="barcode42"'));
       assert.ok(html.includes('name="specifiedSlump42"'));
       assert.match(html, /type="text" name="meanSlump42"/);
+      assert.ok(html.includes('name="weightKg42"'));
+      assert.ok(html.includes('name="loadKn42"'));
+      assert.ok(html.includes('name="strength42"'));
+      assert.ok(html.includes('name="failureMode42"'));
       assert.ok(html.includes('aria-label="Row 42 barcode text"'));
       assert.ok(html.includes('aria-label="Remove row 42"'));
+    });
+
+    test("leaves all testing-team result fields completely blank", () => {
+      const dom = new JSDOM(`<table><tbody><tr>${resultRowHtml(1)}</tr></tbody></table>`);
+
+      for (const field of ["weightKg", "loadKn", "strength", "failureMode"]) {
+        const input = dom.window.document.querySelector(`[name="${field}1"]`);
+        assert.ok(input, `${field} input should exist`);
+        assert.equal(input.value, "");
+        assert.equal(input.hasAttribute("value"), false);
+        assert.equal(input.hasAttribute("placeholder"), false);
+      }
     });
   });
 
@@ -69,8 +90,24 @@ describe("cubesync-form-markup.js", () => {
         "resultDateOfCast3",
         "age3",
         "dateOfTest3",
+        "weightKg3",
+        "loadKn3",
+        "strength3",
+        "failureMode3",
         "invoiceNumber3"
       ]);
     });
+  });
+
+  test("keeps the four testing-team columns in the requested order", () => {
+    assert.deepEqual(
+      RESULT_COLUMNS.slice(10, 14).map(({ field, label }) => ({ field, label })),
+      [
+        { field: "weightKg", label: "WEIGHT AS RECEIVED (kg)" },
+        { field: "loadKn", label: "LOAD (kN)" },
+        { field: "strength", label: "COMPRESSIVE STRENGTH (N/mm²)" },
+        { field: "failureMode", label: "MODE OF FAILURE" }
+      ]
+    );
   });
 });

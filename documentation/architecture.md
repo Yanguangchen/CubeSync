@@ -525,6 +525,10 @@ erDiagram
         string resultDateOfCast "Date of cast"
         number age "Age in days"
         string dateOfTest "Date of test"
+        number weightKg "Weight as received (kg)"
+        number loadKn "Load (kN)"
+        number strength "Compressive strength (N/mm²)"
+        string failureMode "Mode of failure"
         string invoiceNumber "Invoice number"
     }
 

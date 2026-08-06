@@ -148,6 +148,10 @@ test("shared schema maps Firestore cube requests into dashboard records", () => 
     "resultDateOfCast",
     "age",
     "dateOfTest",
+    "weightKg",
+    "loadKn",
+    "strength",
+    "failureMode",
     "invoiceNumber"
   ]);
 
@@ -457,6 +461,10 @@ test("sanitizeCubeRequestUpdatePayload normalizes update-only edge cases", () =>
       resultDateOfCast: "",
       age: 7,
       dateOfTest: "",
+      weightKg: null,
+      loadKn: null,
+      strength: null,
+      failureMode: "",
       invoiceNumber: ""
     }
   ]);

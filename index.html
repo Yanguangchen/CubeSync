@@ -158,10 +158,19 @@
           <div class="table-wrap">
             <table class="results-table">
               <colgroup>
-                <col span="8">
-                <col class="col-age">
-                <col span="2">
+                <col class="col-test-number">
                 <col>
+                <col class="col-marking">
+                <col class="col-barcode">
+                <col span="4">
+                <col class="col-age">
+                <col class="col-date-tested">
+                <col class="col-weight">
+                <col class="col-load">
+                <col class="col-strength">
+                <col class="col-failure">
+                <col>
+                <col class="result-actions">
               </colgroup>
               <thead>
                 <tr>
@@ -175,8 +184,12 @@
                   <th scope="col" data-result-field="resultDateOfCast">Date Of Cast</th>
                   <th scope="col" data-result-field="age">Age</th>
                   <th scope="col" data-result-field="dateOfTest">Date Of Test</th>
+                  <th scope="col" data-result-field="weightKg">WEIGHT AS RECEIVED (kg)</th>
+                  <th scope="col" data-result-field="loadKn">LOAD (kN)</th>
+                  <th scope="col" data-result-field="strength">COMPRESSIVE STRENGTH (N/mm²)</th>
+                  <th scope="col" data-result-field="failureMode">MODE OF FAILURE</th>
                   <th scope="col" data-result-field="invoiceNumber">Invoice Number</th>
-                  <th scope="col">Action</th>
+                  <th scope="col" class="result-actions">Action</th>
                 </tr>
               </thead>
               <tbody id="resultsTableBody">
@@ -195,8 +208,12 @@
                   <td data-result-field="resultDateOfCast" data-label="Date Of Cast"><input type="date" name="resultDateOfCast1" aria-label="Row 1 date of cast"></td>
                   <td data-result-field="age" data-label="Age"><input type="number" name="age1" min="0" step="1" aria-label="Row 1 age in days"></td>
                   <td data-result-field="dateOfTest" data-label="Date Of Test"><input type="date" name="dateOfTest1" aria-label="Row 1 date of test"></td>
+                  <td data-result-field="weightKg" data-label="WEIGHT AS RECEIVED (kg)"><input type="number" name="weightKg1" min="0" step="any" aria-label="Row 1 weight as received in kilograms"></td>
+                  <td data-result-field="loadKn" data-label="LOAD (kN)"><input type="number" name="loadKn1" min="0" step="any" aria-label="Row 1 load in kilonewtons"></td>
+                  <td data-result-field="strength" data-label="COMPRESSIVE STRENGTH (N/mm²)"><input type="number" name="strength1" min="0" step="any" aria-label="Row 1 compressive strength in newtons per square millimetre"></td>
+                  <td data-result-field="failureMode" data-label="MODE OF FAILURE"><input type="text" name="failureMode1" aria-label="Row 1 mode of failure"></td>
                   <td data-result-field="invoiceNumber" data-label="Invoice Number"><input type="text" name="invoiceNumber1" aria-label="Row 1 invoice number"></td>
-                  <td data-label="Action"><button type="button" class="remove-row-btn" aria-label="Remove row 1">Remove</button></td>
+                  <td class="result-actions" data-label="Action"><button type="button" class="remove-row-btn" aria-label="Remove row 1">Remove</button></td>
                 </tr>
                 <tr>
                   <td data-result-field="setNo" data-label="Set No"><input type="number" name="setNo2" min="1" step="1" value="1" aria-label="Row 2 set number"></td>
@@ -213,8 +230,12 @@
                   <td data-result-field="resultDateOfCast" data-label="Date Of Cast"><input type="date" name="resultDateOfCast2" aria-label="Row 2 date of cast"></td>
                   <td data-result-field="age" data-label="Age"><input type="number" name="age2" min="0" step="1" aria-label="Row 2 age in days"></td>
                   <td data-result-field="dateOfTest" data-label="Date Of Test"><input type="date" name="dateOfTest2" aria-label="Row 2 date of test"></td>
+                  <td data-result-field="weightKg" data-label="WEIGHT AS RECEIVED (kg)"><input type="number" name="weightKg2" min="0" step="any" aria-label="Row 2 weight as received in kilograms"></td>
+                  <td data-result-field="loadKn" data-label="LOAD (kN)"><input type="number" name="loadKn2" min="0" step="any" aria-label="Row 2 load in kilonewtons"></td>
+                  <td data-result-field="strength" data-label="COMPRESSIVE STRENGTH (N/mm²)"><input type="number" name="strength2" min="0" step="any" aria-label="Row 2 compressive strength in newtons per square millimetre"></td>
+                  <td data-result-field="failureMode" data-label="MODE OF FAILURE"><input type="text" name="failureMode2" aria-label="Row 2 mode of failure"></td>
                   <td data-result-field="invoiceNumber" data-label="Invoice Number"><input type="text" name="invoiceNumber2" aria-label="Row 2 invoice number"></td>
-                  <td data-label="Action"><button type="button" class="remove-row-btn" aria-label="Remove row 2">Remove</button></td>
+                  <td class="result-actions" data-label="Action"><button type="button" class="remove-row-btn" aria-label="Remove row 2">Remove</button></td>
                 </tr>
                 <tr>
                   <td data-result-field="setNo" data-label="Set No"><input type="number" name="setNo3" min="1" step="1" value="1" aria-label="Row 3 set number"></td>
@@ -231,8 +252,12 @@
                   <td data-result-field="resultDateOfCast" data-label="Date Of Cast"><input type="date" name="resultDateOfCast3" aria-label="Row 3 date of cast"></td>
                   <td data-result-field="age" data-label="Age"><input type="number" name="age3" min="0" step="1" aria-label="Row 3 age in days"></td>
                   <td data-result-field="dateOfTest" data-label="Date Of Test"><input type="date" name="dateOfTest3" aria-label="Row 3 date of test"></td>
+                  <td data-result-field="weightKg" data-label="WEIGHT AS RECEIVED (kg)"><input type="number" name="weightKg3" min="0" step="any" aria-label="Row 3 weight as received in kilograms"></td>
+                  <td data-result-field="loadKn" data-label="LOAD (kN)"><input type="number" name="loadKn3" min="0" step="any" aria-label="Row 3 load in kilonewtons"></td>
+                  <td data-result-field="strength" data-label="COMPRESSIVE STRENGTH (N/mm²)"><input type="number" name="strength3" min="0" step="any" aria-label="Row 3 compressive strength in newtons per square millimetre"></td>
+                  <td data-result-field="failureMode" data-label="MODE OF FAILURE"><input type="text" name="failureMode3" aria-label="Row 3 mode of failure"></td>
                   <td data-result-field="invoiceNumber" data-label="Invoice Number"><input type="text" name="invoiceNumber3" aria-label="Row 3 invoice number"></td>
-                  <td data-label="Action"><button type="button" class="remove-row-btn" aria-label="Remove row 3">Remove</button></td>
+                  <td class="result-actions" data-label="Action"><button type="button" class="remove-row-btn" aria-label="Remove row 3">Remove</button></td>
                 </tr>
               </tbody>
             </table>

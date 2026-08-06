@@ -62,6 +62,10 @@
     "resultDateOfCast",
     "age",
     "dateOfTest",
+    "weightKg",
+    "loadKn",
+    "strength",
+    "failureMode",
     "invoiceNumber"
   ];
   const DROPDOWN_OPTION_FIELDS = [
@@ -107,12 +111,19 @@
     resultDateOfCast: "Date Of Cast",
     age: "Age",
     dateOfTest: "Date Of Test",
+    weightKg: "WEIGHT AS RECEIVED (kg)",
+    loadKn: "LOAD (kN)",
+    strength: "COMPRESSIVE STRENGTH (N/mm²)",
+    failureMode: "MODE OF FAILURE",
     invoiceNumber: "Invoice Number"
   };
   const NUMBER_FIELDS = new Set([
     "__customNumber",
     "setNo",
-    "age"
+    "age",
+    "weightKg",
+    "loadKn",
+    "strength"
   ]);
   const CHECKBOX_FIELDS = new Set([
     "enableManualCubeJobNumber"

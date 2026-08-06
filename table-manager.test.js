@@ -63,3 +63,32 @@ test("attachRowListeners removes the row and renumbers on remove-button click", 
 
   assert.equal(tableBody.querySelectorAll("tr").length, 1);
 });
+
+test("request prefill leaves testing-team result measurements blank", () => {
+  makeDom(`
+    <tr>
+      <td><input name="size1"></td>
+      <td><input name="weightKg1"></td>
+      <td><input name="loadKn1"></td>
+      <td><input name="strength1"></td>
+      <td><input name="failureMode1"></td>
+    </tr>
+  `);
+  const row = global.document.querySelector("tr");
+  const form = {
+    elements: {
+      specimenSize: { value: "150 mm" },
+      weightKg: { value: "must not be copied" },
+      loadKn: { value: "must not be copied" },
+      strength: { value: "must not be copied" },
+      failureMode: { value: "must not be copied" }
+    }
+  };
+
+  tableManager.prefillRowFromRequest(row, form);
+
+  assert.equal(row.querySelector('[name="size1"]').value, "150 mm");
+  for (const field of ["weightKg", "loadKn", "strength", "failureMode"]) {
+    assert.equal(row.querySelector(`[name="${field}1"]`).value, "");
+  }
+});

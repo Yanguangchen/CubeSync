@@ -18,6 +18,10 @@
     { field: "resultDateOfCast", label: "Date Of Cast" },
     { field: "age", label: "Age" },
     { field: "dateOfTest", label: "Date Of Test" },
+    { field: "weightKg", label: "WEIGHT AS RECEIVED (kg)" },
+    { field: "loadKn", label: "LOAD (kN)" },
+    { field: "strength", label: "COMPRESSIVE STRENGTH (N/mm²)" },
+    { field: "failureMode", label: "MODE OF FAILURE" },
     { field: "invoiceNumber", label: "Invoice Number" }
   ];
 
@@ -32,6 +36,10 @@
     resultDateOfCast: { type: "date", ariaSuffix: "date of cast" },
     age: { type: "number", min: "0", step: "1", ariaSuffix: "age in days" },
     dateOfTest: { type: "date", ariaSuffix: "date of test" },
+    weightKg: { type: "number", min: "0", step: "any", ariaSuffix: "weight as received in kilograms" },
+    loadKn: { type: "number", min: "0", step: "any", ariaSuffix: "load in kilonewtons" },
+    strength: { type: "number", min: "0", step: "any", ariaSuffix: "compressive strength in newtons per square millimetre" },
+    failureMode: { type: "text", ariaSuffix: "mode of failure" },
     invoiceNumber: { type: "text", ariaSuffix: "invoice number" }
   };
 
@@ -39,7 +47,7 @@
     const headers = RESULT_COLUMNS.map(function (column) {
       return `<th scope="col" data-result-field="${column.field}">${column.label}</th>`;
     }).join("");
-    return `<tr>${headers}<th scope="col">Action</th></tr>`;
+    return `<tr>${headers}<th scope="col" class="result-actions">Action</th></tr>`;
   }
 
   function resultRowHtml(rowCount) {
@@ -73,7 +81,7 @@
       return `<td data-result-field="${column.field}" data-label="${column.label}">${inputHtml}</td>`;
     }).join("");
 
-    return `${cells}<td data-label="Action"><button type="button" class="remove-row-btn" aria-label="Remove row ${rowCount}">Remove</button></td>`;
+    return `${cells}<td class="result-actions" data-label="Action"><button type="button" class="remove-row-btn" aria-label="Remove row ${rowCount}">Remove</button></td>`;
   }
 
   function seedResultRows(tableBody, count) {

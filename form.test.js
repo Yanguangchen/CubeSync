@@ -2,6 +2,14 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
+const { JSDOM } = require("jsdom");
+
+const TESTING_TEAM_COLUMNS = [
+  ["weightKg", "WEIGHT AS RECEIVED (kg)"],
+  ["loadKn", "LOAD (kN)"],
+  ["strength", "COMPRESSIVE STRENGTH (N/mm²)"],
+  ["failureMode", "MODE OF FAILURE"]
+];
 
 function expectedBarcodeInputCount(html) {
   const staticCount = (html.match(/data-barcode-input/g) || []).length;
@@ -27,11 +35,28 @@ function assertConcreteForm(html) {
   assert.match(html, /Size \*/);
   assert.match(html, /Mean Slump/);
   assert.match(html, /Specified Slump/);
+  for (const [field, label] of TESTING_TEAM_COLUMNS) {
+    assert.match(html, new RegExp(`data-result-field="${field}">${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}</th>`));
+  }
   assert.match(html, /assets\/logo\.png/);
   assert.match(html, /barcode\.js/);
   assert.match(html, /app\.js/);
   assert.match(html, /id="cubeRequestForm"[^>]*novalidate/);
   assert.equal(expectedBarcodeInputCount(html), 3);
+}
+
+function assertBlankTestingTeamInputs(html, expectedRows) {
+  const document = new JSDOM(html).window.document;
+
+  for (const [field] of TESTING_TEAM_COLUMNS) {
+    const inputs = document.querySelectorAll(`[name^="${field}"]`);
+    assert.equal(inputs.length, expectedRows, `${field} should exist once per static result row`);
+    inputs.forEach((input) => {
+      assert.equal(input.value, "");
+      assert.equal(input.hasAttribute("value"), false);
+      assert.equal(input.hasAttribute("placeholder"), false);
+    });
+  }
 }
 
 test("original digital form keeps the PDF form sections and ten barcode inputs", () => {
@@ -43,6 +68,7 @@ test("original digital form keeps the PDF form sections and ten barcode inputs",
   assert.match(css, /body \{[\s\S]*font-family: Arial, sans-serif;/);
   assert.match(css, /button,\s*input,\s*select \{[\s\S]*font-family: Arial, sans-serif;/);
   assertConcreteForm(html);
+  assertBlankTestingTeamInputs(html, 3);
 });
 
 test("glassmorphic digital form uses Outfit and keeps barcode inputs", () => {
@@ -56,6 +82,15 @@ test("glassmorphic digital form uses Outfit and keeps barcode inputs", () => {
   assert.match(css, /font-family: "Outfit"/);
   assert.match(css, /backdrop-filter: blur/);
   assertConcreteForm(html);
+});
+
+test("both printable forms hide test-result editing controls", () => {
+  const originalCss = readBundledCss("css/styles.css");
+  const glassCss = readBundledCss("css/glassmorphic.css");
+
+  for (const css of [originalCss, glassCss]) {
+    assert.match(css, /@media print[\s\S]*\.add-row-btn,[\s\S]*\.result-actions\s*\{[\s\S]*display:\s*none/);
+  }
 });
 
 test("barcode cells keep compact entry fields and bounded previews in both styles", () => {

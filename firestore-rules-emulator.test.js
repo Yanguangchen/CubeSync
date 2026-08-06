@@ -47,16 +47,21 @@ function resultRow(setNo) {
     resultDateOfCast: "2026-01-01",
     age: "7",
     dateOfTest: "2026-01-08",
+    weightKg: "8.15",
+    loadKn: "755",
+    strength: "33.56",
+    failureMode: "Satisfactory",
     invoiceNumber: `INV-${setNo}`,
   };
 }
 
-// The 11 result-row fields the app actually writes (RESULT_FIELDS in
-// cubesync-form-data.js). The rules allow 18, but the other 7 are never
-// produced by any client path.
+// The 15 result-row fields the app writes (RESULT_FIELDS in
+// cubesync-form-data.js). Cube-request rules validate the results list shape;
+// this fixture keeps the persisted client contract represented in rule tests.
 const APP_RESULT_FIELDS = [
   "setNo", "size", "specimenRef", "barcode", "specifiedSlump", "meanSlump",
-  "resultGrade", "resultDateOfCast", "age", "dateOfTest", "invoiceNumber",
+  "resultGrade", "resultDateOfCast", "age", "dateOfTest", "weightKg", "loadKn",
+  "strength", "failureMode", "invoiceNumber",
 ];
 
 // Top-level cubeRequest fields a dashboard edit can change (a subset of the
