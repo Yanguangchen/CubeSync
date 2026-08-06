@@ -219,6 +219,12 @@ function isoHoursAgo(hours) {
   return new Date(Date.now() - (hours * 60 * 60 * 1000)).toISOString();
 }
 
+function isoTodayAt(hour) {
+  const date = new Date();
+  date.setHours(hour, 0, 0, 0);
+  return date.toISOString();
+}
+
 const READY_CHANGE = { field: "status", previousValue: "Draft", newValue: "Ready" };
 
 test("activity leaderboard ranks editors and counts Ready promotions", async () => {
@@ -245,12 +251,13 @@ test("activity leaderboard ranks editors and counts Ready promotions", async () 
 test("daily completions chart counts today's Ready promotions once per request", async () => {
   const window = bootDashboard(SAMPLE, {
     listAllEditHistory: async () => [
-      { id: "s1", requestId: "a", editedByEmail: "alice@rakmat.com.sg", createdAt: isoHoursAgo(1), changes: [READY_CHANGE] },
+      // Fixed same-day times keep this test deterministic around midnight.
+      { id: "s1", requestId: "a", editedByEmail: "alice@rakmat.com.sg", createdAt: isoTodayAt(12), changes: [READY_CHANGE] },
       // Re-promotion of the same request today counts once.
-      { id: "s2", requestId: "a", editedByEmail: "alice@rakmat.com.sg", createdAt: isoHoursAgo(2), changes: [READY_CHANGE] },
-      { id: "s3", requestId: "b", editedByEmail: "bob@rakmat.com.sg", createdAt: isoHoursAgo(3), changes: [READY_CHANGE] },
+      { id: "s2", requestId: "a", editedByEmail: "alice@rakmat.com.sg", createdAt: isoTodayAt(11), changes: [READY_CHANGE] },
+      { id: "s3", requestId: "b", editedByEmail: "bob@rakmat.com.sg", createdAt: isoTodayAt(10), changes: [READY_CHANGE] },
       // A plain edit is not a completion.
-      { id: "s4", requestId: "c", editedByEmail: "bob@rakmat.com.sg", createdAt: isoHoursAgo(4), changes: [{ field: "quote", newValue: "Q" }] }
+      { id: "s4", requestId: "c", editedByEmail: "bob@rakmat.com.sg", createdAt: isoTodayAt(9), changes: [{ field: "quote", newValue: "Q" }] }
     ]
   });
   await settle();

@@ -1,108 +1,149 @@
 # CubeSync — Test Coverage Audit
 
-**Date:** 2026-07-03 · **Default run:** 520 pass, 7 fail · **Runtime:** 7.67s
+**Date:** 2026-08-07 · **Tests:** 591 pass, 0 fail · **Runtime:** approximately 11 seconds
 
 ---
 
 ## Executive Summary
 
-The reported aggregate is strong, but it is not a trustworthy production-coverage baseline: Node includes test files in the denominator, while several of the largest browser modules are executed through JSDOM `eval` and omitted entirely. The seven default-run failures are also a runner-configuration problem rather than failing rules assertions: `npm test` discovers the emulator-only suite without starting the Firestore emulator; all seven rules tests pass through the dedicated emulator command.
+CubeSync has a broad, fast test suite with 558 application tests and 33 Firestore rules emulator tests. The native Node coverage report is excellent at 98.51% lines, 91.50% branches, and 91.75% functions, but those aggregate values are optimistic because test files are included while eight production browser scripts are omitted from instrumentation.
+
+The most important improvement is therefore not simply adding more assertions. Large scripts such as `dashboard.js`, `metrics-page.js`, and `firestore.js` must be loaded through an instrumentable module boundary so their real line and branch coverage can be measured. Existing JSDOM functional tests exercise much of this code, but coverage cannot currently show which paths they miss.
 
 | Metric | Value | Rating |
 |---|---:|---|
-| Tests in `npm test` | 527 (520 pass, 7 setup failures) | 🔴 Default command is not green |
-| Line coverage | 97.84% | 🟡 Inflated by test files and omissions |
-| Branch coverage | 91.48% | 🟡 Inflated by test files and omissions |
-| Function coverage | 91.42% | 🟡 Inflated by test files and omissions |
-| Firestore rules suite | 7/7 pass against emulator | ✅ |
+| Total tests | 591 passing | ✅ Healthy |
+| Line coverage | 98.51% | 🟢 Excellent measured result |
+| Branch coverage | 91.50% | 🟢 Excellent measured result |
+| Function coverage | 91.75% | 🟢 Excellent measured result |
+| Instrumented production JavaScript files | 19 of 27 | 🔴 Incomplete visibility |
+
+> Coverage caveat: Node's aggregate includes highly covered `*.test.js` files. It does not include browser files evaluated through `script.textContent`, `window.eval()`, or direct `eval()`, so the aggregate is not a reliable source-only percentage.
+
+## Test and Coverage Configuration
+
+- `npm test` runs the application suite followed by Firestore rules emulator tests.
+- `scripts/run-app-tests.js` discovers root-level `*.test.js` files and runs Node's native `--experimental-test-coverage` reporter.
+- `scripts/run-firestore-rules-tests.js` starts the Firestore emulator and runs `firestore-rules-emulator.test.js`.
+- No minimum line, branch, or function thresholds are enforced by the runner.
+- CSS and HTML are checked through DOM and source-text assertions, not browser-rendered visual regression tests.
 
 ## Coverage by Source File
 
-### Well-covered and instrumented
+### Well-Covered and Instrumented
 
-| File | Lines | Branches | Functions |
+These production files meet the audit target of at least 90% line coverage and 80% branch coverage:
+
+| Source file | Lines | Branches | Functions |
 |---|---:|---:|---:|
-| `api/cube-request-submit.js` | 96.50% | 96.20% | 100% |
-| `api/dropdown-options.js` | 94.51% | 86.05% | 100% |
-| `barcode.js` | 98.58% | 93.10% | 100% |
-| `cubesync-autocomplete.js` | 98.27% | 80.00% | 100% |
-| `cubesync-connectivity.js` | 100% | 83.33% | 100% |
-| `cubesync-dashboard-filters.js` | 97.37% | 85.92% | 100% |
-| `cubesync-export.js` | 98.95% | 92.62% | 100% |
-| `cubesync-form-data.js` | 95.11% | 87.24% | 98.67% |
-| `cubesync-form-markup.js` | 98.04% | 85.00% | 100% |
-| `cubesync-heatmap.js` | 98.99% | 94.59% | 100% |
-| `cubesync-notifications.js` | 97.84% | 85.71% | 100% |
+| `api/cube-request-submit.js` | 96.50% | 96.20% | 100.00% |
+| `api/dropdown-options.js` | 94.51% | 86.05% | 100.00% |
+| `barcode.js` | 98.58% | 93.10% | 100.00% |
+| `cubesync-autocomplete.js` | 98.27% | 80.00% | 100.00% |
+| `cubesync-connectivity.js` | 100.00% | 83.33% | 100.00% |
+| `cubesync-dashboard-filters.js` | 97.37% | 85.92% | 100.00% |
+| `cubesync-export.js` | 98.96% | 92.62% | 100.00% |
+| `cubesync-form-data.js` | 95.50% | 87.34% | 98.69% |
+| `cubesync-form-markup.js` | 98.18% | 85.00% | 100.00% |
+| `cubesync-heatmap.js` | 98.99% | 94.59% | 100.00% |
+| `cubesync-metrics.js` | 98.54% | 80.81% | 100.00% |
+| `cubesync-notifications.js` | 97.84% | 85.71% | 100.00% |
+| `scripts/load-env.js` | 100.00% | 94.59% | 100.00% |
+| `scripts/validate-env.js` | 91.95% | 90.91% | 100.00% |
+| `scripts/write-env.js` | 100.00% | 87.50% | 100.00% |
 
-### Needs attention
+### Instrumented Files Needing Attention
 
-| File | Lines | Branches | Functions | Main gap |
+| Source file | Lines | Branches | Functions | Main gap |
 |---|---:|---:|---:|---|
-| `api/_utils/firebase-api-helper.js` | 89.07% | 79.41% | 100% | CORS allowlist and Firebase initialization/error paths |
-| `app.js` | 96.76% | 73.39% | 98.11% | Many UI, validation, and failure decisions remain untested |
-| `cubesync-metrics.js` | 97.52% | 75.63% | 100% | Date coercion and workload-classification branches |
-| `cubesync-schema.js` | 94.74% | 62.50% | 100% | Missing-dependency and export-selection branches |
-| `cubesync-table-manager.js` | 98.21% | 73.08% | 100% | Optional controls, invalid dates, and row-add callbacks |
+| `api/_utils/firebase-api-helper.js` | 89.07% | 79.41% | 100.00% | Nested observability redaction and Firebase initialization failure branches |
+| `app.js` | 96.84% | 74.11% | 98.21% | reCAPTCHA fallbacks, form population guards, cached/remote config failures, and print lifecycle edges |
+| `cubesync-schema.js` | 94.74% | 62.50% | 100.00% | CommonJS/browser wrapper and missing-key schema branches |
+| `cubesync-table-manager.js` | 98.21% | 75.86% | 100.00% | Missing controls, invalid dates, absent markup, and callback guard paths |
 
-### Not instrumented / coverage blind spots
+### Not Instrumented
 
-These production files do not appear in the V8 report even though tests load several of them as strings and execute them through JSDOM or `eval`:
+These files are read as strings and evaluated in JSDOM or a custom scope. Their functional tests may pass, but native V8 coverage omits the production file itself.
 
-| File | Size | Evidence / consequence |
-|---|---:|---|
-| `dashboard.js` | 2,403 lines | Loaded into many JSDOM suites; no file-level coverage |
-| `rpa-dashboard.js` | 481 lines | String-loaded by RPA suites; no file-level coverage |
-| `firestore.js` | 460 lines | Executed with `window.eval` in runtime tests; no file-level coverage |
-| `cubesync-today-toggle.js` | 366 lines | Injected into dashboard functional tests; no file-level coverage |
-| `rpa-view.js` | 230 lines | String-loaded by RPA suites; no file-level coverage |
-| `sw.js` | 219 lines | Executed with direct `eval`; no file-level coverage |
-| `chime.js` | 123 lines | Executed with `dom.window.eval`; report measures test wrappers, not this file |
+| Source file | Size | Approximate complexity | Existing test mechanism |
+|---|---:|---:|---|
+| `dashboard.js` | 83,437 bytes | 220 function-like lines | JSDOM `script.textContent` |
+| `metrics-page.js` | 29,629 bytes | 79 function-like lines | JSDOM `script.textContent` |
+| `firestore.js` | 13,724 bytes | 51 function-like lines | Rewritten source executed with `window.eval()` |
+| `rpa-dashboard.js` | 15,383 bytes | 56 function-like lines | JSDOM `script.textContent` |
+| `rpa-view.js` | 7,353 bytes | 24 function-like lines | JSDOM `script.textContent` and source assertions |
+| `cubesync-today-toggle.js` | 13,579 bytes | 33 function-like lines | JSDOM `script.textContent` |
+| `sw.js` | 6,282 bytes | 21 function-like lines | Direct `eval()` with mocked service-worker globals |
+| `chime.js` | 3,593 bytes | 11 function-like lines | `window.eval()` |
 
-HTML, CSS, `firestore.rules`, and static configuration are also outside V8's JavaScript coverage model. Their behavioral/static tests must be tracked separately.
+Generated `env.js`/`env.example.js` and the two test-runner scripts are intentionally excluded from the production coverage inventory.
 
-## Top Coverage Gaps & Remediation Actions
+## Top Coverage Gaps and Remediation Actions
 
 ### 🔴 P0 — High Priority
 
-1. **`dashboard.js` has no measurable coverage (2,403 lines).**
-   - **Risk:** This module owns authentication gates, Firestore reads/writes, editing, filtering, and real-time behavior. Functional tests exist, but regressions cannot be mapped to unexecuted lines or branches.
-   - **Remediation:** Split pure/stateful logic into CommonJS or ESM modules importable by Node. Keep a thin browser bootstrap and collect coverage from direct imports. Prioritize auth denial, write failure, listener teardown, malformed records, and conflicting edit paths.
+1. **`dashboard.js` is a massive uninstrumented state and mutation surface**
+   - **Why it is a risk:** The 83 KB file contains authentication gates, edit/save/delete actions, status transitions, history writes, field configuration, realtime rendering, and error handling. More than 30 functional tests exercise it, but none contribute coverage to `dashboard.js`, so missed production branches are invisible.
+   - **Remediation:** Extract pure state, authorization-decision, payload, and action-controller functions into directly imported modules. Keep a smaller DOM bootstrap file and retain JSDOM tests as integration coverage.
 
-2. **Firestore rules tests are incorrectly included in `npm test`.**
-   - **Risk:** The default test command reports seven failures whenever no emulator is available, obscuring genuine failures and making CI status environment-dependent.
-   - **Remediation:** Narrow the default glob to exclude `firestore-rules-emulator.test.js`, then run `npm run test:firestore-rules` as a separate CI job. The emulator suite itself passed 7/7 in this audit.
+2. **`firestore.js` database and authentication operations are not instrumented**
+   - **Why it is a risk:** The file owns sign-in, realtime subscriptions, create/update/delete operations, edit-history writes, settings writes, and shared dropdown persistence. Current tests rewrite and evaluate its source, so the native report cannot identify untested failure or rollback paths.
+   - **Remediation:** Move Firebase SDK calls behind an injectable adapter and export the operational functions from an instrumentable module. Add direct tests for rejected writes, snapshot errors, create-versus-update behavior, and failed settings/history persistence.
 
-3. **`firestore.js` and RPA write paths are not instrumented.**
-   - **Risk:** Authorization, update payloads, status transitions, and error handling are security/state boundaries. Existing eval-driven tests prove examples but provide no completeness signal.
-   - **Remediation:** Extract Firestore adapters and RPA transition logic into directly imported modules; add negative tests for unauthorized users, rejected writes, malformed snapshots, unsubscribe behavior, and each status-transition failure.
+3. **Observability redaction branches are below target in `firebase-api-helper.js`**
+   - **Why it is a risk:** Lines 61–70 recursively redact tokens, passwords, secrets, private keys, and nested values before server logging. An uncovered branch could expose sensitive data in logs.
+   - **Remediation:** Capture `console.log`/`console.error` around `logServerEvent()` and assert redaction for nested objects, arrays, case variants, punctuation variants, nulls, and safe values. Export `sanitizeForLog()` for direct unit tests if necessary.
+
+4. **`metrics-page.js` exceeds 20 KB but is absent from coverage**
+   - **Why it is a risk:** Chart rendering, summary computation, async history loading, error states, and UI initialization are tested only through injected source. The recent midnight-sensitive failure demonstrates how presentation tests can hide time-boundary assumptions.
+   - **Remediation:** Split chart renderers, summary formatters, time-window construction, and page orchestration into imported modules. Pass an explicit clock into date-sensitive code and fixtures.
 
 ### 🟡 P1 — Medium Priority
 
-1. **`app.js` branch coverage is 73.39%.** Add table-driven tests for uncovered validation, initialization, API/network, and optional-DOM branches (not just happy-path line execution).
-2. **`api/_utils/firebase-api-helper.js` is below both thresholds.** Add exact-origin CORS tests (allowed, denied, empty/malformed allowlist), logging redaction for nested arrays/objects, missing Firebase Admin, and initialization failures.
-3. **Metrics/schema/table-manager branches are below 80%.** Cover invalid cross-realm dates, timestamp adapter failures, zero-denominator trends, absent schema dependencies, invalid row dates, missing markup globals, and callbacks.
-4. **No enforceable production-only thresholds exist.** Configure `c8`/Istanbul or Node coverage include/exclude rules so `*.test.js` is excluded and every production JS file is included, including unexecuted files at 0%.
+1. **No rendered print-layout regression test**
+   - Current `form.test.js` assertions verify CSS text for the three-column grid, full-width results table, compact barcode, and Botpress selectors. They cannot prove Chrome's computed print layout or detect overflow, stacking, or widget shadow/host changes.
+   - Add a browser test that emulates `print` media on A4 landscape and asserts: three request-grid tracks, results-table width no greater than its container, every enabled result header visible, barcode bounds inside its cell, and `.bpChatContainer` hidden. Add one stable screenshot or PDF snapshot after geometry assertions.
+
+2. **`app.js` branch coverage is 74.11%**
+   - Add direct cases for missing reCAPTCHA container/widget APIs, `requestSubmit` fallback, corrupt cached field configuration, unavailable remote configuration, invalid barcode rendering, offline submission, and print cancellation/cleanup.
+
+3. **RPA browser scripts are uninstrumented**
+   - `rpa-dashboard.js` and `rpa-view.js` contain auth checks and status writes. Convert their decision and mutation logic into imported modules; directly test unauthorized access, Firestore rejection, missing records, and status rollback after failed updates.
+
+4. **`cubesync-today-toggle.js` is an uninstrumented UI state engine**
+   - Extract date selection and toggle-state calculations into a directly required module. Cover midnight, daylight/timezone boundaries, invalid stored dates, rapid toggles, and absent DOM controls.
+
+5. **`cubesync-table-manager.js` branch coverage is 75.86%**
+   - Add cases for invalid/reversed dates, missing form sources, non-empty targets that must not be overwritten, missing `CubeSyncFormMarkup`, and the `onRowAdded` callback path.
+
+6. **Service-worker behavior is evaluated but not measured**
+   - Add an instrumentable service-worker core module for cache policy and request classification. Cover install failure, partial cache failure, navigation fallback, non-GET requests, cache update failures, and version migration.
 
 ### 🟢 P2 — Low Priority / Polish
 
-1. Remove duplicate coverage of UMD boilerplate once browser modules have importable cores.
-2. Track static HTML/CSS/config checks separately from executable-code coverage.
-3. Reduce expected warning/error logging in test output so unexpected diagnostics are visible.
+1. **`cubesync-schema.js` branch coverage is 62.50%**
+   - Cover missing `formData`, browser-global initialization, and omission of unavailable facade keys. The low percentage is concentrated in a small wrapper rather than core validation logic.
 
-## Structural & Architectural Observations
+2. **`chime.js` is omitted from coverage**
+   - Its JSDOM tests are useful, but direct module loading would make the small audio/error fallback surface measurable.
 
-- `node --test --experimental-test-coverage` reports every loaded JavaScript file, including test code. The 97.84% line figure should not be used as a quality gate.
-- JSDOM `runScripts: "dangerously"` plus `eval` is the dominant blind spot. It provides useful integration confidence, but the evaluated source is not attributed to its original filename.
-- The test portfolio is substantial (527 discovered tests), and the dedicated Firestore emulator assertions cover key allow/deny behavior. The immediate need is measurement integrity, not simply adding more tests.
-- Recommended gates after instrumentation is fixed: 90% production lines, 80% production branches, 90% functions, 100% execution of security-critical API/rules suites, and no production source file omitted from the report.
+3. **Coverage thresholds are not enforced**
+   - After uninstrumented scripts are modularized, fail CI when source-only coverage falls below an agreed baseline. A reasonable starting point is 90% lines, 80% branches, and 90% functions, with stricter thresholds for API security and database adapters.
 
-## Commands and Reproduction
+## Structural and Architectural Observations
 
-```sh
-npm test
-npm run test:firestore-rules
-# When an emulator is already running:
-FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 node --test firestore-rules-emulator.test.js
-```
+- The suite has strong breadth: public API validation, authentication failures, create-only submission behavior, Firestore permissions, payload normalization, UI state, RPA flows, offline behavior, and field configuration all have tests.
+- The 33 emulator tests are especially valuable because they execute the actual Firestore rules rather than matching rule text. They cover non-staff denial, profile ownership, role escalation, immutable fields, report-number sequencing, append-only history, and collection-specific access.
+- `scripts/run-app-tests.js` reports test files in the same aggregate as production code. This inflates the headline percentage and should be replaced or post-processed into a source-only summary.
+- JSDOM string injection is useful for end-to-end browser-script behavior, but it should supplement directly instrumented modules, not be the only execution path for major files.
+- Time-sensitive tests should use an injected or fixed clock. The corrected daily-completions fixture now uses fixed times on the current local date instead of subtracting hours across midnight.
+- CSS source assertions are fast regression guards, but layout-sensitive features such as printing need computed-style and geometry verification in a real browser.
 
-The dedicated emulator command started Firestore, produced 7 passes and 0 failures in 2.48 seconds, and shut the emulator down cleanly.
+## Recommended Execution Order
+
+1. Add the real-browser print regression test while the expected layout is fresh.
+2. Refactor and instrument `firestore.js` and the mutation/auth portions of `dashboard.js`.
+3. Extract and instrument `metrics-page.js`, using an explicit clock for date windows.
+4. Cover observability redaction and the remaining `app.js` branches.
+5. Modularize RPA, today-toggle, and service-worker logic.
+6. Introduce source-only coverage thresholds after the major blind spots are visible.

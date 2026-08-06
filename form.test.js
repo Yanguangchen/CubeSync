@@ -76,6 +76,9 @@ test("original form stays full width after its stylesheet loads", () => {
 
   assert.match(css, /\.sheet\s*\{\s*width:\s*calc\(100vw - 24px\)/);
   assert.doesNotMatch(css, /\.sheet\s*\{\s*width:\s*min\(1180px/);
+  assert.match(css, /\.table-wrap\s*\{[^}]*overflow-x:\s*hidden/);
+  assert.match(css, /\.results-table\s*\{[^}]*width:\s*100%[^}]*min-width:\s*0[^}]*max-width:\s*100%/);
+  assert.doesNotMatch(css, /\.results-table\s*\{[^}]*min-width:\s*1440px/);
 });
 
 test("both forms map configurable result fields to matching column tracks", () => {
@@ -118,10 +121,13 @@ test("original form print layout gives test results the full printable width", (
   const printCss = css.slice(css.indexOf("@media print"));
 
   assert.match(html, /cdn\.botpress\.cloud\/webchat\/v3\.6\/inject\.js/);
-  assert.match(css, /body\.is-printing \.bpFABMessagePreview,[\s\S]*body\.is-printing iframe\[title="Botpress"\]\s*\{[^}]*display:\s*none\s*!important/);
-  assert.match(printCss, /\.bpFab,[\s\S]*\.bpFABMessagePreview,[\s\S]*iframe\[title="Botpress"\]\s*\{[^}]*display:\s*none\s*!important/);
+  assert.match(css, /body\.is-printing \.bpFABMessagePreview,[\s\S]*body\.is-printing \.bpChatContainer,[\s\S]*body\.is-printing iframe\[title="Botpress"\]\s*\{[^}]*display:\s*none\s*!important/);
+  assert.match(printCss, /\.bpFab,[\s\S]*\.bpFABMessagePreview,[\s\S]*\.bpChatContainer,[\s\S]*iframe\[title="Botpress"\]\s*\{[^}]*display:\s*none\s*!important/);
   assert.match(printCss, /html,\s*body\s*\{[^}]*width:\s*100%[^}]*zoom:\s*1/);
   assert.match(printCss, /\.sheet\s*\{[^}]*width:\s*100%[^}]*max-width:\s*none[^}]*page-break-inside:\s*auto/);
+  assert.match(printCss, /\.form-header\s*\{[^}]*grid-template-columns:\s*318px minmax\(0, 1fr\) 300px/);
+  assert.match(printCss, /\.request-grid\s*\{[^}]*grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\)/);
+  assert.match(printCss, /\.field-row\s*\{[^}]*grid-column:\s*auto[^}]*grid-template-columns:\s*140px minmax\(0, 1fr\)/);
   assert.match(printCss, /\.results-section,\s*\.table-wrap\s*\{[^}]*width:\s*100%[^}]*max-width:\s*none/);
   assert.match(printCss, /\.results-table\s*\{[^}]*width:\s*100%[^}]*max-width:\s*none[^}]*font-size:\s*8px/);
   assert.match(printCss, /\.results-table td\s*\{[^}]*min-width:\s*0[^}]*overflow:\s*hidden/);
@@ -142,8 +148,11 @@ test("barcode cells keep compact entry fields and previews inside their columns"
   assert.match(originalCss, /\.barcode-cell\s*\{[^}]*overflow:\s*hidden/);
   assert.match(originalCss, /\.barcode-preview[\s\S]*display:\s*none/);
   assert.match(originalCss, /\.barcode-cell\.has-barcode \.barcode-preview[\s\S]*display:\s*flex/);
-  assert.match(originalCss, /--barcode-preview-height:\s*38px/);
-  assert.match(originalCss, /--barcode-svg-height:\s*30px/);
+  assert.match(originalCss, /--barcode-cell-padding:\s*3px/);
+  assert.match(originalCss, /--barcode-input-margin:\s*0 auto 1px/);
+  assert.match(originalCss, /--barcode-preview-margin-top:\s*1px/);
+  assert.match(originalCss, /--barcode-preview-height:\s*28px/);
+  assert.match(originalCss, /--barcode-svg-height:\s*22px/);
   assert.match(originalPrintCss, /\.barcode-preview\s*\{[^}]*height:\s*30px/);
   assert.match(originalCss, /\.barcode-preview\s*\{[^}]*overflow:\s*hidden/);
   assert.match(originalCss, /\.barcode-preview svg\s*\{[^}]*width:\s*100%[^}]*max-width:\s*100%[^}]*object-fit:\s*contain/);
