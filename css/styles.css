@@ -31,6 +31,8 @@
   --barcode-preview-border: 1px dashed #9aa5b1;
   --barcode-preview-bg: #ffffff;
   --barcode-preview-margin-top: 4px;
+  --barcode-preview-height: 38px;
+  --barcode-svg-height: 30px;
   --barcode-input-min-height: 18px;
   --barcode-input-margin: 0 auto 4px;
   --barcode-input-padding: 1px 6px;
@@ -224,7 +226,7 @@ button:hover,
    Sheet & header
    ========================================================================== */
 .sheet {
-  width: min(1180px, calc(100vw - 24px));
+  width: calc(100vw - 24px);
   margin: 0 auto 28px;
   padding: 18px;
   background: var(--surface);
@@ -479,6 +481,17 @@ select:focus {
 .col-failure { width: 7%; }
 .result-actions { width: 4%; }
 
+body.is-printing .bpFab,
+body.is-printing .bpFabWrapper,
+body.is-printing .bpFABMessagePreview,
+body.is-printing .bpNotificationContainer,
+body.is-printing .bpMessagePreview,
+body.is-printing .bpMessagePreviewContainer,
+body.is-printing .bpWebchat,
+body.is-printing iframe[title="Botpress"] {
+  display: none !important;
+}
+
 /* ==========================================================================
    Responsive
    ========================================================================== */
@@ -556,14 +569,15 @@ select:focus {
    ========================================================================== */
 @page {
   size: A4 landscape;
-  margin: 5mm;
+  margin: 4mm;
 }
 
 @media print {
+  html,
   body {
+    width: 100%;
     background: #ffffff;
-    /* Optionally zoom out slightly for browsers that support it */
-    zoom: 0.95;
+    zoom: 1;
   }
 
   .page-tools,
@@ -573,14 +587,27 @@ select:focus {
     display: none;
   }
 
+  .bpFab,
+  .bpFabWrapper,
+  .bpFABMessagePreview,
+  .bpNotificationContainer,
+  .bpMessagePreview,
+  .bpMessagePreviewContainer,
+  .bpWebchat,
+  iframe[title="Botpress"] {
+    display: none !important;
+  }
+
   .sheet {
     width: 100%;
+    max-width: none;
     margin: 0;
     padding: 0;
     border: 0;
     box-shadow: none;
-    /* Try to force everything inside one page */
-    page-break-inside: avoid;
+    /* Let long forms paginate instead of shrinking the whole sheet. */
+    break-inside: auto;
+    page-break-inside: auto;
   }
 
   /* Compact the header area */
@@ -626,25 +653,55 @@ select:focus {
     padding: 4px 8px;
   }
 
+  .results-section,
   .table-wrap {
+    width: 100%;
+    max-width: none;
     overflow: visible;
+    break-inside: auto;
+    page-break-inside: auto;
   }
 
   .results-table {
+    width: 100%;
     min-width: 0;
+    max-width: none;
     table-layout: fixed;
     font-size: 8px;
   }
 
+  .results-table thead {
+    display: table-header-group;
+  }
+
+  .results-table tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
   .results-table th {
+    width: auto;
+    min-width: 0;
+    max-width: none;
     min-height: 28px;
     padding: 2px;
+    overflow: hidden;
     font-size: 8px;
     line-height: 1.1;
   }
 
   .results-table td {
+    width: auto;
+    min-width: 0;
+    max-width: none;
     height: 34px;
+    overflow: hidden;
+  }
+
+  .results-table td > input {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
   }
 
   .barcode-cell > input,
@@ -653,14 +710,20 @@ select:focus {
   }
 
   .barcode-preview {
-    height: 52px;
-    min-height: 52px;
-    max-height: 52px;
+    width: 100%;
+    max-width: 100%;
+    height: 30px;
+    min-height: 30px;
+    max-height: 30px;
+    padding: 2px;
     border: 0;
     margin-top: 0;
   }
 
   .barcode-preview svg {
-    height: 44px;
+    width: 100%;
+    max-width: 100%;
+    height: 24px;
+    object-fit: contain;
   }
 }

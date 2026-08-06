@@ -3,14 +3,15 @@
  */
 .barcode-cell {
   padding: var(--barcode-cell-padding, 8px);
-  overflow: visible;
-  vertical-align: top;
+  overflow: hidden;
+  vertical-align: middle;
 }
 
 .results-table .barcode-cell > input {
   display: block;
   width: 100%;
   max-width: 150px;
+  height: auto;
   min-height: var(--barcode-input-min-height, 32px);
   margin: var(--barcode-input-margin, 0 auto 6px);
   padding: var(--barcode-input-padding, 0 6px);
@@ -35,8 +36,7 @@
   max-height: var(--barcode-preview-height, 72px);
   margin-top: var(--barcode-preview-margin-top, 0);
   padding: 4px;
-  overflow-x: auto;
-  overflow-y: hidden;
+  overflow: hidden;
   border: var(--barcode-preview-border, 1px solid var(--line));
   border-radius: var(--barcode-preview-radius, var(--radius-sm, 0));
   background: var(--barcode-preview-bg, var(--surface));
@@ -49,10 +49,11 @@
 
 .barcode-preview svg {
   display: block;
-  flex: 0 0 auto;
-  width: auto;
-  max-width: none;
+  flex: 1 1 auto;
+  width: 100%;
+  max-width: 100%;
   height: var(--barcode-svg-height, 64px);
+  object-fit: contain;
 }
 
 .barcode-preview svg rect:not(.barcode-background) {

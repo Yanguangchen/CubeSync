@@ -71,6 +71,25 @@ test("original digital form keeps the PDF form sections and ten barcode inputs",
   assertBlankTestingTeamInputs(html, 3);
 });
 
+test("original form stays full width after its stylesheet loads", () => {
+  const css = readBundledCss("css/styles.css");
+
+  assert.match(css, /\.sheet\s*\{\s*width:\s*calc\(100vw - 24px\)/);
+  assert.doesNotMatch(css, /\.sheet\s*\{\s*width:\s*min\(1180px/);
+});
+
+test("both forms map configurable result fields to matching column tracks", () => {
+  for (const file of ["index.html", "glassmorphic.html"]) {
+    const document = new JSDOM(fs.readFileSync(file, "utf8")).window.document;
+    const headerFields = Array.from(document.querySelectorAll(".results-table thead [data-result-field]"),
+      (cell) => cell.dataset.resultField);
+    const columnFields = Array.from(document.querySelectorAll(".results-table col[data-result-field]"),
+      (column) => column.dataset.resultField);
+
+    assert.deepEqual(columnFields, headerFields, `${file} should collapse the same tracks as hidden result cells`);
+  }
+});
+
 test("glassmorphic digital form uses Outfit and keeps barcode inputs", () => {
   const html = fs.readFileSync("glassmorphic.html", "utf8");
   const css = readBundledCss("css/glassmorphic.css");
@@ -93,9 +112,26 @@ test("both printable forms hide test-result editing controls", () => {
   }
 });
 
-test("barcode cells keep compact entry fields and bounded previews in both styles", () => {
+test("original form print layout gives test results the full printable width", () => {
+  const html = fs.readFileSync("index.html", "utf8");
+  const css = readBundledCss("css/styles.css");
+  const printCss = css.slice(css.indexOf("@media print"));
+
+  assert.match(html, /cdn\.botpress\.cloud\/webchat\/v3\.6\/inject\.js/);
+  assert.match(css, /body\.is-printing \.bpFABMessagePreview,[\s\S]*body\.is-printing iframe\[title="Botpress"\]\s*\{[^}]*display:\s*none\s*!important/);
+  assert.match(printCss, /\.bpFab,[\s\S]*\.bpFABMessagePreview,[\s\S]*iframe\[title="Botpress"\]\s*\{[^}]*display:\s*none\s*!important/);
+  assert.match(printCss, /html,\s*body\s*\{[^}]*width:\s*100%[^}]*zoom:\s*1/);
+  assert.match(printCss, /\.sheet\s*\{[^}]*width:\s*100%[^}]*max-width:\s*none[^}]*page-break-inside:\s*auto/);
+  assert.match(printCss, /\.results-section,\s*\.table-wrap\s*\{[^}]*width:\s*100%[^}]*max-width:\s*none/);
+  assert.match(printCss, /\.results-table\s*\{[^}]*width:\s*100%[^}]*max-width:\s*none[^}]*font-size:\s*8px/);
+  assert.match(printCss, /\.results-table td\s*\{[^}]*min-width:\s*0[^}]*overflow:\s*hidden/);
+  assert.match(printCss, /\.results-table thead\s*\{[^}]*display:\s*table-header-group/);
+});
+
+test("barcode cells keep compact entry fields and previews inside their columns", () => {
   const app = fs.readFileSync("app.js", "utf8");
   const originalCss = readBundledCss("css/styles.css");
+  const originalPrintCss = originalCss.slice(originalCss.indexOf("@media print"));
   const glassCss = readBundledCss("css/glassmorphic.css");
 
   assert.match(app, /has-barcode/);
@@ -103,19 +139,21 @@ test("barcode cells keep compact entry fields and bounded previews in both style
   assert.match(app, /height:\s*64/);
   assert.match(app, /moduleWidth:\s*1\.45/);
   assert.match(originalCss, /\.results-table \.barcode-cell > input[\s\S]*max-width:\s*150px/);
-  assert.match(originalCss, /\.barcode-cell[\s\S]*overflow:\s*visible/);
+  assert.match(originalCss, /\.barcode-cell\s*\{[^}]*overflow:\s*hidden/);
   assert.match(originalCss, /\.barcode-preview[\s\S]*display:\s*none/);
   assert.match(originalCss, /\.barcode-cell\.has-barcode \.barcode-preview[\s\S]*display:\s*flex/);
-  assert.match(originalCss, /\.barcode-preview[\s\S]*height:\s*52px/);
-  assert.match(originalCss, /\.barcode-preview[\s\S]*overflow-x:\s*auto/);
-  assert.match(originalCss, /\.barcode-preview svg[\s\S]*width:\s*auto/);
+  assert.match(originalCss, /--barcode-preview-height:\s*38px/);
+  assert.match(originalCss, /--barcode-svg-height:\s*30px/);
+  assert.match(originalPrintCss, /\.barcode-preview\s*\{[^}]*height:\s*30px/);
+  assert.match(originalCss, /\.barcode-preview\s*\{[^}]*overflow:\s*hidden/);
+  assert.match(originalCss, /\.barcode-preview svg\s*\{[^}]*width:\s*100%[^}]*max-width:\s*100%[^}]*object-fit:\s*contain/);
   assert.match(glassCss, /\.results-table \.barcode-cell > input[\s\S]*max-width:\s*150px/);
-  assert.match(glassCss, /\.barcode-cell[\s\S]*overflow:\s*visible/);
+  assert.match(glassCss, /\.barcode-cell\s*\{[^}]*overflow:\s*hidden/);
   assert.match(glassCss, /\.barcode-preview[\s\S]*display:\s*none/);
   assert.match(glassCss, /\.barcode-cell\.has-barcode \.barcode-preview[\s\S]*display:\s*flex/);
   assert.match(glassCss, /\.barcode-preview[\s\S]*height:\s*52px/);
-  assert.match(glassCss, /\.barcode-preview[\s\S]*overflow-x:\s*auto/);
-  assert.match(glassCss, /\.barcode-preview svg[\s\S]*width:\s*auto/);
+  assert.match(glassCss, /\.barcode-preview\s*\{[^}]*overflow:\s*hidden/);
+  assert.match(glassCss, /\.barcode-preview svg\s*\{[^}]*width:\s*100%[^}]*max-width:\s*100%[^}]*object-fit:\s*contain/);
 });
 
 test("slump fields are not marked required in either HTML form", () => {

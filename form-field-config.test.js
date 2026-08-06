@@ -215,6 +215,11 @@ test("applyFormFieldConfig hides disabled request fields and result columns", ()
       <label class="field-row"><span>Quote</span><input type="text" name="quote"></label>
       <label class="field-row"><span>Contact</span><input type="text" name="contact" required></label>
       <table class="results-table">
+        <colgroup>
+          <col data-result-field="setNo">
+          <col data-result-field="invoiceNumber">
+          <col>
+        </colgroup>
         <thead>
           <tr>
             <th data-result-field="setNo">Set No</th>
@@ -243,6 +248,7 @@ test("applyFormFieldConfig hides disabled request fields and result columns", ()
   const quoteRow = form.querySelector('[name="quote"]').closest(".field-row");
   const contactInput = form.querySelector('[name="contact"]');
   const invoiceCell = form.querySelector('[name="invoiceNumber1"]').closest("td");
+  const invoiceColumnTrack = form.querySelector('col[data-result-field="invoiceNumber"]');
   const actionCell = form.querySelector("button").closest("td");
 
   assert.equal(quoteRow.hidden, true);
@@ -250,6 +256,7 @@ test("applyFormFieldConfig hides disabled request fields and result columns", ()
   assert.equal(contactInput.disabled, false);
   assert.equal(contactInput.hasAttribute("required"), true);
   assert.equal(invoiceCell.hidden, true);
+  assert.equal(invoiceColumnTrack.hidden, true);
   assert.equal(actionCell.hidden, false);
 });
 

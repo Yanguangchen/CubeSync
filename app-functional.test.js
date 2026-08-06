@@ -619,6 +619,10 @@ test("print action triggered by print button", async () => {
   printBtn.click();
   
   assert.equal(printCalls, 1);
+  assert.equal(global.document.body.classList.contains("is-printing"), true);
+
+  global.window.dispatchEvent(new global.Event("afterprint"));
+  assert.equal(global.document.body.classList.contains("is-printing"), false);
 
   delete require.cache[require.resolve("./app.js")];
 });

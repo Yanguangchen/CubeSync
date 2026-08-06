@@ -732,6 +732,12 @@
   }
 
   function applyResultFieldState(table, field, enabled) {
+    const columnTrack = table.querySelector(`col[data-result-field="${field}"]`);
+    if (columnTrack) {
+      columnTrack.hidden = !enabled;
+      columnTrack.classList.toggle("field-disabled", !enabled);
+    }
+
     const markedCells = table.querySelectorAll(`[data-result-field="${field}"]`);
     if (markedCells.length) {
       markedCells.forEach((cell) => {

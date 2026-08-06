@@ -319,6 +319,22 @@
     let currentDocId = urlParams.get("id");
     let activeFieldConfig = null;
 
+    function enterPrintMode() {
+      document.body.classList.add("is-printing");
+    }
+
+    function exitPrintMode() {
+      document.body.classList.remove("is-printing");
+    }
+
+    function printForm() {
+      enterPrintMode();
+      window.print();
+    }
+
+    window.addEventListener("beforeprint", enterPrintMode);
+    window.addEventListener("afterprint", exitPrintMode);
+
     barcodeInputs.forEach(function (input) {
       input.addEventListener("input", function () {
         renderBarcode(input);
@@ -327,7 +343,7 @@
 
     if (printButton) {
       printButton.addEventListener("click", function () {
-        window.print();
+        printForm();
       });
     }
 
@@ -604,7 +620,7 @@
 
             if (shouldPrint) {
               window.setTimeout(function () {
-                window.print();
+                printForm();
               }, 500);
             }
           })
