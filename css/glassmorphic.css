@@ -35,6 +35,10 @@
 
   --barcode-text-font: "Outfit", Arial, Helvetica, sans-serif;
   --barcode-placeholder-color: var(--muted);
+
+  --print-form-font-size: 8px;
+  --print-title-font-size: 12px;
+  --print-table-font-size: 6px;
 }
 
 /* ==========================================================================
@@ -317,6 +321,42 @@ select:focus-visible {
   align-items: center;
   gap: var(--space-2);
   margin-left: auto;
+}
+
+.print-font-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.sheet .print-font-control input[type="range"] {
+  width: 64px;
+  min-width: 64px;
+  height: 16px;
+  min-height: 16px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.print-font-control output {
+  min-width: 26px;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
 }
 
 /* ==========================================================================
@@ -750,6 +790,11 @@ h1 {
     zoom: 0.95;
   }
 
+  form {
+    font-size: var(--print-form-font-size);
+    line-height: 1.15;
+  }
+
   .page-tools,
   .form-steps,
   .step-controls,
@@ -779,10 +824,19 @@ h1 {
     background: #ffffff;
   }
 
+  .contact-block,
+  .internal-use h2,
+  .internal-use label span,
+  .field-hint,
+  .title-band p,
+  .results-section h2 {
+    font-size: var(--print-form-font-size);
+  }
+
   h1 {
     margin: 4px 0 6px;
     padding: 4px 0;
-    font-size: 16px;
+    font-size: var(--print-title-font-size);
   }
 
   .form-header {
@@ -800,7 +854,7 @@ h1 {
   
   .field-row span {
     padding: 4px 6px;
-    font-size: 10px;
+    font-size: var(--print-form-font-size);
   }
 
   .field-row input,
@@ -810,6 +864,7 @@ h1 {
     padding: 2px 4px;
     border-color: #1f2937;
     background: #ffffff;
+    font-size: var(--print-form-font-size);
   }
 
   .results-header {
@@ -825,13 +880,13 @@ h1 {
   .results-table {
     min-width: 0;
     table-layout: fixed;
-    font-size: 8px;
+    font-size: var(--print-table-font-size);
   }
 
   .results-table th {
     min-height: 28px;
     padding: 2px;
-    font-size: 8px;
+    font-size: var(--print-table-font-size);
     line-height: 1.1;
     border: 1px solid #1f2937;
     background: #ffffff;

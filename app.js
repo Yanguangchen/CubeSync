@@ -311,6 +311,8 @@
     })();
     const form = document.getElementById("cubeRequestForm");
     const printButton = document.getElementById("printButton");
+    const printFontSizeInput = document.getElementById("printFontSize");
+    const printFontSizeValue = document.getElementById("printFontSizeValue");
     const saveButton = document.getElementById("saveFormButton");
     const saveStatus = document.getElementById("saveStatus");
     const recaptchaContainer = document.getElementById("recaptchaContainer");
@@ -318,8 +320,81 @@
     const urlParams = new URLSearchParams(window.location.search);
     let currentDocId = urlParams.get("id");
     let activeFieldConfig = null;
+    let currentPrintFontSize = 8;
+
+    function clampPrintFontSize(value) {
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? Math.min(12, Math.max(6, Math.round(parsed))) : 8;
+    }
+
+    function applyPrintFontSize(value, persist) {
+      currentPrintFontSize = clampPrintFontSize(value);
+      const rootStyle = document.documentElement.style;
+      rootStyle.setProperty("--print-form-font-size", `${currentPrintFontSize}px`);
+      rootStyle.setProperty("--print-title-font-size", `${currentPrintFontSize + 4}px`);
+      rootStyle.setProperty("--print-table-font-size", `${Math.max(5, currentPrintFontSize - 2)}px`);
+
+      if (printFontSizeInput) {
+        printFontSizeInput.value = String(currentPrintFontSize);
+      }
+      if (printFontSizeValue) {
+        printFontSizeValue.textContent = `${currentPrintFontSize}px`;
+      }
+
+      if (persist) {
+        try {
+          window.localStorage.setItem("cubeSyncPrintFontSize", String(currentPrintFontSize));
+        } catch {
+          // Printing still works when storage is unavailable.
+        }
+      }
+    }
+
+    function printableControlValue(control) {
+      if (control.tagName === "SELECT" && control.selectedOptions && control.selectedOptions[0]) {
+        return control.selectedOptions[0].textContent || control.value;
+      }
+      return control.value || "";
+    }
+
+    function syncOriginalPrintValues() {
+      if (!form || form.dataset.template !== "Original") return;
+
+      form.querySelectorAll(".field-row").forEach(function (row) {
+        const control = row.querySelector('input:not([type="checkbox"]), select, textarea');
+        if (control) {
+          row.dataset.printValue = printableControlValue(control);
+        } else {
+          delete row.dataset.printValue;
+        }
+      });
+
+      form.querySelectorAll(".results-table tbody td:not(.barcode-cell):not(.result-actions)").forEach(function (cell) {
+        const control = cell.querySelector("input, select, textarea");
+        if (control) {
+          cell.dataset.printValue = printableControlValue(control);
+        } else {
+          delete cell.dataset.printValue;
+        }
+      });
+    }
+
+    let savedPrintFontSize = null;
+    try {
+      savedPrintFontSize = window.localStorage.getItem("cubeSyncPrintFontSize");
+    } catch {
+      // Use the compact default when storage is unavailable.
+    }
+    applyPrintFontSize(savedPrintFontSize || (printFontSizeInput && printFontSizeInput.value), false);
+
+    if (printFontSizeInput) {
+      printFontSizeInput.addEventListener("input", function () {
+        applyPrintFontSize(printFontSizeInput.value, true);
+      });
+    }
 
     function enterPrintMode() {
+      syncOriginalPrintValues();
       document.body.classList.add("is-printing");
     }
 
@@ -350,6 +425,7 @@
     if (form) {
       form.addEventListener("reset", function () {
         window.setTimeout(function () {
+          applyPrintFontSize(currentPrintFontSize, false);
           renderAll(getBarcodeInputs());
           setSaveStatus(saveStatus, "", false);
         }, 0);

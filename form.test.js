@@ -115,6 +115,35 @@ test("both printable forms hide test-result editing controls", () => {
   }
 });
 
+test("both printable forms use the compact print type scale", () => {
+  const originalCss = readBundledCss("css/styles.css");
+  const glassCss = readBundledCss("css/glassmorphic.css");
+
+  for (const css of [originalCss, glassCss]) {
+    const printCss = css.slice(css.indexOf("@media print"));
+    assert.match(css, /--print-form-font-size:\s*8px/);
+    assert.match(css, /--print-title-font-size:\s*12px/);
+    assert.match(css, /--print-table-font-size:\s*6px/);
+    assert.match(printCss, /form\s*\{[^}]*font-size:\s*var\(--print-form-font-size\)/);
+    assert.match(printCss, /\.contact-block[^}]*font-size:\s*var\(--print-form-font-size\)/);
+    assert.match(printCss, /h1\s*\{[^}]*font-size:\s*var\(--print-title-font-size\)/);
+    assert.match(printCss, /\.field-row span\s*\{[^}]*font-size:\s*var\(--print-form-font-size\)/);
+    assert.match(printCss, /\.field-row input,[\s\S]*\.internal-use input\s*\{[^}]*font-size:\s*var\(--print-form-font-size\)/);
+    assert.match(printCss, /\.results-table\s*\{[^}]*font-size:\s*var\(--print-table-font-size\)/);
+    assert.match(printCss, /\.results-table th\s*\{[^}]*font-size:\s*var\(--print-table-font-size\)/);
+  }
+});
+
+test("original print fields wrap current values instead of clipping overflow", () => {
+  const css = readBundledCss("css/styles.css");
+  const printCss = css.slice(css.indexOf("@media print"));
+
+  assert.match(printCss, /\.field-row\[data-print-value\]::after\s*\{[^}]*content:\s*attr\(data-print-value\)[^}]*white-space:\s*pre-wrap[^}]*overflow-wrap:\s*anywhere/);
+  assert.match(printCss, /\.results-table td\[data-print-value\]::after\s*\{[^}]*content:\s*attr\(data-print-value\)[^}]*white-space:\s*pre-wrap[^}]*overflow-wrap:\s*anywhere/);
+  assert.match(printCss, /\.results-table th\s*\{[^}]*overflow:\s*visible[^}]*overflow-wrap:\s*anywhere/);
+  assert.match(printCss, /\.results-table td\s*\{[^}]*height:\s*34px[^}]*overflow:\s*visible/);
+});
+
 test("original form print layout gives test results the full printable width", () => {
   const html = fs.readFileSync("index.html", "utf8");
   const css = readBundledCss("css/styles.css");
@@ -129,8 +158,8 @@ test("original form print layout gives test results the full printable width", (
   assert.match(printCss, /\.request-grid\s*\{[^}]*grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\)/);
   assert.match(printCss, /\.field-row\s*\{[^}]*grid-column:\s*auto[^}]*grid-template-columns:\s*140px minmax\(0, 1fr\)/);
   assert.match(printCss, /\.results-section,\s*\.table-wrap\s*\{[^}]*width:\s*100%[^}]*max-width:\s*none/);
-  assert.match(printCss, /\.results-table\s*\{[^}]*width:\s*100%[^}]*max-width:\s*none[^}]*font-size:\s*8px/);
-  assert.match(printCss, /\.results-table td\s*\{[^}]*min-width:\s*0[^}]*overflow:\s*hidden/);
+  assert.match(printCss, /\.results-table\s*\{[^}]*width:\s*100%[^}]*max-width:\s*none[^}]*font-size:\s*var\(--print-table-font-size\)/);
+  assert.match(printCss, /\.results-table td\s*\{[^}]*min-width:\s*0[^}]*overflow:\s*visible/);
   assert.match(printCss, /\.results-table thead\s*\{[^}]*display:\s*table-header-group/);
 });
 

@@ -547,7 +547,7 @@ test("save/print/recaptcha live in a footer at the bottom of the form on both te
     // The command controls now sit inside the form, in a .form-actions footer.
     const footer = form.querySelector(".form-actions");
     assert.ok(footer, "form should have a .form-actions footer");
-    ["recaptchaContainer", "saveStatus", "saveFormButton", "printButton"].forEach((id) => {
+    ["recaptchaContainer", "saveStatus", "saveFormButton", "printButton", "printFontSize"].forEach((id) => {
       const el = document.getElementById(id);
       assert.ok(el, `${id} should exist`);
       assert.ok(footer.contains(el), `${id} should live in the bottom footer`);
@@ -563,7 +563,7 @@ test("save/print/recaptcha live in a footer at the bottom of the form on both te
 
     // The top toolbar no longer carries the command buttons (it now holds the Guide link instead).
     const topRight = document.querySelector(".page-tools .tool-section.right");
-    ["recaptchaContainer", "saveStatus", "saveFormButton", "printButton"].forEach((id) => {
+    ["recaptchaContainer", "saveStatus", "saveFormButton", "printButton", "printFontSize"].forEach((id) => {
       assert.equal(topRight && topRight.querySelector(`#${id}`), null, `top toolbar should not contain ${id}`);
     });
   }
@@ -623,6 +623,48 @@ test("print action triggered by print button", async () => {
 
   global.window.dispatchEvent(new global.Event("afterprint"));
   assert.equal(global.document.body.classList.contains("is-printing"), false);
+
+  delete require.cache[require.resolve("./app.js")];
+});
+
+test("print font control restores, applies, and persists the selected size", () => {
+  installDom(glassHtml);
+  global.localStorage.setItem("cubeSyncPrintFontSize", "10");
+  dispatchDOMContentLoaded();
+
+  const control = global.document.getElementById("printFontSize");
+  const output = global.document.getElementById("printFontSizeValue");
+  const rootStyle = global.document.documentElement.style;
+
+  assert.equal(control.value, "10");
+  assert.equal(output.textContent, "10px");
+  assert.equal(rootStyle.getPropertyValue("--print-form-font-size"), "10px");
+  assert.equal(rootStyle.getPropertyValue("--print-title-font-size"), "14px");
+  assert.equal(rootStyle.getPropertyValue("--print-table-font-size"), "8px");
+
+  control.value = "11";
+  control.dispatchEvent(new global.Event("input", { bubbles: true }));
+
+  assert.equal(output.textContent, "11px");
+  assert.equal(rootStyle.getPropertyValue("--print-form-font-size"), "11px");
+  assert.equal(global.localStorage.getItem("cubeSyncPrintFontSize"), "11");
+
+  delete require.cache[require.resolve("./app.js")];
+});
+
+test("original form mirrors current field values into wrapping print text", () => {
+  installDom(indexHtml);
+  dispatchDOMContentLoaded();
+
+  const requestInput = global.document.querySelector('[name="projectNameOnReport"]');
+  const resultInput = global.document.querySelector('[name="specimenRef1"]');
+  requestInput.value = "A very long project name that must wrap in print";
+  resultInput.value = "A long specimen reference that must remain visible";
+
+  global.window.dispatchEvent(new global.Event("beforeprint"));
+
+  assert.equal(requestInput.closest(".field-row").dataset.printValue, requestInput.value);
+  assert.equal(resultInput.closest("td").dataset.printValue, resultInput.value);
 
   delete require.cache[require.resolve("./app.js")];
 });

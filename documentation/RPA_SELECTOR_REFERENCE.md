@@ -33,6 +33,7 @@ These apply to both the original and glassmorphic forms.
 | Save button | `#saveFormButton` | Submits the form to Firestore |
 | Save status | `#saveStatus` | Save/auth/status text |
 | Print button | `#printButton` | Prints the current form |
+| Print font size | `#printFontSize` | Adjusts printed form typography from 6px to 12px |
 | Add result row button | `#addRowButton` | Adds a test result row |
 
 Recommended RPA pattern:

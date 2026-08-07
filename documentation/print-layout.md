@@ -105,8 +105,10 @@ The classic form prints on A4 landscape with a 4mm margin. Print rules:
 - Allow long forms to paginate instead of shrinking the entire sheet.
 - Keep each result row together where possible.
 - Repeat the result header on later pages.
-- Use an 8px result-table font to fit enabled columns.
-- Constrain all cells and inputs to their fixed table tracks.
+- Default to an 8px form font, 12px title, and 6px result-table font so the printed form is substantially more compact than its screen presentation.
+- Let users adjust the print base font from 6px to 12px with the compact control beside the Print button; the preference is stored locally.
+- Mirror current Original-form values into wrapping print text so long request and result values expand their rows instead of being clipped.
+- Keep cells inside their fixed table tracks while allowing text to wrap and grow vertically.
 - Hide action buttons, form controls, and Botpress UI.
 - Scale barcode previews with `object-fit: contain` inside a 30px print container.
 
@@ -116,8 +118,8 @@ The `Action` column is intentionally omitted from print because it contains edit
 
 `app.js` uses a dedicated print lifecycle:
 
-1. `printForm()` adds `body.is-printing` before calling `window.print()`.
-2. The browser `beforeprint` event also applies the class.
+1. `printForm()` synchronizes wrapping print values and adds `body.is-printing` before calling `window.print()`.
+2. The browser `beforeprint` event repeats that synchronization and applies the class.
 3. `afterprint` removes the class after printing or cancellation.
 
 Both `body.is-printing` and `@media print` hide these Botpress surfaces:

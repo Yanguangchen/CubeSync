@@ -45,6 +45,10 @@
   --barcode-bar-color: #000000;
   --barcode-text-fill: #111827;
   --barcode-error-font-weight: 700;
+
+  --print-form-font-size: 8px;
+  --print-title-font-size: 12px;
+  --print-table-font-size: 6px;
 }
 
 /* ==========================================================================
@@ -193,6 +197,39 @@ button:hover,
   align-items: center;
   gap: 8px;
   margin-left: auto;
+}
+
+.print-font-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.print-font-control input[type="range"] {
+  width: 64px;
+  min-width: 64px;
+  height: 16px;
+  min-height: 16px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  accent-color: var(--brand-blue);
+  cursor: pointer;
+}
+
+.print-font-control output {
+  min-width: 26px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
 }
 
 .mode-toggle {
@@ -585,6 +622,11 @@ body.is-printing iframe[title="Botpress"] {
     zoom: 1;
   }
 
+  form {
+    font-size: var(--print-form-font-size);
+    line-height: 1.15;
+  }
+
   .page-tools,
   .form-actions,
   .add-row-btn,
@@ -625,12 +667,19 @@ body.is-printing iframe[title="Botpress"] {
 
   .contact-block {
     padding-top: 0;
+    font-size: var(--print-form-font-size);
   }
 
   h1 {
     margin: 4px 0 6px;
     padding: 4px 0;
-    font-size: 16px;
+    font-size: var(--print-title-font-size);
+  }
+
+  .internal-use h2,
+  .internal-use label,
+  .results-section h2 {
+    font-size: var(--print-form-font-size);
   }
 
   /* Compact the request fields */
@@ -656,7 +705,7 @@ body.is-printing iframe[title="Botpress"] {
   
   .field-row span {
     padding: 4px 6px;
-    font-size: 10px;
+    font-size: var(--print-form-font-size);
   }
 
   .field-row input,
@@ -666,6 +715,30 @@ body.is-printing iframe[title="Botpress"] {
     padding: 2px 4px;
     border-top: 0;
     border-left: 1px solid var(--line);
+    font-size: var(--print-form-font-size);
+  }
+
+  /* Native one-line controls clip long values when printed. app.js mirrors
+     their current value onto the row so it can wrap and grow vertically. */
+  .field-row[data-print-value] > input:not([type="checkbox"]),
+  .field-row[data-print-value] > select,
+  .field-row[data-print-value] > textarea,
+  .field-row[data-print-value] > .erp-autocomplete-wrapper {
+    display: none;
+  }
+
+  .field-row[data-print-value]::after {
+    content: attr(data-print-value);
+    grid-column: 2;
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    min-height: 20px;
+    padding: 2px 4px;
+    border-left: 1px solid var(--line);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
 
   input,
@@ -692,7 +765,7 @@ body.is-printing iframe[title="Botpress"] {
     min-width: 0;
     max-width: none;
     table-layout: fixed;
-    font-size: 8px;
+    font-size: var(--print-table-font-size);
   }
 
   .results-table thead {
@@ -710,8 +783,10 @@ body.is-printing iframe[title="Botpress"] {
     max-width: none;
     min-height: 28px;
     padding: 2px;
-    overflow: hidden;
-    font-size: 8px;
+    overflow: visible;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    font-size: var(--print-table-font-size);
     line-height: 1.1;
   }
 
@@ -720,13 +795,24 @@ body.is-printing iframe[title="Botpress"] {
     min-width: 0;
     max-width: none;
     height: 34px;
-    overflow: hidden;
+    overflow: visible;
   }
 
-  .results-table td > input {
+  .results-table td[data-print-value] > input,
+  .results-table td[data-print-value] > select,
+  .results-table td[data-print-value] > textarea {
+    display: none;
+  }
+
+  .results-table td[data-print-value]::after {
+    content: attr(data-print-value);
+    display: block;
     width: 100%;
     min-width: 0;
-    max-width: 100%;
+    padding: 2px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
 
   .barcode-cell > input,

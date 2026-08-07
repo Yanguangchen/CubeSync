@@ -254,6 +254,11 @@
             <span id="saveStatus" class="save-status" role="status" aria-live="polite"></span>
             <button type="submit" form="cubeRequestForm" id="saveFormButton">Save</button>
             <button type="button" id="printButton">Print</button>
+            <label class="print-font-control" for="printFontSize">
+              <span>Print size</span>
+              <input type="range" id="printFontSize" min="6" max="12" step="1" value="8" aria-label="Printed form font size">
+              <output id="printFontSizeValue" for="printFontSize">8px</output>
+            </label>
             <button type="reset" form="cubeRequestForm">Clear</button>
           </div>
         </footer>
