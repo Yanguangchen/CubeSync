@@ -62,10 +62,19 @@ const SENSITIVE_KEYS = new Set([
 function sanitizeForLog(data) {
   const seen = new WeakSet();
 
+  function sanitizeString(value) {
+    const redacted = value
+      .replace(/(bearer\s+)[^\s,;]+/gi, "$1[REDACTED]")
+      .replace(/([?&](?:token|secret|api[_-]?key|authorization)=)[^&\s]+/gi, "$1[REDACTED]")
+      .replace(/\beyJ[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\b/g, "[REDACTED_JWT]")
+      .replace(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi, "[REDACTED_EMAIL]");
+    return redacted.length > 1000 ? `${redacted.slice(0, 1000)}…[truncated]` : redacted;
+  }
+
   function walk(value, depth) {
     if (value === null || value === undefined) return value;
     if (typeof value === "string") {
-      return value.length > 1000 ? `${value.slice(0, 1000)}…[truncated]` : value;
+      return sanitizeString(value);
     }
     if (typeof value === "number" || typeof value === "boolean") return value;
     if (typeof value === "bigint") return String(value);

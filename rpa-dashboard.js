@@ -308,7 +308,14 @@
         audio.volume = 0.3; // Lower the volume
         const playPromise = audio.play();
         if (playPromise !== undefined) {
-          playPromise.catch(err => console.warn("Startup sound blocked:", err));
+          playPromise.catch((error) => logRpaObs({
+            feature: "RpaAudio",
+            functionName: "playStartupSound",
+            operation: "play",
+            status: "warning",
+            category: "BrowserCapability",
+            error
+          }));
         }
       }
 

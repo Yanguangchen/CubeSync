@@ -94,6 +94,47 @@ isAnalyticsSupported()
   })
   .catch(() => {});
 
+function observabilityHelper() {
+  return (typeof globalThis !== "undefined" && (
+    globalThis.CubeSyncObservability ||
+    (globalThis.CubeSyncFormData && globalThis.CubeSyncFormData.Observability)
+  )) || null;
+}
+
+function createApiCorrelationId(operation) {
+  const observability = observabilityHelper();
+  if (observability && typeof observability.createClientCorrelationId === "function") {
+    return observability.createClientCorrelationId(operation || "api");
+  }
+  const suffix = typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+    ? crypto.randomUUID()
+    : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+  return `${operation || "api"}-${suffix}`;
+}
+
+function responseCorrelationId(response, fallback) {
+  if (response && response.headers && typeof response.headers.get === "function") {
+    return response.headers.get("X-CubeSync-Request-Id") || fallback;
+  }
+  return fallback;
+}
+
+function logApiRequest(context) {
+  const observability = observabilityHelper();
+  if (observability && typeof observability.logClientEvent === "function") {
+    observability.logClientEvent(context);
+  }
+}
+
+function attachApiErrorContext(error, correlationId, httpStatus) {
+  const observedError = error instanceof Error ? error : new Error(String(error || "API request failed"));
+  observedError.correlationId = correlationId;
+  if (Number.isFinite(Number(httpStatus))) {
+    observedError.httpStatus = Number(httpStatus);
+  }
+  return observedError;
+}
+
 function cubeRequestsCollection() {
   return collection(db, COLLECTION_NAME);
 }
@@ -234,27 +275,60 @@ async function saveCubeRequest(payload, id) {
 }
 
 async function savePublicCubeRequest(payload, id, recaptchaToken) {
-  const response = await fetch("/api/cube-request-submit", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(withoutUndefined({
-      id,
-      payload,
-      recaptchaToken
-    }))
-  });
-  const result = await response.json().catch(() => ({}));
+  const startedAt = Date.now();
+  let correlationId = createApiCorrelationId("submission");
+  let response = null;
 
-  if (!response.ok) {
-    if (response.status === 405) {
-      throw new Error(result.error || "Submission API is not running. Use Vercel or vercel dev; Live Server cannot run /api functions.");
+  try {
+    response = await fetch("/api/cube-request-submit", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CubeSync-Request-Id": correlationId
+      },
+      body: JSON.stringify(withoutUndefined({
+        id,
+        payload,
+        recaptchaToken
+      }))
+    });
+    correlationId = responseCorrelationId(response, correlationId);
+    const result = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      const message = response.status === 405
+        ? result.error || "Submission API is not running. Use Vercel or vercel dev; Live Server cannot run /api functions."
+        : result.error || "Form submission failed";
+      throw attachApiErrorContext(new Error(message), correlationId, response.status);
     }
-    throw new Error(result.error || "Form submission failed");
-  }
 
-  return result.id;
+    logApiRequest({
+      feature: "PublicSubmissionApi",
+      functionName: "savePublicCubeRequest",
+      operation: "POST /api/cube-request-submit",
+      status: "succeeded",
+      category: "ApiRequest",
+      correlationId,
+      httpStatus: response.status,
+      durationMs: Date.now() - startedAt,
+      safeId: result.id
+    });
+    return result.id;
+  } catch (error) {
+    const observedError = attachApiErrorContext(error, correlationId, response && response.status);
+    logApiRequest({
+      feature: "PublicSubmissionApi",
+      functionName: "savePublicCubeRequest",
+      operation: "POST /api/cube-request-submit",
+      status: "failed",
+      category: "ApiRequest",
+      correlationId,
+      httpStatus: response && response.status,
+      durationMs: Date.now() - startedAt,
+      error: observedError
+    });
+    throw observedError;
+  }
 }
 
 async function updateCubeRequest(id, updates) {
@@ -349,9 +423,14 @@ function requireFormDataHelper() {
 }
 
 async function dropdownOptionsApi(action, options) {
+  const startedAt = Date.now();
+  let correlationId = createApiCorrelationId("dropdown-options");
   const init = {
     method: action ? "POST" : "GET",
-    headers: { "Content-Type": "application/json" }
+    headers: {
+      "Content-Type": "application/json",
+      "X-CubeSync-Request-Id": correlationId
+    }
   };
 
   if (action) {
@@ -363,17 +442,50 @@ async function dropdownOptionsApi(action, options) {
     init.body = JSON.stringify({ action, options });
   }
 
-  const response = await fetch("/api/dropdown-options", init);
-  let body = null;
   try {
-    body = await response.json();
-  } catch {
-    body = null;
+    const response = await fetch("/api/dropdown-options", init);
+    correlationId = responseCorrelationId(response, correlationId);
+    let body = null;
+    try {
+      body = await response.json();
+    } catch {
+      body = null;
+    }
+    if (!response.ok) {
+      throw attachApiErrorContext(
+        new Error((body && body.error) || "Unable to manage dropdown options."),
+        correlationId,
+        response.status
+      );
+    }
+    logApiRequest({
+      feature: "DropdownOptionsApi",
+      functionName: "dropdownOptionsApi",
+      operation: `${init.method} /api/dropdown-options`,
+      status: "succeeded",
+      category: "ApiRequest",
+      correlationId,
+      httpStatus: response.status,
+      durationMs: Date.now() - startedAt,
+      metadata: { action: action || "read" }
+    });
+    return (body && body.options) || {};
+  } catch (error) {
+    const observedError = attachApiErrorContext(error, correlationId, error && error.httpStatus);
+    logApiRequest({
+      feature: "DropdownOptionsApi",
+      functionName: "dropdownOptionsApi",
+      operation: `${init.method} /api/dropdown-options`,
+      status: "failed",
+      category: "ApiRequest",
+      correlationId,
+      httpStatus: observedError.httpStatus,
+      durationMs: Date.now() - startedAt,
+      metadata: { action: action || "read" },
+      error: observedError
+    });
+    throw observedError;
   }
-  if (!response.ok) {
-    throw new Error((body && body.error) || "Unable to manage dropdown options.");
-  }
-  return (body && body.options) || {};
 }
 
 // Shared, dynamic autocomplete suggestions. The doc is public-readable (the

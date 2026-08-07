@@ -1772,12 +1772,20 @@
       }
     } catch (error) {
       // Promotion is best-effort and must never block saving the form.
-      console.warn("CubeSync: could not promote dropdown options", error);
+      logDashboardObs({
+        feature: "DashboardDropdownOptions",
+        functionName: "promoteFlaggedDropdownValues",
+        operation: "addDropdownOptions",
+        status: "warning",
+        category: "DatabaseWrite",
+        error: error
+      });
     }
   }
 
   async function saveEditedForm(event) {
     event.preventDefault();
+    const saveStartedAt = Date.now();
 
     const store = formStore();
     const helper = formDataHelper();
@@ -1840,6 +1848,16 @@
       changedFieldCount = Object.keys(patch).length;
 
       if (!Object.keys(patch).length) {
+        logDashboardObs({
+          feature: "DashboardEdit",
+          functionName: "saveEditedForm",
+          operation: "updateCubeRequest",
+          status: "succeeded",
+          category: "DatabaseWrite",
+          safeId: id,
+          durationMs: Date.now() - saveStartedAt,
+          metadata: { changedFieldCount: 0, noOp: true }
+        });
         elements.editDialog.close();
         return;
       }
@@ -1871,10 +1889,24 @@
       }
 
       await store.updateCubeRequest(id, patch);
+      logDashboardObs({
+        feature: "DashboardEdit",
+        functionName: "saveEditedForm",
+        operation: "updateCubeRequest",
+        status: "succeeded",
+        category: "DatabaseWrite",
+        safeId: id,
+        durationMs: Date.now() - saveStartedAt,
+        metadata: {
+          changedFieldCount,
+          auditChangeCount: changes.length
+        }
+      });
 
       // Append the edit-history session entry. Best-effort: a logging failure
       // must not undo the already-saved record change.
       if (changes.length && typeof store.addEditHistoryEntry === "function") {
+        const historyStartedAt = Date.now();
         try {
           const auth = authHelper();
           const user = auth && typeof auth.currentUser === "function" ? auth.currentUser() : null;
@@ -1890,8 +1922,28 @@
             deviceInfo: (typeof window !== "undefined" && window.navigator ? String(window.navigator.userAgent || "") : "").slice(0, 500),
             changes
           });
+          logDashboardObs({
+            feature: "DashboardEditHistory",
+            functionName: "saveEditedForm",
+            operation: "addEditHistoryEntry",
+            status: "succeeded",
+            category: "DatabaseWrite",
+            safeId: id,
+            durationMs: Date.now() - historyStartedAt,
+            metadata: { changeCount: changes.length }
+          });
         } catch (historyError) {
-          console.error("CubeSync edit-history write failed", historyError);
+          logDashboardObs({
+            feature: "DashboardEditHistory",
+            functionName: "saveEditedForm",
+            operation: "addEditHistoryEntry",
+            status: "failed",
+            category: "DatabaseWrite",
+            safeId: id,
+            durationMs: Date.now() - historyStartedAt,
+            metadata: { changeCount: changes.length },
+            error: historyError
+          });
         }
       }
 
@@ -1916,9 +1968,10 @@
         status: "failed",
         category: "DatabaseWrite",
         safeId: id,
+        durationMs: Date.now() - saveStartedAt,
+        metadata: { changedFieldCount },
         error: error
       });
-      console.error("CubeSync dashboard save failed", error);
       // A dashboard edit only reaches here for an allowlisted staff account, so
       // a permission-denied on a multi-field patch is far more likely the
       // 1,000-expression rule cap than a real access failure — pass that

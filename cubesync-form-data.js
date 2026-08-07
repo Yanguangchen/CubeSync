@@ -6,6 +6,9 @@
     root.CubeSyncFormData = exported;
     if (exported && exported.Observability) {
       root.CubeSyncObservability = exported.Observability;
+      if (typeof exported.Observability.installGlobalErrorHandlers === "function") {
+        exported.Observability.installGlobalErrorHandlers(root);
+      }
     }
   }
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
@@ -1722,51 +1725,194 @@
   }
 
   const SENSITIVE_CLIENT_KEYS = new Set([
-    "password", "token", "apikey", "api_key", "secret", "privatekey", "private_key",
-    "authorization", "auth", "recaptchatoken", "idtoken", "bearer", "creditcard", "payment"
+    "password", "token", "apikey", "secret", "privatekey", "authorization", "auth",
+    "recaptchatoken", "idtoken", "bearer", "creditcard", "payment", "email", "phone",
+    "contact", "address", "customerbilling", "clientnameonreport", "projectnameonreport",
+    "barcode", "payload", "body"
   ]);
 
   function sanitizeClientData(data) {
-    if (data === null || data === undefined) return data;
-    if (typeof data !== "object") return data;
-    if (Array.isArray(data)) return data.map(sanitizeClientData);
-    const clean = {};
-    for (const [key, val] of Object.entries(data)) {
-      const lower = key.toLowerCase().replace(/[^a-z]/g, "");
-      if (SENSITIVE_CLIENT_KEYS.has(lower) || lower.includes("password") || lower.includes("token") || lower.includes("secret") || lower.includes("key")) {
-        clean[key] = "[REDACTED]";
-      } else {
-        clean[key] = sanitizeClientData(val);
-      }
+    const seen = new WeakSet();
+
+    function sanitizeString(value) {
+      const redacted = value
+        .replace(/(bearer\s+)[^\s,;]+/gi, "$1[REDACTED]")
+        .replace(/([?&](?:token|secret|api[_-]?key|authorization)=)[^&\s]+/gi, "$1[REDACTED]")
+        .replace(/\beyJ[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\b/g, "[REDACTED_JWT]")
+        .replace(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi, "[REDACTED_EMAIL]");
+      return redacted.length > 1000 ? `${redacted.slice(0, 1000)}…[truncated]` : redacted;
     }
-    return clean;
+
+    function walk(value, depth) {
+      if (value === null || value === undefined) return value;
+      if (typeof value === "string") {
+        return sanitizeString(value);
+      }
+      if (typeof value === "number" || typeof value === "boolean") return value;
+      if (typeof value === "bigint") return String(value);
+      if (typeof value !== "object") return String(value);
+      if (depth >= 6) return "[MAX_DEPTH]";
+      if (seen.has(value)) return "[CIRCULAR]";
+      seen.add(value);
+
+      if (value instanceof Error) {
+        return walk({ name: value.name, code: value.code, message: value.message }, depth + 1);
+      }
+      if (value instanceof Date) return value.toISOString();
+      if (Array.isArray(value)) {
+        const clean = value.slice(0, 50).map((entry) => walk(entry, depth + 1));
+        if (value.length > 50) clean.push(`[${value.length - 50} more items]`);
+        return clean;
+      }
+
+      const clean = {};
+      for (const [key, val] of Object.entries(value).slice(0, 100)) {
+        const normalizedKey = key.toLowerCase().replace(/[^a-z0-9]/g, "");
+        const isSensitive =
+          SENSITIVE_CLIENT_KEYS.has(normalizedKey) ||
+          normalizedKey.includes("password") ||
+          normalizedKey.includes("token") ||
+          normalizedKey.includes("secret") ||
+          normalizedKey.includes("privatekey") ||
+          normalizedKey.includes("apikey");
+        clean[key] = isSensitive ? "[REDACTED]" : walk(val, depth + 1);
+      }
+      return clean;
+    }
+
+    return walk(data, 0);
+  }
+
+  function createClientCorrelationId(prefix = "client") {
+    let identifier = "";
+    try {
+      const cryptoApi = typeof globalThis !== "undefined" && globalThis.crypto;
+      if (cryptoApi && typeof cryptoApi.randomUUID === "function") {
+        identifier = cryptoApi.randomUUID();
+      }
+    } catch {
+      // Fall through to the non-cryptographic observability identifier.
+    }
+    if (!identifier) {
+      identifier = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+    }
+    return `${String(prefix || "client").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 24) || "client"}-${identifier}`;
+  }
+
+  const clientSessionId = createClientCorrelationId("session");
+
+  function normalizeClientError(error) {
+    if (!error) return undefined;
+    if (typeof error === "string") {
+      return { name: "Error", message: sanitizeClientData(error) };
+    }
+    return sanitizeClientData({
+      name: error.name || "Error",
+      code: error.code,
+      message: error.message || String(error)
+    });
+  }
+
+  function normalizeClientLogNumber(value) {
+    const number = Number(value);
+    return Number.isFinite(number) && number >= 0 ? Math.round(number) : undefined;
   }
 
   function logClientEvent(context) {
     if (typeof console === "undefined") return;
+    const status = context.status || "info";
+    const level = context.level || (status === "failed" ? "error" : status === "warning" ? "warn" : "info");
+    const feature = context.feature || "ClientGeneral";
+    const operation = context.operation || "unknown";
+    const errorCorrelationId = context.error && context.error.correlationId;
     const payload = {
+      schemaVersion: 1,
       timestamp: new Date().toISOString(),
-      feature: context.feature || "ClientGeneral",
+      level,
+      source: "client",
+      event: context.event || `${feature}.${operation}`,
+      message: context.message || `${feature} ${operation} ${status}`,
+      feature,
       functionName: context.functionName || "unknown",
-      operation: context.operation || "unknown",
-      status: context.status || "info",
+      operation,
+      status,
       category: context.category || "General",
+      route: context.route || (typeof location !== "undefined" ? location.pathname : undefined),
+      sessionId: clientSessionId,
+      correlationId: context.correlationId || errorCorrelationId || undefined,
+      httpStatus: normalizeClientLogNumber(context.httpStatus !== undefined ? context.httpStatus : context.error && context.error.httpStatus),
+      durationMs: normalizeClientLogNumber(context.durationMs),
+      online: typeof navigator !== "undefined" && typeof navigator.onLine === "boolean" ? navigator.onLine : undefined,
       safeId: context.safeId || context.recordId || undefined,
       userAction: context.userAction || undefined,
       validationRule: context.validationRule || undefined,
       systemStep: context.systemStep || undefined,
       expected: context.expected !== undefined ? sanitizeClientData(context.expected) : undefined,
       actual: context.actual !== undefined ? sanitizeClientData(context.actual) : undefined,
-      error: context.error ? (typeof context.error === "object" ? context.error.message || String(context.error) : String(context.error)) : undefined
+      metadata: context.metadata !== undefined ? sanitizeClientData(context.metadata) : undefined,
+      error: normalizeClientError(context.error)
     };
     Object.keys(payload).forEach((k) => payload[k] === undefined && delete payload[k]);
-    if (payload.status === "failed") {
-      if (typeof console.error === "function") console.error(`[Client Observability Error]`, JSON.stringify(payload));
-    } else if (payload.status === "warning") {
-      if (typeof console.warn === "function") console.warn(`[Client Observability Warning]`, JSON.stringify(payload));
+    const line = JSON.stringify(payload);
+    if (level === "error") {
+      if (typeof console.error === "function") console.error(line);
+    } else if (level === "warn") {
+      if (typeof console.warn === "function") console.warn(line);
     } else {
-      if (typeof console.log === "function") console.log(`[Client Observability Info]`, JSON.stringify(payload));
+      if (typeof console.log === "function") console.log(line);
     }
+    return payload;
+  }
+
+  const observedErrorTargets = new WeakSet();
+
+  function resourcePathForLog(target, root) {
+    const raw = target && (target.src || target.href) || "";
+    if (!raw) return undefined;
+    try {
+      return new URL(raw, root && root.location && root.location.href || undefined).pathname;
+    } catch {
+      return String(raw).split(/[?#]/)[0].slice(0, 500);
+    }
+  }
+
+  function installGlobalErrorHandlers(target) {
+    if (!target || typeof target.addEventListener !== "function" || observedErrorTargets.has(target)) {
+      return false;
+    }
+    observedErrorTargets.add(target);
+
+    target.addEventListener("error", function (event) {
+      const resourceTarget = event && event.target && event.target !== target ? event.target : null;
+      logClientEvent({
+        feature: "ClientRuntime",
+        functionName: "globalErrorHandler",
+        operation: resourceTarget ? "resourceLoad" : "uncaughtError",
+        status: "failed",
+        category: resourceTarget ? "ResourceLoad" : "UnhandledError",
+        metadata: resourceTarget ? {
+          resourceTag: resourceTarget.tagName || undefined,
+          resourcePath: resourcePathForLog(resourceTarget, target)
+        } : {
+          line: event && event.lineno,
+          column: event && event.colno,
+          sourcePath: event && event.filename ? resourcePathForLog({ src: event.filename }, target) : undefined
+        },
+        error: event && (event.error || event.message) || "Unknown client error"
+      });
+    }, true);
+
+    target.addEventListener("unhandledrejection", function (event) {
+      logClientEvent({
+        feature: "ClientRuntime",
+        functionName: "globalErrorHandler",
+        operation: "unhandledPromiseRejection",
+        status: "failed",
+        category: "UnhandledPromiseRejection",
+        error: event && event.reason || "Unhandled promise rejection"
+      });
+    });
+    return true;
   }
 
   // Firestore enforces a set of hard limits that all surface as ordinary write
@@ -1924,7 +2070,9 @@
 
   const Observability = {
     sanitizeClientData,
+    createClientCorrelationId,
     logClientEvent,
+    installGlobalErrorHandlers,
     formatClientError,
     classifyFirestoreError,
     FIRESTORE_LIMIT_HINTS

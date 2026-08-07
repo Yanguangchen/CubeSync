@@ -120,6 +120,16 @@
       return true;
     }
 
+    logClientObs({
+      feature: "FormSubmission",
+      functionName: "validateRequestDetails",
+      operation: "validateCubeRequestForm",
+      status: "warning",
+      category: "ValidationFailure",
+      metadata: {
+        missingFieldCount: Array.isArray(validation.missingFieldKeys) ? validation.missingFieldKeys.length : 0
+      }
+    });
     setSaveStatus(statusElement, validation.message, true);
     focusFirstMissingRequestField(form, validation.missingFieldKeys, navigateToStep);
     return false;
@@ -433,12 +443,21 @@
 
       form.addEventListener("submit", async function (event) {
         event.preventDefault();
+        const submissionStartedAt = Date.now();
 
         // Block submits while offline: the write would fail (or worse, half
         // complete on a flaky link) and the user would retry, creating a
         // duplicate request. Reconnecting and resubmitting is the safe path.
         const connectivity = window.CubeSyncConnectivity;
         if (connectivity && !connectivity.isOnline()) {
+          logClientObs({
+            feature: "FormSubmission",
+            functionName: "submit",
+            operation: "checkConnectivity",
+            status: "warning",
+            category: "NetworkState",
+            durationMs: Date.now() - submissionStartedAt
+          });
           setSaveStatus(saveStatus, "You're offline — reconnect before saving to avoid duplicate submissions.", true);
           return;
         }
@@ -447,6 +466,18 @@
         const formData = window.CubeSyncFormData;
 
         if (!store || !formData) {
+          logClientObs({
+            feature: "FormSubmission",
+            functionName: "submit",
+            operation: "checkDependencies",
+            status: "failed",
+            category: "ConfigError",
+            durationMs: Date.now() - submissionStartedAt,
+            metadata: {
+              firestoreLoaded: Boolean(store),
+              formDataLoaded: Boolean(formData)
+            }
+          });
           setSaveStatus(saveStatus, "Firestore unavailable", true);
           return;
         }
@@ -468,6 +499,7 @@
             operation: "recaptchaToken",
             status: "failed",
             category: "AuthenticationCheck",
+            durationMs: Date.now() - submissionStartedAt,
             error: error
           });
           setSaveStatus(saveStatus, formatClientUserError(error, "reCAPTCHA failed"), true);
@@ -485,7 +517,8 @@
             functionName: "submit",
             operation: "savePublicCubeRequest",
             status: "succeeded",
-            category: "APIError",
+            category: "ApiRequest",
+            durationMs: Date.now() - submissionStartedAt,
             safeId: currentDocId
           });
           
@@ -517,7 +550,8 @@
             functionName: "submit",
             operation: "savePublicCubeRequest",
             status: "failed",
-            category: "APIError",
+            category: "ApiRequest",
+            durationMs: Date.now() - submissionStartedAt,
             error: error
           });
           setSaveStatus(saveStatus, formatClientUserError(error, "Save failed"), true);

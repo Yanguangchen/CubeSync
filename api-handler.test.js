@@ -116,7 +116,9 @@ test("submission API allows OPTIONS preflight for browser clients", async () => 
   assert.equal(response.statusCode, 204);
   assert.equal(response.headers["Access-Control-Allow-Origin"], "http://localhost:5500");
   assert.equal(response.headers["Access-Control-Allow-Methods"], "POST, OPTIONS");
-  assert.equal(response.headers["Access-Control-Allow-Headers"], "Content-Type");
+  assert.equal(response.headers["Access-Control-Allow-Headers"], "Content-Type, X-CubeSync-Request-Id");
+  assert.equal(response.headers["Access-Control-Expose-Headers"], "X-CubeSync-Request-Id");
+  assert.ok(response.headers["X-CubeSync-Request-Id"]);
 });
 
 test("submission API returns actionable 405 for non-POST requests", async () => {

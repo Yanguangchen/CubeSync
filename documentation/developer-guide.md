@@ -31,6 +31,7 @@ The public forms are intentionally unauthenticated, but final writes go through 
 | `barcode.js` | Code 128-B encoder and SVG renderer. | Stores barcode text only; SVGs are derived client-side. |
 | `api/cube-request-submit.js` | Public submit endpoint. | Verifies reCAPTCHA and writes anonymous submissions with Firebase Admin. |
 | `api/dropdown-options.js` | Dropdown option API endpoint. | Supports shared autocomplete option management where deployed. |
+| `api/_utils/firebase-api-helper.js` | Server observability and API utilities. | Owns structured JSON logs, privacy redaction, request correlation, CORS headers, and Firebase Admin setup. |
 | `scripts/write-env.js` | Build script. | Generates `env.js` and copies deployable static files to `public/`. |
 | `scripts/load-env.js` | Environment loader. | Shared helper for build and validation scripts. |
 | `scripts/validate-env.js` | Secret/config validator. | Checks required deployment environment values without printing secrets. |
@@ -115,6 +116,7 @@ Anonymous submissions are forced to `Draft` by the API. Only authenticated staff
 7. reCAPTCHA v2 produces a token.
 8. The browser posts `{ payload, recaptchaToken }` to `/api/cube-request-submit`.
 9. The API verifies the token, sanitizes/validates the payload, rejects caller-supplied ids, forces `status: "Draft"`, and creates a Firestore document.
+10. Browser and server events share `X-CubeSync-Request-Id`, allowing the submission to be reconstructed by `correlationId`; see [observability.md](observability.md).
 
 ## 6. Dashboard flow
 
@@ -193,6 +195,7 @@ When adding behavior, prefer the smallest focused test that would fail without t
 - Validate every new persisted field in both JavaScript sanitization and Firestore rules.
 - Preserve server timestamp sentinels when patching documents.
 - Avoid storing generated barcode images; store barcode text only.
+- Keep telemetry payload-free and preserve the redaction/correlation contract in [observability.md](observability.md).
 - Treat customer-facing custom labels as presentation only; do not use them as storage keys or selectors.
 
 ## 12. Accessibility and UX checklist

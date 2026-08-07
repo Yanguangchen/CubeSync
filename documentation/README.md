@@ -51,6 +51,7 @@ The repo root keeps a short [README.md](../README.md) that links here.
 |--------|--------|---------|
 | `window.CubeSyncBarcode` | `barcode.js` | `encodeCode128B`, `renderBarcodeSvg`, `sanitizeBarcodeText` |
 | `window.CubeSyncFormData` | `cubesync-form-data.js` | Schema, validation, serialization, field config, free-text helpers (`collectCustomFields`, `deriveFreeTextDropdownFields`, `mergeFreeTextDropdownFields`), patch updates (`buildCubeRequestUpdatePatch`), `normalizeCubeRequestForDashboard` |
+| `window.CubeSyncObservability` | `cubesync-form-data.js` | Structured client events, privacy redaction, correlation identifiers, error classification, and global runtime error handlers (see [observability.md](observability.md)) |
 | `window.CubeSyncDashboardFilters` | `cubesync-dashboard-filters.js` | Dashboard list sort/filter — `parseDateKey`, `currentIsoDate`, `collectFilterOptions`, `applyDashboardFilters` (see [dashboard-sort-and-filter.md](dashboard-sort-and-filter.md)) |
 | `window.CubeSyncHeatmap` | `cubesync-heatmap.js` | Dashboard submission heatmap helpers — `buildHeatmap`, `resolveTimestamp`, `bucketLabels` |
 | `window.CubeSyncMetrics` | `cubesync-metrics.js` | Operational metrics dashboard helpers — daily/weekly/monthly counts, average forms per day, peak periods, processed records, manual-review records, cube job number collisions (`cubeJobCollisions`, incl. today), activity leaderboard (`buildActivityLeaderboard`), daily Ready completions (`buildDailyCompletions`) |
@@ -369,6 +370,7 @@ Known WorkGrid permission-policy watch items:
 | `dashboard-ux-animations.md` | Dashboard UX animations and master-detail reveal logic |
 | `form-submission-throbber.md` | Form submission save button spinner behavior |
 | `print-layout.md` | CSS logic for enforcing single A4 landscape sheet form printing |
+| `observability.md` | Structured event schema, request correlation, privacy rules, and production investigation runbook |
 | `test-item-lock.md` | Explanation of test item lockdown to BS EN 12390-3: 2019 standard |
 | `RPA_SELECTOR_REFERENCE.md` | Stable CSS selectors and field names for RPA automation |
 | `mobile-responsiveness-postmortem.md` | Postmortem: mobile responsiveness issues, root causes, and fixes — read when adding CSS grids or flex layouts |

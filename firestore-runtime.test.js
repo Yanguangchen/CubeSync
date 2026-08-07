@@ -247,6 +247,7 @@ test("firestore.js runtime tests", async (t) => {
     const fetchArgs = dom.window.calls.fetch[0];
     assert.equal(fetchArgs.url, "/api/cube-request-submit");
     assert.equal(fetchArgs.options.method, "POST");
+    assert.match(fetchArgs.options.headers["X-CubeSync-Request-Id"], /^submission-/);
     const body = JSON.parse(fetchArgs.options.body);
     assert.equal(body.id, "public_id");
     assert.equal(body.recaptchaToken, "token");

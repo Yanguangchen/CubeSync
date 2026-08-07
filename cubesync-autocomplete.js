@@ -7,6 +7,39 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
+  function logAutocompleteFailure(inputName, error) {
+    const observability = typeof window !== "undefined" && (
+      window.CubeSyncObservability ||
+      (window.CubeSyncFormData && window.CubeSyncFormData.Observability)
+    );
+    if (observability && typeof observability.logClientEvent === "function") {
+      observability.logClientEvent({
+        feature: "Autocomplete",
+        functionName: "setupAutocomplete",
+        operation: "initializeField",
+        status: "warning",
+        category: "Initialization",
+        metadata: { inputName },
+        error
+      });
+      return;
+    }
+    if (typeof console !== "undefined" && typeof console.error === "function") {
+      console.error(JSON.stringify({
+        schemaVersion: 1,
+        level: "error",
+        source: "client",
+        event: "Autocomplete.initializeField",
+        feature: "Autocomplete",
+        operation: "initializeField",
+        status: "warning",
+        category: "Initialization",
+        metadata: { inputName },
+        error: { name: error && error.name || "Error", message: String(error && error.message || error || "Unknown error").slice(0, 1000) }
+      }));
+    }
+  }
+
   function setFreeTextState(input, isFreeText) {
     if (!input) return;
 
@@ -220,7 +253,7 @@
         document.head.appendChild(style);
       }
     } catch (e) {
-      console.error('Failed to setup autocomplete for', inputName, e);
+      logAutocompleteFailure(inputName, e);
     }
   }
 

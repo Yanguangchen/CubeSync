@@ -1,6 +1,35 @@
 (function () {
   "use strict";
 
+  function logChimeWarning(operation, error) {
+    const observability = window.CubeSyncObservability ||
+      (window.CubeSyncFormData && window.CubeSyncFormData.Observability);
+    if (observability && typeof observability.logClientEvent === "function") {
+      observability.logClientEvent({
+        feature: "AudioChime",
+        functionName: operation,
+        operation: "play",
+        status: "warning",
+        category: "BrowserCapability",
+        error
+      });
+      return;
+    }
+    if (typeof console !== "undefined" && typeof console.warn === "function") {
+      console.warn(JSON.stringify({
+        schemaVersion: 1,
+        level: "warn",
+        source: "client",
+        event: `AudioChime.${operation}`,
+        feature: "AudioChime",
+        operation: "play",
+        status: "warning",
+        category: "BrowserCapability",
+        error: { name: error && error.name || "Error", message: String(error && error.message || error || "Unknown error").slice(0, 1000) }
+      }));
+    }
+  }
+
   function createAudioContext() {
     return new (window.AudioContext || window.webkitAudioContext)();
   }
@@ -31,7 +60,7 @@
       playTone(ctx, 440, "sine", 0.1); // Short A4 beep
     } catch (e) {
       // Audio context might be blocked or unsupported
-      console.warn("Audio chime not supported or blocked", e);
+      logChimeWarning("playButtonChime", e);
     }
   }
 
@@ -44,7 +73,7 @@
       playTone(ctx, 392.00, "sine", 0.3, 0.2);
       playTone(ctx, 523.25, "sine", 0.5, 0.3);
     } catch (e) {
-      console.warn("Audio chime not supported or blocked", e);
+      logChimeWarning("playUpliftingChime", e);
     }
   }
 
