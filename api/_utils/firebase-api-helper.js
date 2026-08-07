@@ -1,3 +1,5 @@
+const { randomUUID } = require("crypto");
+
 function json(response, status, body) {
   response.status(status).setHeader("Content-Type", "application/json");
   response.end(JSON.stringify(body));
@@ -23,10 +25,11 @@ function setApiHeaders(request, response, options = {}) {
   }
 
   const methods = options.methods || "POST, OPTIONS";
-  const headers = options.headers || "Content-Type";
+  const headers = options.headers || "Content-Type, X-CubeSync-Request-Id";
   response.setHeader("Access-Control-Allow-Origin", allowedOrigin);
   response.setHeader("Access-Control-Allow-Methods", methods);
   response.setHeader("Access-Control-Allow-Headers", headers);
+  response.setHeader("Access-Control-Expose-Headers", "X-CubeSync-Request-Id");
   response.setHeader("Vary", "Origin");
 }
 
@@ -50,48 +53,183 @@ function serviceAccountJson() {
 }
 
 const SENSITIVE_KEYS = new Set([
-  "password", "token", "apikey", "api_key", "secret", "privatekey", "private_key",
-  "authorization", "auth", "recaptchatoken", "idtoken", "bearer", "creditcard", "payment"
+  "password", "token", "apikey", "secret", "privatekey", "authorization", "auth",
+  "recaptchatoken", "idtoken", "bearer", "creditcard", "payment", "email", "phone",
+  "contact", "address", "customerbilling", "clientnameonreport", "projectnameonreport",
+  "barcode", "payload", "body"
 ]);
 
 function sanitizeForLog(data) {
-  if (data === null || data === undefined) return data;
-  if (typeof data !== "object") return data;
-  if (Array.isArray(data)) return data.map(sanitizeForLog);
-  const clean = {};
-  for (const [key, val] of Object.entries(data)) {
-    const lower = key.toLowerCase().replace(/[^a-z]/g, "");
-    if (SENSITIVE_KEYS.has(lower) || lower.includes("password") || lower.includes("token") || lower.includes("secret") || lower.includes("key")) {
-      clean[key] = "[REDACTED]";
-    } else {
-      clean[key] = sanitizeForLog(val);
+  const seen = new WeakSet();
+
+  function walk(value, depth) {
+    if (value === null || value === undefined) return value;
+    if (typeof value === "string") {
+      return value.length > 1000 ? `${value.slice(0, 1000)}…[truncated]` : value;
     }
+    if (typeof value === "number" || typeof value === "boolean") return value;
+    if (typeof value === "bigint") return String(value);
+    if (typeof value !== "object") return String(value);
+    if (depth >= 6) return "[MAX_DEPTH]";
+    if (seen.has(value)) return "[CIRCULAR]";
+    seen.add(value);
+
+    if (value instanceof Error) {
+      return walk({ name: value.name, code: value.code, message: value.message }, depth + 1);
+    }
+    if (value instanceof Date) return value.toISOString();
+    if (Array.isArray(value)) {
+      const clean = value.slice(0, 50).map((entry) => walk(entry, depth + 1));
+      if (value.length > 50) clean.push(`[${value.length - 50} more items]`);
+      return clean;
+    }
+
+    const clean = {};
+    for (const [key, val] of Object.entries(value).slice(0, 100)) {
+      const normalizedKey = key.toLowerCase().replace(/[^a-z0-9]/g, "");
+      const isSensitive =
+        SENSITIVE_KEYS.has(normalizedKey) ||
+        normalizedKey.includes("password") ||
+        normalizedKey.includes("token") ||
+        normalizedKey.includes("secret") ||
+        normalizedKey.includes("privatekey") ||
+        normalizedKey.includes("apikey");
+      clean[key] = isSensitive ? "[REDACTED]" : walk(val, depth + 1);
+    }
+    return clean;
   }
-  return clean;
+
+  return walk(data, 0);
+}
+
+function normalizeErrorForLog(error) {
+  if (!error) return undefined;
+  if (typeof error === "string") {
+    return { name: "Error", message: sanitizeForLog(error) };
+  }
+  return sanitizeForLog({
+    name: error.name || "Error",
+    code: error.code,
+    message: error.message || String(error)
+  });
+}
+
+function normalizeLogNumber(value) {
+  const number = Number(value);
+  return Number.isFinite(number) && number >= 0 ? Math.round(number) : undefined;
 }
 
 function logServerEvent(context) {
+  const status = context.status || "info";
+  const level = context.level || (status === "failed" ? "error" : status === "warning" ? "warn" : "info");
+  const feature = context.feature || "General";
+  const operation = context.operation || "unknown";
   const payload = {
+    schemaVersion: 1,
     timestamp: new Date().toISOString(),
-    feature: context.feature || "General",
+    level,
+    source: "server",
+    event: context.event || `${feature}.${operation}`,
+    message: context.message || `${feature} ${operation} ${status}`,
+    feature,
     functionName: context.functionName || "unknown",
-    operation: context.operation || "unknown",
-    status: context.status || "info",
+    operation,
+    status,
     category: context.category || "General",
+    route: context.route || undefined,
+    method: context.method || undefined,
+    requestId: context.requestId || undefined,
+    correlationId: context.correlationId || undefined,
+    httpStatus: normalizeLogNumber(context.httpStatus),
+    durationMs: normalizeLogNumber(context.durationMs),
     safeId: context.safeId || context.recordId || undefined,
     userAction: context.userAction || undefined,
     validationRule: context.validationRule || undefined,
     systemStep: context.systemStep || undefined,
     expected: context.expected !== undefined ? sanitizeForLog(context.expected) : undefined,
     actual: context.actual !== undefined ? sanitizeForLog(context.actual) : undefined,
-    error: context.error ? (typeof context.error === "object" ? context.error.message || String(context.error) : String(context.error)) : undefined
+    metadata: context.metadata !== undefined ? sanitizeForLog(context.metadata) : undefined,
+    error: normalizeErrorForLog(context.error)
   };
   Object.keys(payload).forEach((k) => payload[k] === undefined && delete payload[k]);
-  if (payload.status === "failed") {
-    console.error(`[Observability Error]`, JSON.stringify(payload));
+  const line = JSON.stringify(payload);
+  if (level === "error") {
+    console.error(line);
+  } else if (level === "warn") {
+    console.warn(line);
   } else {
-    console.log(`[Observability Info]`, JSON.stringify(payload));
+    console.log(line);
   }
+  return payload;
+}
+
+function requestHeader(request, name) {
+  if (!request || !request.headers) return "";
+  if (typeof request.headers.get === "function") {
+    return String(request.headers.get(name) || "");
+  }
+  const lowerName = name.toLowerCase();
+  return String(request.headers[lowerName] || request.headers[name] || "");
+}
+
+function safeCorrelationId(value) {
+  const candidate = String(value || "").trim();
+  return /^[a-zA-Z0-9_.:/-]{1,128}$/.test(candidate) ? candidate : "";
+}
+
+function createApiRequestLogger(request, response, route) {
+  const startedAt = Date.now();
+  const vercelRequestId = safeCorrelationId(requestHeader(request, "x-vercel-id"));
+  const clientCorrelationId = safeCorrelationId(requestHeader(request, "x-cubesync-request-id"));
+  const requestId = vercelRequestId || randomUUID();
+  const correlationId = clientCorrelationId || requestId;
+  const base = {
+    feature: "HttpRequest",
+    functionName: "handler",
+    route,
+    method: String((request && request.method) || "UNKNOWN").toUpperCase(),
+    requestId,
+    correlationId
+  };
+
+  if (response && typeof response.setHeader === "function") {
+    response.setHeader("X-CubeSync-Request-Id", correlationId);
+  }
+
+  function emit(context = {}) {
+    return logServerEvent({ ...base, ...context });
+  }
+
+  return {
+    requestId,
+    correlationId,
+    route,
+    method: base.method,
+    log: emit,
+    start(metadata) {
+      return emit({
+        operation: "request",
+        status: "started",
+        category: "HTTPRequest",
+        event: "http.request.started",
+        message: `${base.method} ${route} started`,
+        metadata
+      });
+    },
+    complete(httpStatus, context = {}) {
+      const failed = Number(httpStatus) >= 400;
+      return emit({
+        operation: "request",
+        status: failed ? "failed" : "succeeded",
+        category: context.category || "HTTPRequest",
+        event: failed ? "http.request.failed" : "http.request.completed",
+        message: `${base.method} ${route} ${httpStatus}`,
+        ...context,
+        httpStatus,
+        durationMs: Date.now() - startedAt
+      });
+    }
+  };
 }
 
 function formatUserFacingError(err, fallbackMessage = "Unable to process request due to a server error. Please try again later.") {
@@ -178,6 +316,8 @@ module.exports = {
   parseServiceAccount,
   initFirebaseAdmin,
   logServerEvent,
+  createApiRequestLogger,
   formatUserFacingError,
-  sanitizeForLog
+  sanitizeForLog,
+  safeCorrelationId
 };

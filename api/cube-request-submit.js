@@ -12,6 +12,7 @@ const {
   parseServiceAccount,
   initFirebaseAdmin,
   logServerEvent,
+  createApiRequestLogger,
   formatUserFacingError
 } = require("./_utils/firebase-api-helper");
 
@@ -135,16 +136,22 @@ function cleanPayload(payload) {
   return clean;
 }
 
-async function verifyRecaptcha(token, remoteAddress) {
+function emitServerEvent(requestLog, context) {
+  return requestLog ? requestLog.log(context) : logServerEvent(context);
+}
+
+async function verifyRecaptcha(token, remoteAddress, requestLog) {
+  const startedAt = Date.now();
   const secret = process.env.CUBESYNC_RECAPTCHA_SECRET_KEY;
   if (!secret) {
     const err = new Error("reCAPTCHA secret key is not configured");
-    logServerEvent({
+    emitServerEvent(requestLog, {
       feature: "CubeSubmission",
       functionName: "verifyRecaptcha",
       operation: "checkSecret",
       status: "failed",
       category: "ConfigError",
+      durationMs: Date.now() - startedAt,
       error: err
     });
     throw err;
@@ -170,19 +177,32 @@ async function verifyRecaptcha(token, remoteAddress) {
     });
     result = await verification.json();
   } catch (err) {
-    logServerEvent({
+    emitServerEvent(requestLog, {
       feature: "CubeSubmission",
       functionName: "verifyRecaptcha",
       operation: "fetchGoogleRecaptcha",
       status: "failed",
       category: "ExternalServiceCall",
+      durationMs: Date.now() - startedAt,
       error: err
     });
     throw new Error("reCAPTCHA verification failed");
   }
 
+  emitServerEvent(requestLog, {
+    feature: "CubeSubmission",
+    functionName: "verifyRecaptcha",
+    operation: "fetchGoogleRecaptcha",
+    status: "succeeded",
+    category: "ExternalServiceCall",
+    durationMs: Date.now() - startedAt,
+    metadata: {
+      hostnameReturned: Boolean(result.hostname)
+    }
+  });
+
   if (!result.success) {
-    logServerEvent({
+    emitServerEvent(requestLog, {
       feature: "CubeSubmission",
       functionName: "verifyRecaptcha",
       operation: "verifyToken",
@@ -212,7 +232,7 @@ async function verifyRecaptcha(token, remoteAddress) {
         .filter(Boolean);
 
       if (allowedList.length > 0 && !allowedList.includes(result.hostname)) {
-        logServerEvent({
+        emitServerEvent(requestLog, {
           feature: "CubeSubmission",
           functionName: "verifyRecaptcha",
           operation: "verifyHostname",
@@ -237,14 +257,18 @@ function clientIp(request) {
 
 module.exports = async function handler(request, response) {
   setApiHeaders(request, response);
+  const requestLog = createApiRequestLogger(request, response, "/api/cube-request-submit");
+  requestLog.start();
 
   if (request.method === "OPTIONS") {
+    requestLog.complete(204);
     response.status(204).end();
     return;
   }
 
   if (request.method !== "POST") {
     response.setHeader("Allow", "POST, OPTIONS");
+    requestLog.complete(405, { category: "MethodNotAllowed" });
     json(response, 405, {
       error: "Submission API only accepts POST. Use Vercel or vercel dev; static servers such as Live Server cannot run /api functions."
     });
@@ -254,7 +278,7 @@ module.exports = async function handler(request, response) {
   try {
     const { id, payload, recaptchaToken } = request.body || {};
     if (id) {
-      logServerEvent({
+      requestLog.log({
         feature: "CubeSubmission",
         functionName: "handler",
         operation: "submitForm",
@@ -262,11 +286,12 @@ module.exports = async function handler(request, response) {
         category: "PermissionCheck",
         validationRule: "Public submissions cannot target an existing document"
       });
+      requestLog.complete(400, { category: "PermissionCheck" });
       json(response, 400, { error: "Public submissions cannot target an existing document." });
       return;
     }
 
-    await verifyRecaptcha(recaptchaToken, clientIp(request));
+    await verifyRecaptcha(recaptchaToken, clientIp(request), requestLog);
     initializeFirebaseAdmin();
 
     const db = admin.firestore();
@@ -277,18 +302,29 @@ module.exports = async function handler(request, response) {
     };
 
     let fieldConfig = null;
+    const configReadStartedAt = Date.now();
     try {
       const configDoc = await db.collection("settings").doc("formFieldConfig").get();
       if (configDoc.exists) {
         fieldConfig = configDoc.data();
       }
+      requestLog.log({
+        feature: "CubeSubmission",
+        functionName: "handler",
+        operation: "fetchFormFieldConfig",
+        status: "succeeded",
+        category: "DatabaseRead",
+        durationMs: Date.now() - configReadStartedAt,
+        metadata: { configured: Boolean(fieldConfig) }
+      });
     } catch (err) {
-      logServerEvent({
+      requestLog.log({
         feature: "CubeSubmission",
         functionName: "handler",
         operation: "fetchFormFieldConfig",
         status: "failed",
         category: "DatabaseRead",
+        durationMs: Date.now() - configReadStartedAt,
         error: err
       });
     }
@@ -296,7 +332,7 @@ module.exports = async function handler(request, response) {
     const validation = validateCubeRequestPayload(clean, fieldConfig);
 
     if (!validation.valid) {
-      logServerEvent({
+      requestLog.log({
         feature: "CubeSubmission",
         functionName: "handler",
         operation: "validatePayload",
@@ -304,29 +340,43 @@ module.exports = async function handler(request, response) {
         category: "ValidationFailure",
         validationRule: validation.message
       });
+      requestLog.complete(400, {
+        category: "ValidationFailure",
+        metadata: { missingFieldCount: validation.missingFieldKeys ? validation.missingFieldKeys.length : undefined }
+      });
       json(response, 400, { error: validation.message });
       return;
     }
 
+    const writeStartedAt = Date.now();
     const reference = await db.collection(COLLECTION_NAME).add({
       ...clean,
       createdAt: now
     });
-    logServerEvent({
+    requestLog.log({
       feature: "CubeSubmission",
       functionName: "handler",
       operation: "createSubmission",
       status: "succeeded",
       category: "DatabaseWrite",
-      safeId: reference.id
+      safeId: reference.id,
+      durationMs: Date.now() - writeStartedAt,
+      metadata: {
+        template: clean.template,
+        resultCount: clean.results.length,
+        extraFieldCount: clean.extraFields ? Object.keys(clean.extraFields).length : 0
+      }
+    });
+    requestLog.complete(200, {
+      safeId: reference.id,
+      metadata: {
+        template: clean.template,
+        resultCount: clean.results.length
+      }
     });
     json(response, 200, { id: reference.id });
   } catch (error) {
-    logServerEvent({
-      feature: "CubeSubmission",
-      functionName: "handler",
-      operation: "processSubmission",
-      status: "failed",
+    requestLog.complete(400, {
       category: "FormSubmission",
       error: error
     });
