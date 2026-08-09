@@ -705,3 +705,124 @@ test("missing Firebase Auth shows error message", async () => {
   assert.equal(authGate.classList.contains("is-hidden"), false);
   assert.ok(authGate.textContent.includes("Firebase Auth is not available"));
 });
+
+// --- Bulk "Disable all RPA" tests ---
+
+function makeReadyForm(id, overrides = {}) {
+  return {
+    id,
+    reportNo: id.toUpperCase(),
+    client: "Client",
+    project: "Project",
+    status: "Ready",
+    createdAt: new Date().toISOString(),
+    rpaStatus: "Ready for Bot",
+    results: [],
+    ...overrides
+  };
+}
+
+test("disable all button is disabled when no enabled forms exist for the day", async () => {
+  const { window } = await bootDashboard({
+    firestore: {
+      listCubeRequests: async () => [makeReadyForm("already-off", { rpaStatus: "Disabled" })],
+      updateCubeRequest: async () => {}
+    }
+  });
+
+  const disableAllBtn = window.document.getElementById("disableAllButton");
+  assert.ok(disableAllBtn.disabled);
+  assert.equal(disableAllBtn.textContent, "Disable all RPA");
+});
+
+test("disable all button shows the count of forms it will act on", async () => {
+  const { window } = await bootDashboard({
+    firestore: {
+      listCubeRequests: async () => [
+        makeReadyForm("one"),
+        makeReadyForm("two"),
+        makeReadyForm("three", { rpaStatus: "Disabled" })
+      ],
+      updateCubeRequest: async () => {}
+    }
+  });
+
+  const disableAllBtn = window.document.getElementById("disableAllButton");
+  assert.equal(disableAllBtn.disabled, false);
+  assert.equal(disableAllBtn.textContent, "Disable all RPA (2)");
+});
+
+test("disable all disables every enabled form for the viewed day only", async () => {
+  const updates = [];
+  const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+  const { window } = await bootDashboard({
+    firestore: {
+      listCubeRequests: async () => [
+        makeReadyForm("today-one"),
+        makeReadyForm("today-two"),
+        makeReadyForm("today-off", { rpaStatus: "Disabled" }),
+        makeReadyForm("yesterday-one", { createdAt: yesterday }),
+        makeReadyForm("draft-one", { status: "Draft" })
+      ],
+      updateCubeRequest: async (id, data) => {
+        updates.push({ id, ...data });
+      }
+    }
+  });
+
+  window.confirm = () => true;
+  window.document.getElementById("disableAllButton").click();
+  await waitForAsync(100);
+
+  assert.deepEqual(
+    updates.map((update) => update.id).sort(),
+    ["today-one", "today-two"]
+  );
+  assert.ok(updates.every((update) => update.rpaStatus === "Disabled"));
+});
+
+test("disable all does nothing when the confirmation is declined", async () => {
+  const updates = [];
+
+  const { window } = await bootDashboard({
+    firestore: {
+      listCubeRequests: async () => [makeReadyForm("confirm-form")],
+      updateCubeRequest: async (id, data) => {
+        updates.push({ id, ...data });
+      }
+    }
+  });
+
+  window.confirm = () => false;
+  window.document.getElementById("disableAllButton").click();
+  await waitForAsync(100);
+
+  assert.equal(updates.length, 0);
+});
+
+test("disable all reports partial failures and still applies the successful updates", async () => {
+  const updates = [];
+  let alertMessage = "";
+
+  const { window } = await bootDashboard({
+    firestore: {
+      listCubeRequests: async () => [makeReadyForm("ok-form"), makeReadyForm("bad-form")],
+      updateCubeRequest: async (id, data) => {
+        if (id === "bad-form") throw new Error("Firestore write refused");
+        updates.push({ id, ...data });
+      }
+    }
+  });
+
+  window.confirm = () => true;
+  window.alert = (message) => {
+    alertMessage = message;
+  };
+  window.document.getElementById("disableAllButton").click();
+  await waitForAsync(100);
+
+  assert.deepEqual(updates.map((update) => update.id), ["ok-form"]);
+  assert.ok(alertMessage.includes("1 of 2"));
+  assert.ok(alertMessage.includes("Firestore write refused"));
+});

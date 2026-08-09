@@ -39,18 +39,21 @@ test("RPA dashboard opens Firestore cube request documents", () => {
   assert.doesNotMatch(js, /cubesync\.rpa\.forms/);
 });
 
-test("RPA dashboard provides configured WhatsApp Web ERP success and failure updates", () => {
+test("RPA dashboard no longer exposes WhatsApp ERP update links", () => {
   const html = readFile("rpa-dashboard.html");
+  const css = readFile("css/rpa/xp-theme.css");
 
-  assert.match(html, /id="whatsappErpButton"/);
-  assert.match(html, /https:\/\/web\.whatsapp\.com\/send\?phone=6583483117&amp;text=RPA%20robot%20has%20transferred%20data%20to%20ERP%20system%2C%20have%20a%20good%20day!/);
-  assert.match(html, />Whatsapp success<\/a>/);
-  assert.match(html, /id="whatsappErpFailButton"/);
-  assert.match(html, /class="whatsapp-button whatsapp-button-fail"/);
-  assert.match(html, /https:\/\/web\.whatsapp\.com\/send\?phone=6583483117&amp;text=RPA%20transfer%20to%20ERP%20failed/);
-  assert.match(html, />Whatsapp fail<\/a>/);
-  assert.equal((html.match(/target="_blank"/g) || []).length, 2);
-  assert.equal((html.match(/rel="noopener noreferrer"/g) || []).length, 2);
+  assert.doesNotMatch(html, /whatsapp/i);
+  assert.doesNotMatch(css, /whatsapp/i);
+});
+
+test("RPA dashboard offers a bulk disable action for the viewed day", () => {
+  const html = readFile("rpa-dashboard.html");
+  const js = readFile("rpa-dashboard.js");
+
+  assert.match(html, /id="disableAllButton"/);
+  assert.match(html, />Disable all RPA<\/button>/);
+  assert.match(js, /disableAllForms/);
 });
 
 test("RPA form view renders all shared form fields and result fields", () => {

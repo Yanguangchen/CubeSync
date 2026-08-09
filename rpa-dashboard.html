@@ -38,22 +38,13 @@
             <input type="date" id="datePicker" aria-label="Select date" style="width: auto;">
             <button type="button" id="infoButton" class="info-button" aria-label="How this queue works" title="How this queue works">i</button>
             <div style="flex-grow: 1;"></div>
-            <a
-              id="whatsappErpButton"
-              class="whatsapp-button"
-              href="https://web.whatsapp.com/send?phone=6583483117&amp;text=RPA%20robot%20has%20transferred%20data%20to%20ERP%20system%2C%20have%20a%20good%20day!"
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="Send successful ERP transfer update through WhatsApp Web"
-            >Whatsapp success</a>
-            <a
-              id="whatsappErpFailButton"
-              class="whatsapp-button whatsapp-button-fail"
-              href="https://web.whatsapp.com/send?phone=6583483117&amp;text=RPA%20transfer%20to%20ERP%20failed"
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="Send failed ERP transfer update through WhatsApp Web"
-            >Whatsapp fail</a>
+            <button
+              type="button"
+              id="disableAllButton"
+              class="disable-all-button"
+              aria-label="Disable RPA for every enabled form on this day"
+              disabled
+            >Disable all RPA</button>
             <button type="button" id="exportAllButton" class="export-button" disabled>Export all CSV</button>
             <div id="currentDateDisplay" class="current-date-badge"></div>
           </div>
@@ -79,6 +70,9 @@
 
               <dt>What does Disable RPA do?</dt>
               <dd>Disabling a form removes it from bot processing and CSV exports. The form remains in Firestore but the bot will skip it. Click "Enable RPA" to re-activate it.</dd>
+
+              <dt>Disable all RPA</dt>
+              <dd>Disables every still-enabled Ready form on the day you are viewing, in one step. Forms that are already disabled are left alone, and each one can still be re-enabled individually with "Enable RPA".</dd>
 
               <dt>Export all CSV</dt>
               <dd>Exports all enabled (non-disabled) Ready forms as a ZIP of individual CSV files, one per form. Disabled forms are excluded from the export.</dd>

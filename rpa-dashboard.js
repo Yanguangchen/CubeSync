@@ -44,7 +44,8 @@
   const state = {
     forms: [],
     viewDate: todaySGT,
-    loading: false
+    loading: false,
+    disablingAll: false
   };
 
   const elements = {};
@@ -114,7 +115,9 @@
       .sort((left, right) => queueDate(left) - queueDate(right));
   }
 
-  function getExportableForms() {
+  // Ready forms for the viewed day that the bot is still allowed to pick up.
+  // These are both the forms we export and the forms "Disable all RPA" acts on.
+  function getEnabledForms() {
     return state.forms.filter((form) =>
       isRpaEligible(form) &&
       rpaStatus(form) !== "Disabled" &&
@@ -133,12 +136,27 @@
   function setExportButtonState() {
     if (!elements.exportAllButton) return;
 
-    elements.exportAllButton.disabled = state.loading || getExportableForms().length === 0;
+    elements.exportAllButton.disabled = state.loading || getEnabledForms().length === 0;
     elements.exportAllButton.textContent = state.loading ? "Loading forms..." : "Export all CSV";
   }
 
-  function renderQueue() {
+  function setDisableAllButtonState() {
+    if (!elements.disableAllButton) return;
+
+    const enabledCount = getEnabledForms().length;
+    elements.disableAllButton.disabled = state.loading || state.disablingAll || enabledCount === 0;
+    elements.disableAllButton.textContent = state.disablingAll
+      ? "Disabling..."
+      : enabledCount > 0 ? `Disable all RPA (${enabledCount})` : "Disable all RPA";
+  }
+
+  function setToolbarButtonStates() {
     setExportButtonState();
+    setDisableAllButtonState();
+  }
+
+  function renderQueue() {
+    setToolbarButtonStates();
 
     if (state.loading) {
       elements.queueList.innerHTML = `<tr><td colspan="7">Loading Firestore forms...</td></tr>`;
@@ -217,7 +235,7 @@
       });
       state.forms = [];
       state.loading = false;
-      setExportButtonState();
+      setToolbarButtonStates();
       elements.queueList.innerHTML = `<tr><td colspan="7">${escapeHtml(formatRpaError(error, error && error.message ? error.message : "Unable to load Firestore forms."))}</td></tr>`;
       return;
     } finally {
@@ -373,6 +391,52 @@
     }
   }
 
+  async function disableAllForms() {
+    const firestore = store();
+    if (!firestore || state.disablingAll) return;
+
+    const targets = getEnabledForms();
+
+    if (!targets.length) {
+      window.alert("No enabled RPA forms are loaded for this day.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Disable RPA for ${targets.length} form${targets.length === 1 ? "" : "s"} on ${state.viewDate}? ` +
+      "The bot will skip them and they will be excluded from CSV exports."
+    );
+    if (!confirmed) return;
+
+    state.disablingAll = true;
+    setDisableAllButtonState();
+
+    const results = await Promise.allSettled(
+      targets.map((form) => firestore.updateCubeRequest(form.id, { rpaStatus: "Disabled" }))
+    );
+
+    state.disablingAll = false;
+
+    const failures = results.filter((result) => result.status === "rejected");
+
+    if (failures.length) {
+      logRpaObs({
+        feature: "RpaDashboard",
+        functionName: "disableAllForms",
+        operation: "updateCubeRequest",
+        status: "failed",
+        category: "DatabaseWrite",
+        error: failures[0].reason
+      });
+      window.alert(
+        `${failures.length} of ${targets.length} forms could not be disabled. ` +
+        formatRpaError(failures[0].reason, "Unable to disable every RPA form.")
+      );
+    }
+
+    await loadQueue();
+  }
+
   function changeDate(days) {
     const date = new Date(`${state.viewDate}T12:00:00+08:00`);
     date.setDate(date.getDate() + days);
@@ -393,7 +457,7 @@
       return;
     }
 
-    const exportableForms = getExportableForms();
+    const exportableForms = getEnabledForms();
 
     if (!exportableForms.length) {
       window.alert("No enabled RPA forms are loaded for export.");
@@ -419,7 +483,7 @@
       window.alert(formatRpaError(error, "Unable to export forms."));
     } finally {
       elements.exportAllButton.textContent = originalLabel;
-      setExportButtonState();
+      setToolbarButtonStates();
     }
   }
 
@@ -427,7 +491,7 @@
     [
       "authGate", "dashboardShell", "signInButton", "signOutButton", "authUser",
       "queueList", "prevDay", "todayBtn", "datePicker", "currentDateDisplay",
-      "exportAllButton", "infoButton", "infoDialog"
+      "exportAllButton", "disableAllButton", "infoButton", "infoDialog"
     ].forEach((id) => {
       elements[id] = document.getElementById(id);
     });
@@ -468,6 +532,9 @@
 
     elements.prevDay.addEventListener("click", () => changeDate(-1));
     elements.exportAllButton.addEventListener("click", exportAllForms);
+    if (elements.disableAllButton) {
+      elements.disableAllButton.addEventListener("click", disableAllForms);
+    }
     if (elements.infoButton && elements.infoDialog) {
       elements.infoButton.addEventListener("click", () => {
         elements.infoDialog.showModal();

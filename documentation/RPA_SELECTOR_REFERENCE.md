@@ -233,6 +233,7 @@ These selectors apply to `rpa-dashboard.html`.
 | Date picker | `#datePicker` |
 | Current date display | `#currentDateDisplay` |
 | Export all CSV button | `#exportAllButton` |
+| Disable all RPA button | `#disableAllButton` |
 | ERP selector | `select[data-action="update-erp"]` |
 | ERP selector class | `.erp-selector` |
 | Open form button | `button[data-action="open"]` |
