@@ -234,8 +234,7 @@ body {
 }
 
 button,
-.top-actions a,
-.whatsapp-button {
+.top-actions a {
   background: linear-gradient(to bottom, #ffffff 0%, #f0f0f0 50%, #e0e0e0 100%) !important;
   border: 1px solid #003c74 !important;
   border-radius: 3px !important;
@@ -248,8 +247,7 @@ button,
 }
 
 button:hover,
-.top-actions a:hover,
-.whatsapp-button:hover {
+.top-actions a:hover {
   background: #e5f1fb !important;
   border-color: #0054e3 !important;
 }
@@ -272,30 +270,25 @@ button:active {
   background: #52c028 !important;
 }
 
-.whatsapp-button {
-  align-items: center;
-  background: linear-gradient(to bottom, #36d473 0%, #128c4a 100%) !important;
-  border-color: #075e38 !important;
+.disable-all-button {
+  background: linear-gradient(to bottom, #e05a5a 0%, #a40000 100%) !important;
+  border-color: #710000 !important;
   color: white !important;
-  display: inline-flex;
   font-weight: bold !important;
-  text-shadow: 1px 1px 1px #075e38 !important;
+  text-shadow: 1px 1px 1px #710000 !important;
   white-space: nowrap;
 }
 
-.whatsapp-button:hover {
-  background: #25b963 !important;
-}
-
-.whatsapp-button-fail {
-  background: linear-gradient(to bottom, #e05a5a 0%, #a40000 100%) !important;
-  border-color: #710000 !important;
-  text-shadow: 1px 1px 1px #710000 !important;
-}
-
-.whatsapp-button-fail:hover {
+.disable-all-button:hover:not(:disabled) {
   background: #c62828 !important;
   border-color: #710000 !important;
+}
+
+.disable-all-button:disabled {
+  background: linear-gradient(to bottom, #d0a0a0 0%, #a87878 100%) !important;
+  border-color: #8a6a6a !important;
+  cursor: not-allowed;
+  opacity: 0.75;
 }
 
 .form-table {
@@ -522,7 +515,7 @@ input[type="date"],
   .xp-toolbar > button,
   .xp-toolbar > #datePicker,
   .xp-toolbar > .export-button,
-  .xp-toolbar > .whatsapp-button {
+  .xp-toolbar > .disable-all-button {
     flex: 1 1 auto;
   }
 
