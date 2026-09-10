@@ -41,6 +41,14 @@ describe("cubesync-form-markup.js", () => {
       assert.ok(html.includes('aria-label="Remove row 42"'));
     });
 
+    test("age is a non-negative whole-day number field", () => {
+      const html = resultRowHtml(1);
+      assert.match(html, /type="number" name="age1"/);
+      assert.match(html, /min="0"/);
+      assert.match(html, /step="1"/);
+      assert.match(html, /aria-label="Row 1 age in days"/);
+    });
+
     test("leaves all testing-team result fields completely blank", () => {
       const dom = new JSDOM(`<table><tbody><tr>${resultRowHtml(1)}</tr></tbody></table>`);
 

@@ -44,8 +44,8 @@ erDiagram
         number meanSlump "Mean slump"
         string resultGrade "Concrete grade"
         string resultDateOfCast "Date of cast (YYYY-MM-DD)"
-        number age "Age in days (auto-calculated)"
-        string dateOfTest "Date of test (YYYY-MM-DD)"
+        number age "Age in days"
+        string dateOfTest "Date of test (YYYY-MM-DD, auto-calculated)"
         string invoiceNumber "Invoice number"
     }
 
@@ -122,7 +122,7 @@ The central entity. Represents a concrete cube test request form submission.
 - **Legacy aliases:** `reportNo`/`reportNumber` for `cubeJobNumber`, `client` for `customerBilling`, `project` for `projectNameOnReport`, `method` for `testItem`, `grade` for `concreteGrade`
 
 ### TestResult (embedded array in CubeRequest.results)
-Each cube request can have 0..N test result rows. `age` is auto-calculated as `dateOfTest - resultDateOfCast` in days.
+Each cube request can have 0..N test result rows. `age` is entered in days. `dateOfTest` is auto-calculated as `resultDateOfCast + age` days.
 
 ### ExtraFields (embedded object in CubeRequest.extraFields)
 Up to 25 custom key-value pairs. Keys must match `^[a-z][a-zA-Z0-9_]{0,31}$` and not collide with reserved field IDs. Values are strings (max 500 chars), finite numbers, or booleans.
