@@ -383,7 +383,7 @@
       return;
     }
 
-    const metrics = helper.buildMetrics(state.forms);
+    const metrics = helper.buildMetrics(uniqueSourceForms(state.forms));
     const collisions = metrics.cubeJobCollisions || { todayCollisionCount: 0, groups: [] };
     const todayCollisionGroups = (collisions.groups || []).filter((group) => group.involvesToday);
     const collisionDetail = todayCollisionGroups.length
@@ -558,6 +558,33 @@
     return String(value == null ? "" : value).trim().toLowerCase();
   }
 
+  function dashboardSourceRequestId(form) {
+    const helper = formDataHelper();
+    if (helper && typeof helper.dashboardSourceRequestId === "function") {
+      return helper.dashboardSourceRequestId(form);
+    }
+    if (form && form.sourceRequestId) {
+      return String(form.sourceRequestId);
+    }
+    return form && form.id != null ? String(form.id) : "";
+  }
+
+  function parseDashboardFormId(id) {
+    const helper = formDataHelper();
+    if (helper && typeof helper.parseDashboardFormId === "function") {
+      return helper.parseDashboardFormId(id);
+    }
+    return { sourceRequestId: id == null ? "" : String(id), setNo: null };
+  }
+
+  function uniqueSourceForms(forms) {
+    const helper = formDataHelper();
+    if (helper && typeof helper.uniqueDashboardFormsBySource === "function") {
+      return helper.uniqueDashboardFormsBySource(forms);
+    }
+    return Array.isArray(forms) ? forms : [];
+  }
+
   function buildCubeJobCollisionIndex(forms) {
     const groups = new Map();
 
@@ -570,7 +597,13 @@
       if (!groups.has(key)) {
         groups.set(key, []);
       }
-      groups.get(key).push(form);
+
+      const group = groups.get(key);
+      const sourceId = dashboardSourceRequestId(form);
+      const already = sourceId && group.some((item) => dashboardSourceRequestId(item) === sourceId);
+      if (!already) {
+        group.push(form);
+      }
     });
 
     return groups;
@@ -588,7 +621,16 @@
   }
 
   function cubeJobCollisionPeers(form, collisionIndex) {
-    return cubeJobCollisionGroup(form, collisionIndex).filter((item) => item.id !== form.id);
+    const sourceId = dashboardSourceRequestId(form);
+    return cubeJobCollisionGroup(form, collisionIndex).filter((item) => {
+      if (item.id === form.id) {
+        return false;
+      }
+      if (sourceId && dashboardSourceRequestId(item) === sourceId) {
+        return false;
+      }
+      return true;
+    });
   }
 
   function collisionReportLabels(forms) {
@@ -809,6 +851,7 @@
         ${renderField("Contact", form.contactPerson, "contact")}
         ${renderField("Manual Job", form.enableManualCubeJob, "enableManualCubeJob")}
         ${renderField("Cube Job #", form.cubeJob, "cubeJob")}
+        ${form.setNo ? renderField("Set No", form.setNo, "setNo") : ""}
         ${renderField("Quote", form.quote, "quote")}
         ${renderField("Test Item", form.testItem, "testItem")}
         ${renderField("Supplier of concrete", form.supplier, "supplier")}
@@ -856,8 +899,11 @@
       });
     }
 
-    if (tab === "history" && state.selectedId && historyLoadedId !== state.selectedId) {
-      renderEditHistory(state.selectedId);
+    if (tab === "history" && state.selectedId) {
+      const historyId = dashboardSourceRequestId(selectedForm() || { id: state.selectedId });
+      if (historyLoadedId !== historyId) {
+        renderEditHistory(historyId);
+      }
     }
   }
 
@@ -941,7 +987,8 @@
 
     try {
       const entries = await store.listEditHistory(id);
-      if (id !== state.selectedId) {
+      const currentSourceId = dashboardSourceRequestId(selectedForm() || { id: state.selectedId });
+      if (id !== currentSourceId) {
         return;
       }
       if (!entries.length) {
@@ -1011,22 +1058,26 @@
       return;
     }
 
-    state.forms = (Array.isArray(records) ? records : []).map((record) => {
-      const form = helper.normalizeCubeRequestForDashboard(record, record.id);
+    state.forms = (Array.isArray(records) ? records : []).flatMap((record) => {
+      const expanded = typeof helper.expandCubeRequestForDashboard === "function"
+        ? helper.expandCubeRequestForDashboard(record, record.id)
+        : [helper.normalizeCubeRequestForDashboard(record, record.id)];
 
-      // Flag dropdown fields by comparing the stored value against the known
-      // option list (value-based). Capture-time `customFields` metadata is
-      // only used as a fallback when an option list is unavailable.
-      if (typeof helper.resolveFreeTextDropdownFields === "function") {
-        form.customFields = helper.resolveFreeTextDropdownFields(
-          form.raw || record,
-          state.dropdownOptions,
-          form.customFields
-        );
-        form.customFieldCount = form.customFields.length;
-      }
+      return expanded.map((form) => {
+        // Flag dropdown fields by comparing the stored value against the known
+        // option list (value-based). Capture-time `customFields` metadata is
+        // only used as a fallback when an option list is unavailable.
+        if (typeof helper.resolveFreeTextDropdownFields === "function") {
+          form.customFields = helper.resolveFreeTextDropdownFields(
+            form.raw || record,
+            state.dropdownOptions,
+            form.customFields
+          );
+          form.customFieldCount = form.customFields.length;
+        }
 
-      return form;
+        return form;
+      });
     });
     state.loading = false;
     refreshFilterOptions();
@@ -1643,9 +1694,15 @@
     }
 
     const currentId = elements.editForm.elements.id ? String(elements.editForm.elements.id.value || "") : "";
+    const currentForm = state.forms.find((item) => item.id === currentId) || { id: currentId };
     const value = String(cubeJobNumberInput.value || "").trim();
     const peers = value
-      ? cubeJobCollisionPeers({ id: currentId, cubeJob: value, reportNo: value }, buildCubeJobCollisionIndex(state.forms))
+      ? cubeJobCollisionPeers({
+        id: currentId,
+        cubeJob: value,
+        reportNo: value,
+        sourceRequestId: dashboardSourceRequestId(currentForm)
+      }, buildCubeJobCollisionIndex(state.forms))
       : [];
     const hasCollision = peers.length > 0;
     const row = cubeJobNumberInput.closest(".field-row");
@@ -1703,7 +1760,7 @@
       grade: form.grade || raw.concreteGrade || raw.reportGrade || "",
       location: form.location || raw.locationRepresented || raw.location || "",
       notes: form.notes || raw.additionalInformation || raw.notes || "",
-      reportNo: form.reportNo || raw.cubeJobNumber || ""
+      reportNo: raw.reportNo || raw.cubeJobNumber || form.cubeJob || ""
     };
     Object.keys(legacyFields).forEach((field) => {
       const control = elements.editForm.elements[field];
@@ -1783,6 +1840,30 @@
     }
   }
 
+  async function loadSourceCubeRequest(store, helper, sourceId) {
+    if (store && typeof store.getCubeRequest === "function") {
+      try {
+        const record = await store.getCubeRequest(sourceId);
+        if (record) {
+          return record;
+        }
+      } catch {
+        // Fall back to sibling virtual forms already loaded on the dashboard.
+      }
+    }
+
+    if (helper && typeof helper.reconstructCubeRequestFromDashboardForms === "function") {
+      const reconstructed = helper.reconstructCubeRequestFromDashboardForms(state.forms, sourceId);
+      if (reconstructed && Object.keys(reconstructed).length) {
+        return reconstructed;
+      }
+    }
+
+    const match = state.forms.find((item) => item.id === sourceId)
+      || state.forms.find((item) => dashboardSourceRequestId(item) === String(sourceId));
+    return (match && match.raw) || {};
+  }
+
   async function saveEditedForm(event) {
     event.preventDefault();
     const saveStartedAt = Date.now();
@@ -1841,7 +1922,16 @@
         payload.template = elements.editForm.elements.template.value;
       }
 
-      const existing = (state.forms.find((item) => item.id === id) || {}).raw || {};
+      const parsed = parseDashboardFormId(id);
+      const sourceId = parsed.sourceRequestId || id;
+      let existing = (state.forms.find((item) => item.id === id) || {}).raw || {};
+      if (parsed.setNo) {
+        existing = await loadSourceCubeRequest(store, helper, sourceId);
+        if (typeof helper.mergeResultSetIntoDocument === "function") {
+          payload.results = helper.mergeResultSetIntoDocument(existing.results, parsed.setNo, payload.results);
+        }
+      }
+
       const patch = typeof helper.buildCubeRequestUpdatePatch === "function"
         ? helper.buildCubeRequestUpdatePatch(existing, payload)
         : payload;
@@ -1888,7 +1978,7 @@
         patch.version = newVersion;
       }
 
-      await store.updateCubeRequest(id, patch);
+      await store.updateCubeRequest(sourceId, patch);
       logDashboardObs({
         feature: "DashboardEdit",
         functionName: "saveEditedForm",
@@ -1910,7 +2000,7 @@
         try {
           const auth = authHelper();
           const user = auth && typeof auth.currentUser === "function" ? auth.currentUser() : null;
-          await store.addEditHistoryEntry(id, {
+          await store.addEditHistoryEntry(sourceId, {
             editedByUid: user && user.uid ? user.uid : "",
             editedByName: user ? (user.displayName || user.email || "") : "",
             editedByEmail: user && user.email ? user.email : "",
@@ -1989,26 +2079,55 @@
 
   async function deleteForm(id) {
     const store = formStore();
+    const helper = formDataHelper();
     const form = state.forms.find((item) => item.id === id);
     if (!store || !form) return;
 
-    if (!window.confirm(`Delete ${form.reportNo || form.id} from Firestore?`)) {
+    const parsed = parseDashboardFormId(id);
+    const sourceId = parsed.sourceRequestId || id;
+    const confirmMessage = parsed.setNo
+      ? `Delete Set ${parsed.setNo} from this request? Other sets will be kept.`
+      : `Delete ${form.reportNo || form.id} from Firestore?`;
+
+    if (!window.confirm(confirmMessage)) {
       return;
     }
 
     try {
-      await store.deleteCubeRequest(id);
-      queueDetailStatus(`${form.reportNo || form.id} deleted.`, "success");
+      if (parsed.setNo) {
+        const existing = await loadSourceCubeRequest(store, helper, sourceId);
+        const remaining = Array.isArray(existing.results)
+          ? existing.results.filter((row) => {
+            const rowSet = helper && typeof helper.resultRowSetNo === "function"
+              ? helper.resultRowSetNo(row)
+              : String((row && row.setNo) || "1");
+            return rowSet !== String(parsed.setNo);
+          })
+          : [];
+
+        if (!remaining.length) {
+          await store.deleteCubeRequest(sourceId);
+        } else {
+          await store.updateCubeRequest(sourceId, { results: remaining });
+        }
+      } else {
+        await store.deleteCubeRequest(id);
+      }
+
+      queueDetailStatus(
+        parsed.setNo ? `Set ${parsed.setNo} deleted.` : `${form.reportNo || form.id} deleted.`,
+        "success"
+      );
       if (state.selectedId === id) state.selectedId = null;
       await loadForms();
     } catch (error) {
       logDashboardObs({
         feature: "DashboardDelete",
         functionName: "deleteForm",
-        operation: "deleteCubeRequest",
+        operation: parsed.setNo ? "updateCubeRequest" : "deleteCubeRequest",
         status: "failed",
         category: "DatabaseWrite",
-        safeId: id,
+        safeId: sourceId,
         error: error
       });
       const detail = classifyActionError(error, "Unable to delete this Firestore form.");
@@ -2020,8 +2139,14 @@
     const form = state.forms.find((item) => item.id === id);
     if (!form) return;
 
+    const parsed = parseDashboardFormId(id);
+    const sourceId = parsed.sourceRequestId || id;
     const url = form.template === "Glassmorphic" ? "glassmorphic.html" : "index.html";
-    window.open(`${url}?id=${encodeURIComponent(id)}&print=true`, "_blank");
+    const params = new URLSearchParams({ id: sourceId, print: "true" });
+    if (parsed.setNo) {
+      params.set("setNo", parsed.setNo);
+    }
+    window.open(`${url}?${params.toString()}`, "_blank");
   }
 
   function handleListClick(event) {

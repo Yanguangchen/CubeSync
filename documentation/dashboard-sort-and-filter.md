@@ -2,6 +2,8 @@
 
 The Human Dashboard (`dashboard.html`) form list can be **sorted by date** and **filtered by Client and Project**, in addition to the existing free-text **Search** box and **Status** filter. All controls live in the `.filters` block of the list panel and present as dropdown `<select>`s.
 
+A Firestore request that contains more than one unique result **set** is expanded into **one list row per set**. Each row repeats the same CONCRETE CUBE TEST REQUEST FORM details (client, project, date of cast, cube job number, and so on) and only that set’s specimen rows. Saving or printing a row updates or prints that set; sibling sets stay on the original document.
+
 > Client and Project are the autocomplete-backed fields on the request forms, so on the dashboard they are exposed as **dropdown selectors** whose options are the distinct values present in the loaded forms.
 
 ## Controls

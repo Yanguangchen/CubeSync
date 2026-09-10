@@ -81,6 +81,10 @@ test("submissionKey returns the form id as a string, or '' when absent", () => {
   assert.equal(submissionKey(null), "");
 });
 
+test("submissionKey prefers sourceRequestId so split set forms share one submission", () => {
+  assert.equal(submissionKey(form({ id: "abc#set-1", sourceRequestId: "abc" })), "abc");
+});
+
 test("detectNewSubmissions returns forms whose id is not already seen", () => {
   const seen = ["1", "2"];
   const forms = [form({ id: "1" }), form({ id: "2" }), form({ id: "3" }), form({ id: "4" })];
@@ -102,6 +106,16 @@ test("detectNewSubmissions ignores forms without an id and tolerates junk", () =
   const result = detectNewSubmissions(["1"], [form({ id: "1" }), {}, null, form({ id: "2" })]);
   assert.deepEqual(result.map((f) => f.id), ["2"]);
   assert.deepEqual(detectNewSubmissions(["1"], null), []);
+});
+
+test("detectNewSubmissions collapses split set forms from the same request", () => {
+  const forms = [
+    form({ id: "abc#set-1", sourceRequestId: "abc", reportNo: "R · Set 1" }),
+    form({ id: "abc#set-2", sourceRequestId: "abc", reportNo: "R · Set 2" }),
+    form({ id: "def#set-1", sourceRequestId: "def", reportNo: "S · Set 1" })
+  ];
+  const result = detectNewSubmissions([], forms);
+  assert.deepEqual(result.map((f) => f.sourceRequestId), ["abc", "def"]);
 });
 
 /* ----------------------------------------------------------------------- *
@@ -291,6 +305,16 @@ test("detectStatusChanges flags a record that becomes Ready for ERP", () => {
   assert.equal(events.length, 1);
   assert.equal(events[0].rule.title, "Form ready for ERP processing");
   assert.equal(events[0].form.id, "1");
+});
+
+test("detectStatusChanges fires once for split set forms of the same request", () => {
+  const prev = prevMap([["abc", { status: "Draft" }]]);
+  const events = detectStatusChanges(prev, [
+    form({ id: "abc#set-1", sourceRequestId: "abc", status: "Ready" }),
+    form({ id: "abc#set-2", sourceRequestId: "abc", status: "Ready" })
+  ], STATUS_NOTIFICATION_RULES);
+  assert.equal(events.length, 1);
+  assert.equal(events[0].form.sourceRequestId, "abc");
 });
 
 test("detectStatusChanges flags RPA started / completed / failed transitions", () => {

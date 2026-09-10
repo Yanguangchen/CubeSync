@@ -722,7 +722,21 @@
               return;
             }
 
-            populateForm(form, record, tableBody, addResultRowWrapper, renumberRowsWrapper);
+            const setNo = urlParams.get("setNo");
+            const recordForForm = setNo && window.CubeSyncFormData.filterResultsBySetNo
+              ? Object.assign({}, record, {
+                results: window.CubeSyncFormData.filterResultsBySetNo(record.results, setNo)
+              })
+              : record;
+            if (setNo && Array.isArray(recordForForm.results) && recordForForm.results.length) {
+              while (tableBody && tableBody.querySelectorAll("tr").length > recordForForm.results.length) {
+                const extra = tableBody.querySelector("tr:last-child");
+                if (!extra) break;
+                extra.remove();
+              }
+            }
+
+            populateForm(form, recordForForm, tableBody, addResultRowWrapper, renumberRowsWrapper);
             if (window.CubeSyncFormData) {
               window.CubeSyncFormData.applyFreeTextFlags(form, record.customFields);
               activeFieldConfig = window.CubeSyncFormData.applyFormFieldConfig(form, activeFieldConfig, {

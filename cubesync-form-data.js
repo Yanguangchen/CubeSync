@@ -1608,6 +1608,186 @@
     return "";
   }
 
+  function normalizeSetNo(value) {
+    if (value == null || value === "") {
+      return "";
+    }
+    const numeric = Number(value);
+    if (Number.isInteger(numeric) && numeric >= 0) {
+      return String(numeric);
+    }
+    const text = normalizeText(value);
+    return text;
+  }
+
+  function resultRowSetNo(row) {
+    return normalizeSetNo(row && row.setNo) || "1";
+  }
+
+  function groupResultRowsBySet(results) {
+    if (!Array.isArray(results) || !results.length) {
+      return [];
+    }
+
+    const bySet = new Map();
+    results.forEach(function (row) {
+      const setNo = resultRowSetNo(row);
+      let group = bySet.get(setNo);
+      if (!group) {
+        group = { setNo: setNo, rows: [], sortKey: "", age: null };
+        bySet.set(setNo, group);
+      }
+      group.rows.push(row);
+      const testDate = row && row.dateOfTest ? normalizeText(row.dateOfTest).slice(0, 10) : "";
+      if (testDate && (!group.sortKey || testDate < group.sortKey)) {
+        group.sortKey = testDate;
+      }
+      const age = Number(row && row.age);
+      if (Number.isInteger(age) && (group.age == null || age < group.age)) {
+        group.age = age;
+      }
+    });
+
+    return Array.from(bySet.values()).sort(function (a, b) {
+      if (a.sortKey && b.sortKey && a.sortKey !== b.sortKey) {
+        return a.sortKey < b.sortKey ? -1 : 1;
+      }
+      if (a.age != null && b.age != null && a.age !== b.age) {
+        return a.age - b.age;
+      }
+      const aNum = Number(a.setNo);
+      const bNum = Number(b.setNo);
+      if (Number.isFinite(aNum) && Number.isFinite(bNum) && aNum !== bNum) {
+        return aNum - bNum;
+      }
+      return String(a.setNo).localeCompare(String(b.setNo));
+    });
+  }
+
+  function dashboardFormId(sourceRequestId, setNo) {
+    return `${sourceRequestId}#set-${setNo}`;
+  }
+
+  function parseDashboardFormId(id) {
+    const value = String(id == null ? "" : id);
+    const match = /^(.*)#set-(.+)$/.exec(value);
+    if (!match) {
+      return { sourceRequestId: value, setNo: null };
+    }
+    return { sourceRequestId: match[1], setNo: match[2] };
+  }
+
+  function dashboardSourceRequestId(form) {
+    if (!form) {
+      return "";
+    }
+    if (form.sourceRequestId != null && form.sourceRequestId !== "") {
+      return String(form.sourceRequestId);
+    }
+    if (form.id == null || form.id === "") {
+      return "";
+    }
+    return parseDashboardFormId(form.id).sourceRequestId;
+  }
+
+  function uniqueDashboardFormsBySource(forms) {
+    const seen = new Set();
+    return (Array.isArray(forms) ? forms : []).filter(function (form) {
+      const key = dashboardSourceRequestId(form);
+      if (!key || seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    });
+  }
+
+  function filterResultsBySetNo(results, setNo) {
+    if (!Array.isArray(results)) {
+      return [];
+    }
+    const target = normalizeSetNo(setNo);
+    if (!target) {
+      return results.slice();
+    }
+    return results.filter(function (row) {
+      return resultRowSetNo(row) === target;
+    });
+  }
+
+  function reconstructCubeRequestFromDashboardForms(forms, sourceRequestId) {
+    const sourceId = String(sourceRequestId == null ? "" : sourceRequestId);
+    if (!sourceId) {
+      return {};
+    }
+    const siblings = (Array.isArray(forms) ? forms : []).filter(function (form) {
+      return dashboardSourceRequestId(form) === sourceId;
+    });
+    if (!siblings.length) {
+      return {};
+    }
+    const base = Object.assign({}, siblings[0].raw || {});
+    const results = [];
+    siblings.forEach(function (form) {
+      const rows = form && form.raw && Array.isArray(form.raw.results) ? form.raw.results : [];
+      results.push.apply(results, rows);
+    });
+    base.results = results;
+    return base;
+  }
+
+  function mergeResultSetIntoDocument(existingResults, setNo, editedRows) {
+    const current = Array.isArray(existingResults) ? existingResults : [];
+    const edited = Array.isArray(editedRows) ? editedRows : [];
+    const target = normalizeSetNo(setNo) || "1";
+    const nextEdited = edited.map(function (row) {
+      const copy = Object.assign({}, row);
+      const numeric = Number(target);
+      copy.setNo = Number.isInteger(numeric) ? numeric : target;
+      return copy;
+    });
+
+    const merged = [];
+    let inserted = false;
+    current.forEach(function (row) {
+      if (resultRowSetNo(row) === target) {
+        if (!inserted) {
+          merged.push.apply(merged, nextEdited);
+          inserted = true;
+        }
+      } else {
+        merged.push(row);
+      }
+    });
+    if (!inserted) {
+      merged.push.apply(merged, nextEdited);
+    }
+    return merged;
+  }
+
+  function expandCubeRequestForDashboard(data, id) {
+    const record = data && typeof data === "object" ? data : {};
+    const groups = groupResultRowsBySet(record.results);
+    if (groups.length <= 1) {
+      const form = normalizeCubeRequestForDashboard(record, id);
+      form.sourceRequestId = id;
+      if (groups.length === 1) {
+        form.setNo = groups[0].setNo;
+      }
+      return [form];
+    }
+
+    return groups.map(function (group) {
+      const scoped = Object.assign({}, record, { results: group.rows });
+      const form = normalizeCubeRequestForDashboard(scoped, dashboardFormId(id, group.setNo));
+      form.sourceRequestId = id;
+      form.setNo = group.setNo;
+      const baseReport = form.reportNo || id;
+      form.reportNo = `${baseReport} · Set ${group.setNo}`;
+      return form;
+    });
+  }
+
   function normalizeCubeRequestForDashboard(data, id) {
     const customFields = normalizeCustomFields(data.customFields);
 
@@ -2138,6 +2318,16 @@
     dashboardEditToCubeRequest,
     getCubeRequestFormValue,
     normalizeCubeRequestForDashboard,
+    normalizeSetNo,
+    resultRowSetNo,
+    groupResultRowsBySet,
+    parseDashboardFormId,
+    dashboardSourceRequestId,
+    uniqueDashboardFormsBySource,
+    filterResultsBySetNo,
+    reconstructCubeRequestFromDashboardForms,
+    mergeResultSetIntoDocument,
+    expandCubeRequestForDashboard,
     CUBE_REQUEST_UPDATE_FIELDS,
     sanitizeCubeRequestUpdatePayload,
     buildCubeRequestUpdatePatch,
