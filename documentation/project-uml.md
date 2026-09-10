@@ -262,7 +262,9 @@ classDiagram
     }
 
     class CubeSyncTableManager {
-        +computeRowDateOfTest(row)
+        +computeRowDateOfTest(row, form)
+        +assignSetNumbersByAge(tableBody)
+        +bindRequestDateOfCast(form, tableBody)
         +prefillRowFromRequest(row, form)
         +renumberRows(tableBody)
         +attachRowListeners(row, tableBody, renderBarcodeCb)

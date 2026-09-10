@@ -14,6 +14,16 @@ function makeDom(rowHtml) {
   return dom;
 }
 
+function makeFormDom(innerHtml) {
+  const dom = new JSDOM(
+    `<!doctype html><html><body><form id="cubeRequestForm">${innerHtml}</form></body></html>`,
+    { url: "http://localhost/" }
+  );
+  global.window = dom.window;
+  global.document = dom.window.document;
+  return dom;
+}
+
 test("attachRowListeners is a no-op for a row with none of the optional controls", () => {
   makeDom("<tr><td>plain</td></tr>");
   const tableBody = global.document.querySelector("tbody");
@@ -275,4 +285,106 @@ test("addResultRow locks testing-team fields only on public forms", () => {
     );
   }
   assert.equal(lockedBody.querySelector('[name^="age"]').readOnly, false);
+});
+
+function resultRowHtml(index) {
+  return `
+    <tr>
+      <td><input type="number" name="setNo${index}" min="1" step="1" value="1"></td>
+      <td><input type="date" name="resultDateOfCast${index}"></td>
+      <td><input type="number" name="age${index}" min="0" step="1"></td>
+      <td><input type="date" name="dateOfTest${index}"></td>
+    </tr>
+  `;
+}
+
+test("computeRowDateOfTest uses the request date of cast when the row cast is empty", () => {
+  makeFormDom(`
+    <input type="date" name="dateOfCast" value="2026-06-01">
+    <table><tbody>${resultRowHtml(1)}</tbody></table>
+  `);
+  const row = global.document.querySelector("tr");
+  row.querySelector('[name^="age"]').value = "28";
+
+  tableManager.computeRowDateOfTest(row);
+
+  assert.equal(row.querySelector('[name^="resultDateOfCast"]').value, "2026-06-01");
+  assert.equal(row.querySelector('[name^="dateOfTest"]').value, "2026-06-29");
+});
+
+test("entering age computes date of test from request date of cast", () => {
+  makeFormDom(`
+    <input type="date" name="dateOfCast" value="2026-06-01">
+    <table><tbody>${resultRowHtml(1)}</tbody></table>
+  `);
+  const tableBody = global.document.querySelector("tbody");
+  const row = tableBody.querySelector("tr");
+  tableManager.attachRowListeners(row, tableBody, () => {});
+
+  const ageInput = row.querySelector('[name^="age"]');
+  ageInput.value = "7";
+  ageInput.dispatchEvent(new global.window.Event("input", { bubbles: true }));
+
+  assert.equal(row.querySelector('[name^="dateOfTest"]').value, "2026-06-08");
+});
+
+test("assignSetNumbersByAge groups equal ages and numbers sets chronologically", () => {
+  makeDom(resultRowHtml(1) + resultRowHtml(2) + resultRowHtml(3));
+  const tableBody = global.document.querySelector("tbody");
+  const rows = tableBody.querySelectorAll("tr");
+
+  rows[0].querySelector('[name^="age"]').value = "28";
+  rows[0].querySelector('[name^="dateOfTest"]').value = "2026-06-29";
+  rows[1].querySelector('[name^="age"]').value = "7";
+  rows[1].querySelector('[name^="dateOfTest"]').value = "2026-06-08";
+  rows[2].querySelector('[name^="age"]').value = "28";
+  rows[2].querySelector('[name^="dateOfTest"]').value = "2026-06-29";
+
+  tableManager.assignSetNumbersByAge(tableBody);
+
+  assert.equal(rows[0].querySelector('[name^="setNo"]').value, "2");
+  assert.equal(rows[1].querySelector('[name^="setNo"]').value, "1");
+  assert.equal(rows[2].querySelector('[name^="setNo"]').value, "2");
+});
+
+test("assignSetNumbersByAge orders sets by age when date of test is not yet known", () => {
+  makeDom(resultRowHtml(1) + resultRowHtml(2));
+  const tableBody = global.document.querySelector("tbody");
+  const rows = tableBody.querySelectorAll("tr");
+
+  rows[0].querySelector('[name^="age"]').value = "56";
+  rows[1].querySelector('[name^="age"]').value = "7";
+
+  tableManager.assignSetNumbersByAge(tableBody);
+
+  assert.equal(rows[0].querySelector('[name^="setNo"]').value, "2");
+  assert.equal(rows[1].querySelector('[name^="setNo"]').value, "1");
+});
+
+test("changing age regroups set numbers in chronological order", () => {
+  makeFormDom(`
+    <input type="date" name="dateOfCast" value="2026-06-01">
+    <table><tbody>${resultRowHtml(1)}${resultRowHtml(2)}${resultRowHtml(3)}</tbody></table>
+  `);
+  const tableBody = global.document.querySelector("tbody");
+  const rows = tableBody.querySelectorAll("tr");
+  rows.forEach((row) => tableManager.attachRowListeners(row, tableBody, () => {}));
+
+  rows[0].querySelector('[name^="age"]').value = "28";
+  rows[0].querySelector('[name^="age"]').dispatchEvent(new global.window.Event("input", { bubbles: true }));
+  rows[1].querySelector('[name^="age"]').value = "7";
+  rows[1].querySelector('[name^="age"]').dispatchEvent(new global.window.Event("input", { bubbles: true }));
+  rows[2].querySelector('[name^="age"]').value = "28";
+  rows[2].querySelector('[name^="age"]').dispatchEvent(new global.window.Event("input", { bubbles: true }));
+
+  assert.equal(rows[0].querySelector('[name^="setNo"]').value, "2");
+  assert.equal(rows[1].querySelector('[name^="setNo"]').value, "1");
+  assert.equal(rows[2].querySelector('[name^="setNo"]').value, "2");
+  assert.equal(rows[0].querySelector('[name^="dateOfTest"]').value, "2026-06-29");
+  assert.equal(rows[1].querySelector('[name^="dateOfTest"]').value, "2026-06-08");
+  assert.equal(rows[2].querySelector('[name^="dateOfTest"]').value, "2026-06-29");
+});
+
+test("assignSetNumbersByAge is a no-op without a table body", () => {
+  assert.doesNotThrow(() => tableManager.assignSetNumbersByAge(null));
 });

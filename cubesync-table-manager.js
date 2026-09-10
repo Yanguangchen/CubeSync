@@ -39,20 +39,88 @@
     return date.toISOString().slice(0, 10);
   }
 
-  function computeRowDateOfTest(row) {
-    if (!row || typeof row.querySelector !== "function") return;
+  function getContainingForm(row) {
+    if (!row || typeof row.closest !== "function") return null;
+    return row.closest("form");
+  }
+
+  function resolveRowCastDate(row, form) {
     const cast = row.querySelector('[name^="resultDateOfCast"]');
+    if (!cast) return "";
+    if (cast.value) return cast.value;
+
+    const formEl = form || getContainingForm(row);
+    const requestCast = formEl && formEl.elements && formEl.elements.dateOfCast;
+    if (requestCast && requestCast.value) {
+      cast.value = requestCast.value;
+    }
+    return cast.value || "";
+  }
+
+  function computeRowDateOfTest(row, form) {
+    if (!row || typeof row.querySelector !== "function") return;
     const test = row.querySelector('[name^="dateOfTest"]');
     const age = row.querySelector('[name^="age"]');
-    if (!cast || !test || !age || !cast.value) return;
+    if (!test || !age) return;
+
+    const castValue = resolveRowCastDate(row, form);
+    if (!castValue) return;
 
     const days = parseAgeDays(age.value);
     if (days == null) return;
 
-    const nextTestDate = addDaysToIsoDate(cast.value, days);
+    const nextTestDate = addDaysToIsoDate(castValue, days);
     if (nextTestDate) {
       test.value = nextTestDate;
     }
+  }
+
+  function assignSetNumbersByAge(tableBody) {
+    if (!tableBody) return;
+    const groups = [];
+    const byAge = new Map();
+
+    Array.from(tableBody.querySelectorAll("tr")).forEach(function (row) {
+      const ageInput = row.querySelector('[name^="age"]');
+      const setInput = row.querySelector('[name^="setNo"]');
+      const testInput = row.querySelector('[name^="dateOfTest"]');
+      const days = parseAgeDays(ageInput && ageInput.value);
+      if (days == null || !setInput) return;
+
+      let group = byAge.get(days);
+      if (!group) {
+        group = { age: days, rows: [], sortKey: "" };
+        byAge.set(days, group);
+        groups.push(group);
+      }
+      group.rows.push(row);
+      const testDate = testInput && testInput.value ? testInput.value : "";
+      if (testDate && (!group.sortKey || testDate < group.sortKey)) {
+        group.sortKey = testDate;
+      }
+    });
+
+    groups.sort(function (a, b) {
+      if (a.sortKey && b.sortKey && a.sortKey !== b.sortKey) {
+        return a.sortKey < b.sortKey ? -1 : 1;
+      }
+      if (a.sortKey && !b.sortKey) return -1;
+      if (!a.sortKey && b.sortKey) return 1;
+      return a.age - b.age;
+    });
+
+    groups.forEach(function (group, index) {
+      const setNo = String(index + 1);
+      group.rows.forEach(function (row) {
+        const setInput = row.querySelector('[name^="setNo"]');
+        if (setInput) setInput.value = setNo;
+      });
+    });
+  }
+
+  function refreshDerivedResultFields(row, tableBody, form) {
+    computeRowDateOfTest(row, form);
+    assignSetNumbersByAge(tableBody);
   }
 
   function prefillRowFromRequest(row, form) {
@@ -98,10 +166,10 @@
       const input = row.querySelector(selector);
       if (input) {
         input.addEventListener("change", function () {
-          computeRowDateOfTest(row);
+          refreshDerivedResultFields(row, tableBody);
         });
         input.addEventListener("input", function () {
-          computeRowDateOfTest(row);
+          refreshDerivedResultFields(row, tableBody);
         });
       }
     });
@@ -111,8 +179,26 @@
       removeBtn.addEventListener("click", function () {
         row.remove();
         renumberRows(tableBody);
+        assignSetNumbersByAge(tableBody);
       });
     }
+  }
+
+  function bindRequestDateOfCast(form, tableBody) {
+    if (!form || !tableBody || !form.elements) return;
+    const dateOfCast = form.elements.dateOfCast;
+    if (!dateOfCast || dateOfCast.dataset.cubesyncResultSyncBound === "true") return;
+    dateOfCast.dataset.cubesyncResultSyncBound = "true";
+
+    function syncRows() {
+      Array.from(tableBody.querySelectorAll("tr")).forEach(function (row) {
+        computeRowDateOfTest(row, form);
+      });
+      assignSetNumbersByAge(tableBody);
+    }
+
+    dateOfCast.addEventListener("change", syncRows);
+    dateOfCast.addEventListener("input", syncRows);
   }
 
   function addResultRow(tableBody, form, renderBarcodeCb, onRowAdded) {
@@ -128,8 +214,9 @@
     });
     tableBody.appendChild(newRow);
     prefillRowFromRequest(newRow, form);
-    computeRowDateOfTest(newRow);
+    computeRowDateOfTest(newRow, form);
     attachRowListeners(newRow, tableBody, renderBarcodeCb);
+    assignSetNumbersByAge(tableBody);
     
     if (typeof onRowAdded === "function") {
       onRowAdded(newRow);
@@ -138,6 +225,8 @@
 
   return {
     computeRowDateOfTest: computeRowDateOfTest,
+    assignSetNumbersByAge: assignSetNumbersByAge,
+    bindRequestDateOfCast: bindRequestDateOfCast,
     prefillRowFromRequest: prefillRowFromRequest,
     renumberRows: renumberRows,
     attachRowListeners: attachRowListeners,
