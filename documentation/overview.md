@@ -24,7 +24,7 @@ CubeSync digitizes the paper concrete cube request process. It includes public s
 |--------|------|
 | `barcode.js` | Code 128-B encode + SVG render |
 | `cubesync-autocomplete.js` | Autocomplete dropdown functionality for ERP and other data fields |
-| `cubesync-table-manager.js` | Manages dynamic test results rows, age calculation, and field prefilling |
+| `cubesync-table-manager.js` | Manages dynamic test results rows, date-of-test calculation from cast date plus age in days, and field prefilling |
 | `cubesync-form-data.js` | Schema, validation, field config, serialization, dashboard normalization, free-text helpers, patch updates |
 | `cubesync-export.js` | CSV + ZIP export |
 | `cubesync-dashboard-filters.js` | Dashboard list sort and filter (`applyDashboardFilters`) |
