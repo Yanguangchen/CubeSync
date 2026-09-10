@@ -15,43 +15,17 @@
     resultDateOfCast: "dateOfCast"
   };
 
-  function parseIsoDateParts(value) {
-    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || "").trim());
-    if (!match) return null;
-    return {
-      year: Number(match[1]),
-      month: Number(match[2]),
-      day: Number(match[3])
-    };
-  }
-
-  function parseAgeDays(value) {
-    if (value === "" || value == null) return null;
-    const days = Number(value);
-    if (!Number.isInteger(days) || days < 0) return null;
-    return days;
-  }
-
-  function addDaysToIsoDate(isoDate, days) {
-    const parts = parseIsoDateParts(isoDate);
-    if (!parts) return "";
-    const date = new Date(Date.UTC(parts.year, parts.month - 1, parts.day + days));
-    return date.toISOString().slice(0, 10);
-  }
-
-  function computeRowDateOfTest(row) {
-    if (!row || typeof row.querySelector !== "function") return;
+  function computeRowAge(row) {
     const cast = row.querySelector('[name^="resultDateOfCast"]');
     const test = row.querySelector('[name^="dateOfTest"]');
     const age = row.querySelector('[name^="age"]');
-    if (!cast || !test || !age || !cast.value) return;
+    if (!cast || !test || !age || !cast.value || !test.value) return;
 
-    const days = parseAgeDays(age.value);
-    if (days == null) return;
-
-    const nextTestDate = addDaysToIsoDate(cast.value, days);
-    if (nextTestDate) {
-      test.value = nextTestDate;
+    const castDate = new Date(cast.value);
+    const testDate = new Date(test.value);
+    const diffDays = Math.round((testDate - castDate) / (1000 * 60 * 60 * 24));
+    if (Number.isFinite(diffDays) && diffDays >= 0) {
+      age.value = diffDays;
     }
   }
 
@@ -94,14 +68,11 @@
       });
     }
 
-    ['[name^="resultDateOfCast"]', '[name^="age"]'].forEach(function (selector) {
-      const input = row.querySelector(selector);
-      if (input) {
-        input.addEventListener("change", function () {
-          computeRowDateOfTest(row);
-        });
-        input.addEventListener("input", function () {
-          computeRowDateOfTest(row);
+    ['[name^="resultDateOfCast"]', '[name^="dateOfTest"]'].forEach(function (selector) {
+      const dateInput = row.querySelector(selector);
+      if (dateInput) {
+        dateInput.addEventListener("change", function () {
+          computeRowAge(row);
         });
       }
     });
@@ -124,7 +95,6 @@
     newRow.innerHTML = markup.resultRowHtml(rowCount);
     tableBody.appendChild(newRow);
     prefillRowFromRequest(newRow, form);
-    computeRowDateOfTest(newRow);
     attachRowListeners(newRow, tableBody, renderBarcodeCb);
     
     if (typeof onRowAdded === "function") {
@@ -133,7 +103,7 @@
   }
 
   return {
-    computeRowDateOfTest: computeRowDateOfTest,
+    computeRowAge: computeRowAge,
     prefillRowFromRequest: prefillRowFromRequest,
     renumberRows: renumberRows,
     attachRowListeners: attachRowListeners,

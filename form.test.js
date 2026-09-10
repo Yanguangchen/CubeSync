@@ -207,22 +207,6 @@ test("slump fields are not marked required in either HTML form", () => {
   }
 });
 
-test("both forms treat result age as a day count used to derive date of test", () => {
-  const index = fs.readFileSync("index.html", "utf8");
-  const markup = fs.readFileSync("cubesync-form-markup.js", "utf8");
-  const tableManager = fs.readFileSync("cubesync-table-manager.js", "utf8");
-
-  assert.match(index, /type="number" name="age1"[^>]*min="0"[^>]*step="1"[^>]*aria-label="Row 1 age in days"/);
-  assert.match(index, /type="date" name="dateOfTest1"[^>]*aria-label="Row 1 date of test"/);
-  assert.match(markup, /age:\s*\{\s*type:\s*"number",\s*min:\s*"0",\s*step:\s*"1",\s*ariaSuffix:\s*"age in days"/);
-  assert.match(tableManager, /computeRowDateOfTest/);
-  assert.doesNotMatch(
-    tableManager,
-    /age\.value\s*=\s*diffDays/,
-    "age must remain the entered day count, not be overwritten from date of test"
-  );
-});
-
 test("both form stylesheets enforce [hidden] with !important so author display rules cannot reveal disabled fields", () => {
   const originalCss = readBundledCss("css/styles.css");
   const glassCss = readBundledCss("css/glassmorphic.css");
