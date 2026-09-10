@@ -373,6 +373,8 @@ classDiagram
 
 ## 3. Firestore Domain Model
 
+One `CUBE_REQUEST` document contains every specimen row. Rows that share `setNo` are one test set. The human dashboard expands those sets into separate list forms; RPA and Firestore keep a single document. See [dashboard-split-by-set.md](dashboard-split-by-set.md).
+
 ```mermaid
 erDiagram
     CUBE_REQUEST ||--o{ CUBE_RESULT : contains
@@ -544,13 +546,14 @@ sequenceDiagram
     Store->>Rules: read cubeRequests
     Rules-->>Store: allow if isCubeSyncStaff()
     Store-->>Dashboard: raw records
-    Dashboard->>FormData: normalizeCubeRequestForDashboard(record, id)
-    FormData-->>Dashboard: dashboard model
-    Staff->>Dashboard: Edit and save form
+    Dashboard->>FormData: expandCubeRequestForDashboard(record, id)
+    FormData-->>Dashboard: 1..N dashboard forms (one per unique test set)
+    Staff->>Dashboard: Edit and save one set-form
     Dashboard->>FormData: dashboardEditToCubeRequest(FormData)
+    Dashboard->>FormData: mergeResultSetIntoDocument(existing.results, setNo, editedRows)
     Dashboard->>FormData: buildCubeRequestUpdatePatch(existing, payload)
     FormData-->>Dashboard: changed fields only
-    Dashboard->>Store: updateCubeRequest(id, patch)
+    Dashboard->>Store: updateCubeRequest(sourceRequestId, patch)
     Store->>Rules: validate isValidCubeRequestUpdate()
     Rules-->>Store: allow or deny
     Store->>Firestore: update cubeRequests/{id}

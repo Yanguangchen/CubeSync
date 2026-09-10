@@ -50,7 +50,7 @@ The repo root keeps a short [README.md](../README.md) that links here.
 | Global | Source | Purpose |
 |--------|--------|---------|
 | `window.CubeSyncBarcode` | `barcode.js` | `encodeCode128B`, `renderBarcodeSvg`, `sanitizeBarcodeText` |
-| `window.CubeSyncFormData` | `cubesync-form-data.js` | Schema, validation, serialization, field config, free-text helpers (`collectCustomFields`, `deriveFreeTextDropdownFields`, `mergeFreeTextDropdownFields`), patch updates (`buildCubeRequestUpdatePatch`), `normalizeCubeRequestForDashboard` |
+| `window.CubeSyncFormData` | `cubesync-form-data.js` | Schema, validation, serialization, field config, free-text helpers (`collectCustomFields`, `deriveFreeTextDropdownFields`, `mergeFreeTextDropdownFields`), patch updates (`buildCubeRequestUpdatePatch`), dashboard normalization and split-by-set expansion (`normalizeCubeRequestForDashboard`, `expandCubeRequestForDashboard`) |
 | `window.CubeSyncObservability` | `cubesync-form-data.js` | Structured client events, privacy redaction, correlation identifiers, error classification, and global runtime error handlers (see [observability.md](observability.md)) |
 | `window.CubeSyncDashboardFilters` | `cubesync-dashboard-filters.js` | Dashboard list sort/filter — `parseDateKey`, `currentIsoDate`, `collectFilterOptions`, `applyDashboardFilters` (see [dashboard-sort-and-filter.md](dashboard-sort-and-filter.md)) |
 | `window.CubeSyncHeatmap` | `cubesync-heatmap.js` | Dashboard submission heatmap helpers — `buildHeatmap`, `resolveTimestamp`, `bucketLabels` |
@@ -132,9 +132,11 @@ All forms are stored in the `cubeRequests` Firestore collection. Canonical field
 
 Legacy aliases (`reportNo`, `client`, `project`, `internalDate`, etc.) are normalized on read/write via `applyLegacyRequestAliases()` for dashboard and export compatibility.
 
-### Result fields (`RESULT_FIELDS`, one row per set)
+### Result fields (`RESULT_FIELDS`, one row per specimen)
 
 `setNo`, `size`, `specimenRef`, `barcode`, `specifiedSlump`, `meanSlump`, `resultGrade`, `resultDateOfCast`, `age`, `dateOfTest`, `weightKg`, `loadKn`, `strength`, `failureMode`, `invoiceNumber`
+
+Rows that share the same `setNo` belong to one **test set**. The human dashboard shows one form per unique set; Firestore still stores every specimen row on the single request document. See [dashboard-split-by-set.md](dashboard-split-by-set.md).
 
 Test-result table headers and cells use `data-result-field="{name}"` for column show/hide when field settings disable a column.
 
@@ -254,8 +256,9 @@ Separate from free-text dropdown review, staff can define **additional request f
 Staff edits from `dashboard.html` use a **patch update** path:
 
 1. `buildCubeRequestFromForm()` + `dashboardEditToCubeRequest()` build the full in-memory payload.
-2. `buildCubeRequestUpdatePatch(existing, payload)` compares against the loaded Firestore document (`form.raw`) and sends **only changed fields** to `updateCubeRequest()`.
-3. `firestore.js` adds `updatedAt: serverTimestamp()` and strips `undefined` via `withoutUndefined()`.
+2. For a split set-form, the dashboard reconstructs the source document and `mergeResultSetIntoDocument()` replaces only that set’s rows before patching. Unsplit forms skip this step.
+3. `buildCubeRequestUpdatePatch(existing, payload)` compares against the loaded Firestore document (`form.raw`, or the reconstructed source document) and sends **only changed fields** to `updateCubeRequest(sourceId)`.
+4. `firestore.js` adds `updatedAt: serverTimestamp()` and strips `undefined` via `withoutUndefined()`.
 
 `withoutUndefined()` recurses only into plain objects and arrays. Firestore sentinels (`serverTimestamp()` / `FieldValue`), `Timestamp`, and `Date` instances must pass through unchanged — flattening them causes rules validation to reject the write with `permission-denied`.
 
@@ -328,9 +331,9 @@ Notable regression coverage:
 
 - **`free-text-dropdown.test.js`** — dedicated regression suite for free-text review (metadata vs value resolve, localStorage exclusion, dashboard wiring)
 - `form-field-config.test.js` — field enable/disable, custom labels, custom request field CRUD, validation with config
-- `form-data.test.js` — `resolveFreeTextDropdownFields`, patch updates (`buildCubeRequestUpdatePatch`)
+- `form-data.test.js` — `resolveFreeTextDropdownFields`, patch updates (`buildCubeRequestUpdatePatch`), split-by-set expand/merge/parse
 - `app-functional.test.js` — multi-step submit, typed-vs-selected autocomplete, `customFields` on save, hidden-step validation
-- `dashboard-functional.test.js` — free-text badge/legend/highlight rendering, patch save behavior
+- `dashboard-functional.test.js` — free-text badge/legend/highlight rendering, patch save behavior, one dashboard form per unique test set
 - `firestore-runtime.test.js` — `serverTimestamp()` sentinel preserved through `updateCubeRequest`
 - `deployment-config.test.js` — build output includes autocomplete option files in `public/dropdown-options/`
 
@@ -367,6 +370,7 @@ Known WorkGrid permission-policy watch items:
 | `project-uml.md` | Comprehensive project-wide UML diagrams for current modules, data, flows, and security boundaries |
 | `free-text-dropdown-highlighting.md` | Free-text review flags, capture vs review semantics, regression tests |
 | `dashboard-sort-and-filter.md` | Dashboard list sort and filter logic |
+| `dashboard-split-by-set.md` | Human dashboard shows one form per unique cube test set without changing Firestore shape or rules |
 | `dashboard-ux-animations.md` | Dashboard UX animations and master-detail reveal logic |
 | `form-submission-throbber.md` | Form submission save button spinner behavior |
 | `print-layout.md` | CSS logic for enforcing single A4 landscape sheet form printing |

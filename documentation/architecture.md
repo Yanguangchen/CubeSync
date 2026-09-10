@@ -312,11 +312,10 @@ sequenceDiagram
     DB-->>FS: snapshots
     FS-->>DSH: raw form array
 
-    loop Each form
-        DSH->>FD: normalizeCubeRequestForDashboard(data, id)
-        FD-->>DSH: normalized record
-        DSH->>FD: deriveFreeTextDropdownFields(raw, dropdownOptions)
-        DSH->>FD: mergeFreeTextDropdownFields(customFields, derived)
+    loop Each document
+        DSH->>FD: expandCubeRequestForDashboard(data, id)
+        FD-->>DSH: 1..N forms (one per unique test set)
+        DSH->>FD: resolveFreeTextDropdownFields(raw, dropdownOptions)
     end
     DSH->>DSH: renderForms() → table (badges for free-text count)
 
@@ -327,17 +326,23 @@ sequenceDiagram
     DSH->>FD: applyFreeTextFlags(editForm, customFields)
     User->>DSH: Modify fields, submit dialog
     DSH->>FD: buildCubeRequestFromForm + dashboardEditToCubeRequest
+    DSH->>FD: mergeResultSetIntoDocument (split set-forms only)
     DSH->>FD: buildCubeRequestUpdatePatch(existing, payload)
     FD-->>DSH: patch (changed fields only)
-    DSH->>FS: updateCubeRequest(id, patch)
+    DSH->>FS: updateCubeRequest(sourceId, patch)
     FS->>FS: withoutUndefined({ ...patch, updatedAt: serverTimestamp() })
     FS->>DB: updateDoc
     DSH->>DSH: Reload forms
 
     User->>DSH: Click Delete
     DSH->>DSH: window.confirm()
-    DSH->>FS: deleteCubeRequest(id)
-    FS->>DB: deleteDoc
+    alt Split set-form with sibling sets remaining
+        DSH->>FS: updateCubeRequest(sourceId, { results })
+        FS->>DB: updateDoc
+    else Unsplit form, or last remaining set
+        DSH->>FS: deleteCubeRequest(sourceId)
+        FS->>DB: deleteDoc
+    end
     DSH->>DSH: Reload forms
 ```
 
@@ -483,7 +488,7 @@ stateDiagram-v2
 
 ## 9. Entity-Relationship Diagram — Data Model
 
-The Firestore document structure for `cubeRequests`.
+The Firestore document structure for `cubeRequests`. One document can contain several test sets (`results[].setNo`). The human dashboard expands those sets into separate forms in the browser; the stored document is unchanged. See [dashboard-split-by-set.md](dashboard-split-by-set.md).
 
 ```mermaid
 erDiagram

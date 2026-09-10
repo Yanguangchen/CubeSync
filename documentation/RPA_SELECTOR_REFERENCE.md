@@ -144,6 +144,8 @@ These selectors exist only on `glassmorphic.html`.
 
 These selectors apply to `dashboard.html`.
 
+A request with several unique test sets appears as **one list row per set**. Row `data-id` values may be virtual (`{sourceId}#set-{n}`). Print, save, and delete still use the real Firestore document id. Bots that drive the human dashboard should treat virtual ids as UI-only. The RPA queue is not split. See [dashboard-split-by-set.md](dashboard-split-by-set.md).
+
 ### Authentication
 
 | Target | Selector |

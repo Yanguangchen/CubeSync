@@ -91,7 +91,7 @@ Anonymous submissions are forced to `Draft` by the API. Only authenticated staff
 |-------|------|-------------|
 | `template` | string | Public form variant such as `Original` or `Glassmorphic`. |
 | `status` | string | Human review lifecycle status. |
-| `results` | array | Test-result rows using `RESULT_FIELDS`. |
+| `results` | array | Specimen rows (`RESULT_FIELDS`). Rows that share `setNo` are one test set. The human dashboard shows one form per unique set; Firestore still stores every row on this document ([dashboard-split-by-set.md](dashboard-split-by-set.md)). |
 | `customFields` | array | Dropdown-backed fields that may need free-text review. |
 | `extraFields` | map | Staff-defined custom request field values by custom field id. |
 | `createdAt` / `updatedAt` | timestamp | Server-managed create/update times. |
@@ -122,9 +122,9 @@ Anonymous submissions are forced to `Draft` by the API. Only authenticated staff
 
 1. `dashboard.html` loads auth and dashboard modules.
 2. Staff sign in with Google; `firestore.js` checks the configured allowlist.
-3. The dashboard lists requests and normalizes legacy aliases for display.
+3. The dashboard lists requests, expands multi-set documents into one form per unique test set, and normalizes legacy aliases for display.
 4. Selecting a row opens details; free-text dropdown values are highlighted when their stored value is not in the known option set.
-5. Edit mode builds a full form payload, then `buildCubeRequestUpdatePatch()` sends only changed fields.
+5. Edit mode builds a full form payload. For a split set-form, sibling result rows are merged back into the source document, then `buildCubeRequestUpdatePatch()` sends only changed fields to the real Firestore id.
 6. Status promotion to `Ready` can also promote reviewed free-text values into shared dropdown options.
 7. Field settings allow staff to enable/disable fields, rename public labels, define custom request fields, and manage shared dropdown options.
 
@@ -132,6 +132,7 @@ Anonymous submissions are forced to `Draft` by the API. Only authenticated staff
 
 - Use `RPA_SELECTOR_REFERENCE.md` before changing IDs, data attributes, table columns, or labels relied on by automation.
 - The RPA queue should process `Ready` records, not raw `Draft` submissions.
+- The human dashboard may show several rows per request (one per test set). The RPA queue does **not**: it still lists one document with the full `results[]` array. See [dashboard-split-by-set.md](dashboard-split-by-set.md).
 - Export helpers generate deterministic CSV content and ZIP packages from normalized request data.
 - Visible customer labels can be customized, but automation must continue to bind to canonical field keys.
 
@@ -216,6 +217,7 @@ When adding behavior, prefer the smallest focused test that would fail without t
 | Dropdown fields/options | Static files, `settings/dropdownOptions`, free-text highlighting, promotion flow, build output. |
 | Public form markup | `app.js`, CSS, print layout, autocomplete setup, reCAPTCHA container, tests. |
 | Dashboard markup | `dashboard.js`, CSS, selectors, functional tests, screenshots if UI-visible. |
+| Result `setNo` grouping | [dashboard-split-by-set.md](dashboard-split-by-set.md), expand/merge helpers, dashboard save/print/delete, print `?setNo=`, notifications, collision metrics. Do **not** write virtual `id#set-n` ids to Firestore. |
 | RPA markup/selectors | `RPA_SELECTOR_REFERENCE.md`, RPA tests, bot-facing workflows. |
 | API payload shape | API tests, Firestore rules, dashboard normalization, export helpers. |
 | Service worker cache list | `sw.js`, build output, cache version, offline tests. |

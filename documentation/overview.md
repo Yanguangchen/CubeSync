@@ -73,5 +73,6 @@ Config document: `settings/formFieldConfig`. Cached locally as `cubesync-form-fi
 - [design.md](design.md) — design tokens and UI patterns
 - [free-text-dropdown-highlighting.md](free-text-dropdown-highlighting.md) — free-text review flags
 - [dashboard-sort-and-filter.md](dashboard-sort-and-filter.md) — dashboard list sort and filter logic
+- [dashboard-split-by-set.md](dashboard-split-by-set.md) — one human-dashboard form per unique test set
 - [form-submission-throbber.md](form-submission-throbber.md) — save button spinner behavior
 - [RPA_SELECTOR_REFERENCE.md](RPA_SELECTOR_REFERENCE.md) — stable selectors for automation

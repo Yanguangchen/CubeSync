@@ -35,7 +35,7 @@ CubeSync has five pages. Match the user to the right one:
 |------|-------------|--------------|
 | **Digital form** (`glassmorphic.html`) | Customers & staff | Modern **stepped** request form — the recommended way to submit |
 | **Original form** (`index.html`) | Customers & staff | PDF-faithful single-page version of the same form |
-| **Dashboard** (`dashboard.html`) | Staff only | View, search, filter, edit, print, delete, and triage submitted requests; manage field settings |
+| **Dashboard** (`dashboard.html`) | Staff only | View, search, filter, edit, print, delete, and triage submitted requests (one list row per unique test set); manage field settings |
 | **RPA queue** (`rpa-dashboard.html`) | Staff / automation | Date-filtered queue of **Ready** requests, with CSV/ZIP export for bots |
 | **RPA form view** (`rpa-view.html`) | Automation | Read-only single-request view for bots |
 
@@ -145,6 +145,9 @@ For anything involving credentials, allowlists, deployment, Firestore rules, or 
 
 **Q: "How do I get a request into the automation queue?"**
 > A staff member opens it on the **Dashboard** and sets its status to **Ready**. Only **Ready** requests appear in the **RPA queue** for processing.
+
+**Q: "Why does one client submission show as several forms on the dashboard?"**
+> Each unique cube **test set** (same Set No / age of test) is shown as its own form so staff can review, print, and edit that set alone. Request details — client, project, date of cast, cube job number — are the same on every row. Firestore still stores one document; the RPA queue also still shows one job. Changing client details on one set-form updates the shared request.
 
 ---
 

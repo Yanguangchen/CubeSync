@@ -178,3 +178,7 @@ For visual verification, test both states:
 2. Browser print preview in A4 landscape with every enabled result field visible.
 
 Also enter a barcode value before checking; an empty barcode cell cannot reveal SVG overflow regressions.
+
+## Printing one test set from the human dashboard
+
+The dashboard print action for a multi-set request opens the public form with `?id={sourceDocumentId}&setNo={n}&print=true`. `app.js` loads the full Firestore document, then keeps only that set’s specimen rows. Print CSS in this document is unchanged; set filtering is data-side, not a stylesheet concern. See [dashboard-split-by-set.md](dashboard-split-by-set.md).
