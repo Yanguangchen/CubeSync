@@ -1850,3 +1850,212 @@ test("at-a-glance collision card shows a calm empty state without collisions tod
   assert.match(collisionCard.textContent, /No duplicate cube job numbers today/);
   assert.ok(!collisionCard.classList.contains("glance-card-review"));
 });
+
+test("dashboard splits a multi-set request into one form per unique set", async () => {
+  const dom = new JSDOM(html, { runScripts: "dangerously", url: "http://localhost/" });
+  const { window } = dom;
+  window.alert = () => {};
+  window.confirm = () => true;
+
+  const multiSetRequest = {
+    id: "req-a",
+    reportNo: "REPORT-9",
+    cubeJobNumber: "CJ-9",
+    customerBilling: "Client A",
+    projectNameOnReport: "Tower",
+    dateOfCast: "2026-06-18",
+    status: "Draft",
+    template: "Original",
+    results: [
+      { setNo: 1, specimenRef: "T-7a", age: 7, dateOfTest: "2026-06-25", barcode: "BC-7" },
+      { setNo: 2, specimenRef: "T-28a", age: 28, dateOfTest: "2026-07-16", barcode: "BC-28a" },
+      { setNo: 2, specimenRef: "T-28b", age: 28, dateOfTest: "2026-07-16", barcode: "BC-28b" },
+      { setNo: 3, specimenRef: "T-14a", age: 14, dateOfTest: "2026-07-02", barcode: "BC-14" }
+    ]
+  };
+
+  window.CubeSyncAuth = {
+    onAuthChange: (cb) => cb({ email: "test@rakmat.com.sg" }),
+    isAllowedUser: () => true
+  };
+  window.CubeSyncFirestore = {
+    listCubeRequests: async () => [{ ...multiSetRequest, results: multiSetRequest.results.map((row) => ({ ...row })) }]
+  };
+
+  const formMarkupJs = fs.readFileSync("cubesync-form-markup.js", "utf8");
+  const tableManagerJs = fs.readFileSync("cubesync-table-manager.js", "utf8");
+  [barcodeJs, formMarkupJs, formDataJs, tableManagerJs, dashboardJs].forEach((js) => {
+    const script = window.document.createElement("script");
+    script.textContent = js;
+    window.document.head.appendChild(script);
+  });
+
+  window.HTMLDialogElement.prototype.showModal = function () { this.open = true; };
+  window.HTMLDialogElement.prototype.close = function () { this.open = false; };
+
+  const event = window.document.createEvent("Event");
+  event.initEvent("DOMContentLoaded", true, true);
+  window.document.dispatchEvent(event);
+  await new Promise((resolve) => setTimeout(resolve, 50));
+
+  const list = window.document.getElementById("formList");
+  const rows = Array.from(list.querySelectorAll("tr[data-id]"));
+  assert.equal(rows.length, 3);
+  assert.equal(rows[0].getAttribute("data-id"), "req-a#set-1");
+  assert.equal(rows[1].getAttribute("data-id"), "req-a#set-3");
+  assert.equal(rows[2].getAttribute("data-id"), "req-a#set-2");
+  assert.match(list.innerHTML, /REPORT-9 · Set 1/);
+  assert.match(list.innerHTML, /REPORT-9 · Set 2/);
+  assert.match(list.innerHTML, /REPORT-9 · Set 3/);
+  rows.forEach((row) => {
+    assert.match(row.textContent, /Client A/);
+    assert.match(row.textContent, /Tower/);
+    assert.ok(!row.classList.contains("has-cube-job-collision"));
+  });
+
+  rows[0].click();
+  const detailContent = window.document.getElementById("detailContent");
+  assert.match(window.document.getElementById("detailTitle").textContent, /Set 1/);
+  assert.match(detailContent.textContent, /Client A/);
+  assert.match(detailContent.textContent, /2026\/06\/18/);
+  assert.match(detailContent.textContent, /Set No/);
+  assert.match(detailContent.innerHTML, /BC-7/);
+  assert.doesNotMatch(detailContent.innerHTML, /BC-28a/);
+  assert.doesNotMatch(detailContent.innerHTML, /BC-14/);
+
+  list.querySelector("tr[data-id='req-a#set-2'] button[data-action='edit']").click();
+  const editForm = window.document.getElementById("editForm");
+  assert.equal(editForm.elements.id.value, "req-a#set-2");
+  assert.equal(editForm.elements.customerBilling.value, "Client A");
+  assert.equal(editForm.elements.dateOfCast.value, "2026-06-18");
+  assert.equal(editForm.elements.specimenRef1.value, "T-28a");
+  assert.equal(editForm.elements.specimenRef2.value, "T-28b");
+  assert.equal(editForm.elements.specimenRef3, undefined);
+});
+
+test("dashboard save of one set keeps sibling sets on the source request", async () => {
+  const dom = new JSDOM(html, { runScripts: "dangerously", url: "http://localhost/" });
+  const { window } = dom;
+  window.alert = () => {};
+  window.confirm = () => true;
+
+  const record = {
+    id: "req-a",
+    reportNo: "REPORT-9",
+    cubeJobNumber: "CJ-9",
+    customerBilling: "Client A",
+    projectNameOnReport: "Tower",
+    dateOfCast: "2026-06-18",
+    status: "Draft",
+    template: "Original",
+    results: [
+      { setNo: 1, specimenRef: "T-7a", age: 7, dateOfTest: "2026-06-25", barcode: "BC-7" },
+      { setNo: 2, specimenRef: "T-28a", age: 28, dateOfTest: "2026-07-16", barcode: "BC-28" }
+    ]
+  };
+
+  let updated = null;
+  window.CubeSyncAuth = {
+    onAuthChange: (cb) => cb({ email: "test@rakmat.com.sg" }),
+    isAllowedUser: () => true,
+    currentUser: () => ({ email: "test@rakmat.com.sg" })
+  };
+  window.CubeSyncFirestore = {
+    listCubeRequests: async () => [{ ...record, results: record.results.map((row) => ({ ...row })) }],
+    updateCubeRequest: async (id, data) => { updated = { id, data }; }
+  };
+
+  const formMarkupJs = fs.readFileSync("cubesync-form-markup.js", "utf8");
+  const tableManagerJs = fs.readFileSync("cubesync-table-manager.js", "utf8");
+  [barcodeJs, formMarkupJs, formDataJs, tableManagerJs, dashboardJs].forEach((js) => {
+    const script = window.document.createElement("script");
+    script.textContent = js;
+    window.document.head.appendChild(script);
+  });
+
+  window.HTMLDialogElement.prototype.showModal = function () { this.open = true; };
+  window.HTMLDialogElement.prototype.close = function () { this.open = false; };
+
+  const event = window.document.createEvent("Event");
+  event.initEvent("DOMContentLoaded", true, true);
+  window.document.dispatchEvent(event);
+  await new Promise((resolve) => setTimeout(resolve, 50));
+
+  window.document.querySelector("tr[data-id='req-a#set-1'] button[data-action='edit']").click();
+  const editForm = window.document.getElementById("editForm");
+  editForm.elements.specimenRef1.value = "T-7-edited";
+  editForm.dispatchEvent(new window.Event("submit", { cancelable: true }));
+  await new Promise((resolve) => setTimeout(resolve, 20));
+
+  const reasonDialog = window.document.getElementById("reasonDialog");
+  if (reasonDialog && reasonDialog.open) {
+    window.document.getElementById("reasonInput").value = "Corrected specimen reference";
+    window.document.getElementById("reasonForm").dispatchEvent(new window.Event("submit", { cancelable: true }));
+  }
+  await new Promise((resolve) => setTimeout(resolve, 50));
+
+  assert.ok(updated, "updateCubeRequest should be called");
+  assert.equal(updated.id, "req-a");
+  assert.ok(Array.isArray(updated.data.results));
+  assert.deepEqual([...updated.data.results.map((row) => row.specimenRef)], ["T-7-edited", "T-28a"]);
+  assert.equal(Number(updated.data.results[0].setNo), 1);
+  assert.equal(Number(updated.data.results[1].setNo), 2);
+});
+
+test("dashboard print and delete of a split set target the source request", async () => {
+  const dom = new JSDOM(html, { runScripts: "dangerously", url: "http://localhost/" });
+  const { window } = dom;
+  window.confirm = () => true;
+
+  const record = {
+    id: "req-a",
+    reportNo: "REPORT-9",
+    cubeJobNumber: "CJ-9",
+    customerBilling: "Client A",
+    projectNameOnReport: "Tower",
+    dateOfCast: "2026-06-18",
+    status: "Draft",
+    template: "Original",
+    results: [
+      { setNo: 1, specimenRef: "T-7a", age: 7, dateOfTest: "2026-06-25" },
+      { setNo: 2, specimenRef: "T-28a", age: 28, dateOfTest: "2026-07-16" }
+    ]
+  };
+
+  let deletedId = null;
+  let updated = null;
+  window.CubeSyncAuth = {
+    onAuthChange: (cb) => cb({ email: "test@rakmat.com.sg" }),
+    isAllowedUser: () => true
+  };
+  window.CubeSyncFirestore = {
+    listCubeRequests: async () => [{ ...record, results: record.results.map((row) => ({ ...row })) }],
+    updateCubeRequest: async (id, data) => { updated = { id, data }; },
+    deleteCubeRequest: async (id) => { deletedId = id; }
+  };
+
+  let openedUrl = null;
+  window.open = (url) => { openedUrl = url; };
+
+  [barcodeJs, formDataJs, dashboardJs].forEach((js) => {
+    const script = window.document.createElement("script");
+    script.textContent = js;
+    window.document.head.appendChild(script);
+  });
+
+  const event = window.document.createEvent("Event");
+  event.initEvent("DOMContentLoaded", true, true);
+  window.document.dispatchEvent(event);
+  await new Promise((resolve) => setTimeout(resolve, 50));
+
+  const list = window.document.getElementById("formList");
+  list.querySelector("tr[data-id='req-a#set-1'] button[data-action='print']").click();
+  assert.match(openedUrl, /index\.html\?id=req-a&print=true&setNo=1/);
+
+  list.querySelector("tr[data-id='req-a#set-1'] button[data-action='delete']").click();
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  assert.equal(deletedId, null);
+  assert.equal(updated.id, "req-a");
+  assert.deepEqual([...updated.data.results.map((row) => row.specimenRef)], ["T-28a"]);
+});
+

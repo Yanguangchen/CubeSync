@@ -25,7 +25,7 @@ CubeSync digitizes the paper concrete cube request process. It includes public s
 | `barcode.js` | Code 128-B encode + SVG render |
 | `cubesync-autocomplete.js` | Autocomplete dropdown functionality for ERP and other data fields |
 | `cubesync-table-manager.js` | Manages dynamic test results rows, date-of-test calculation from cast date plus age in days, set numbers grouped by age, and field prefilling |
-| `cubesync-form-data.js` | Schema, validation, field config, serialization, dashboard normalization, free-text helpers, patch updates |
+| `cubesync-form-data.js` | Schema, validation, field config, serialization, dashboard normalization, split-by-set expansion, free-text helpers, patch updates |
 | `cubesync-export.js` | CSV + ZIP export |
 | `cubesync-dashboard-filters.js` | Dashboard list sort and filter (`applyDashboardFilters`) |
 | `cubesync-today-toggle.js` | Glass "Today only" tactile switch logic |
@@ -51,7 +51,7 @@ Keep `firestore.js` and `firestore.rules` allowlists in sync.
 ## Data flow
 
 1. **Submission:** User fills form → `app.js` builds payload (including `customFields`, `extraFields`) → reCAPTCHA → POST `/api/cube-request-submit` → Firestore.
-2. **Management:** Staff signs in → dashboard loads option lists + forms → view/edit/delete → patch update to Firestore.
+2. **Management:** Staff signs in → dashboard loads option lists + forms → multi-set requests are shown as one form per unique test set (same request details, only that set’s result rows) → view/edit/delete → patch update to Firestore.
 3. **Review:** Dashboard merges `customFields` metadata with value-based free-text derivation → orange highlights on list and detail.
 4. **Automation:** RPA loads queue → exports CSV/ZIP or updates `rpaStatus` / `erpStatus`.
 

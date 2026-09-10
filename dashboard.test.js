@@ -85,6 +85,7 @@ test("dashboard frontend exposes form CRUD controls", () => {
   assert.match(js, /openEditor/);
   assert.match(js, /deleteForm/);
   assert.match(js, /printForm/);
+  assert.match(js, /expandCubeRequestForDashboard/);
   assert.match(js, /saveFieldConfig/);
   assert.match(js, /loadFieldConfig/);
   assert.match(js, /renderFieldConfigEditor/);

@@ -93,6 +93,36 @@ test("auto-print triggers window.print on ?print=true after loading form", async
   delete require.cache[require.resolve("./app.js")];
 });
 
+test("loading a form with ?setNo= keeps only that set's result rows", async () => {
+  installDom(glassHtml, "http://localhost/glassmorphic.html?id=multi-set&setNo=2");
+
+  global.window.CubeSyncFirestore = {
+    getCubeRequest: async (id) => {
+      assert.equal(id, "multi-set");
+      return {
+        projectErp: "Set ERP",
+        customerBilling: "Client A",
+        dateOfCast: "2026-06-18",
+        results: [
+          { setNo: 1, specimenRef: "SET-1", barcode: "BC-1" },
+          { setNo: 2, specimenRef: "SET-2A", barcode: "BC-2A" },
+          { setNo: 2, specimenRef: "SET-2B", barcode: "BC-2B" }
+        ]
+      };
+    }
+  };
+
+  dispatchDOMContentLoaded();
+  await new Promise((resolve) => setTimeout(resolve, 50));
+
+  assert.equal(global.document.querySelector('[name="projectErp"]').value, "Set ERP");
+  assert.equal(global.document.querySelector('[name="specimenRef1"]').value, "SET-2A");
+  assert.equal(global.document.querySelector('[name="specimenRef2"]').value, "SET-2B");
+  assert.equal(global.document.querySelector('[name="specimenRef3"]'), null);
+
+  delete require.cache[require.resolve("./app.js")];
+});
+
 test("form save error resets reCAPTCHA and shows error message", async () => {
   installDom(glassHtml, "http://localhost/glassmorphic.html");
 

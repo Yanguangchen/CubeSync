@@ -43,7 +43,13 @@
   }
 
   function submissionKey(form) {
-    if (!form || form.id == null || form.id === "") {
+    if (!form) {
+      return "";
+    }
+    if (form.sourceRequestId != null && form.sourceRequestId !== "") {
+      return String(form.sourceRequestId);
+    }
+    if (form.id == null || form.id === "") {
       return "";
     }
     return String(form.id);
@@ -60,9 +66,14 @@
   function detectNewSubmissions(seen, forms) {
     const seenSet = toIdSet(seen);
     const list = Array.isArray(forms) ? forms : [];
+    const found = new Set();
     return list.filter((form) => {
       const key = submissionKey(form);
-      return key && !seenSet.has(key);
+      if (!key || seenSet.has(key) || found.has(key)) {
+        return false;
+      }
+      found.add(key);
+      return true;
     });
   }
 
@@ -155,12 +166,14 @@
     const ruleList = Array.isArray(rules) ? rules : STATUS_NOTIFICATION_RULES;
     const list = Array.isArray(forms) ? forms : [];
     const events = [];
+    const seenKeys = new Set();
 
     list.forEach((form) => {
       const key = submissionKey(form);
-      if (!key || !previous.has(key)) {
+      if (!key || !previous.has(key) || seenKeys.has(key)) {
         return; // brand-new records are handled as "new submissions" instead
       }
+      seenKeys.add(key);
       const before = previous.get(key) || {};
       ruleList.forEach((rule) => {
         const current = readField(form, rule.field);

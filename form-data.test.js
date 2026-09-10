@@ -23,7 +23,17 @@ const {
   sanitizeCubeRequestUpdatePayload,
   dashboardEditToCubeRequest,
   getCubeRequestFormValue,
-  isDropdownFreeTextField
+  isDropdownFreeTextField,
+  normalizeSetNo,
+  resultRowSetNo,
+  groupResultRowsBySet,
+  parseDashboardFormId,
+  dashboardSourceRequestId,
+  uniqueDashboardFormsBySource,
+  filterResultsBySetNo,
+  reconstructCubeRequestFromDashboardForms,
+  mergeResultSetIntoDocument,
+  expandCubeRequestForDashboard
 } = require("./cubesync-form-data");
 
 function formFieldNames(html) {
@@ -709,4 +719,109 @@ test("buildSharedDropdownSaveValues normalizes each known list and ignores unkno
     customerBilling: []
   });
   assert.deepEqual(buildSharedDropdownSaveValues(undefined), {});
+});
+
+test("empty set numbers normalize to set 1 when grouping result rows", () => {
+  assert.equal(normalizeSetNo(""), "");
+  assert.equal(normalizeSetNo(2), "2");
+  assert.equal(resultRowSetNo({ setNo: "" }), "1");
+  assert.equal(resultRowSetNo({ setNo: 2 }), "2");
+
+  const groups = groupResultRowsBySet([
+    { setNo: "", specimenRef: "A" },
+    { setNo: 1, specimenRef: "B" },
+    { setNo: 2, specimenRef: "C" }
+  ]);
+  assert.equal(groups.length, 2);
+  assert.equal(groups.find((group) => group.setNo === "1").rows.length, 2);
+  assert.equal(groups.find((group) => group.setNo === "2").rows[0].specimenRef, "C");
+});
+
+test("parseDashboardFormId splits virtual set ids and leaves source ids intact", () => {
+  assert.deepEqual(parseDashboardFormId("abc#set-2"), { sourceRequestId: "abc", setNo: "2" });
+  assert.deepEqual(parseDashboardFormId("abc"), { sourceRequestId: "abc", setNo: null });
+  assert.equal(dashboardSourceRequestId({ id: "abc#set-2" }), "abc");
+  assert.equal(dashboardSourceRequestId({ id: "x", sourceRequestId: "src" }), "src");
+});
+
+test("expandCubeRequestForDashboard keeps a single-set request as one form", () => {
+  const [form] = expandCubeRequestForDashboard({
+    customerBilling: "Client A",
+    projectNameOnReport: "Tower",
+    dateOfCast: "2026-06-18",
+    cubeJobNumber: "CJ-1",
+    results: [{ setNo: 1, specimenRef: "T-1", age: 7, dateOfTest: "2026-06-25" }]
+  }, "req-1");
+
+  assert.equal(form.id, "req-1");
+  assert.equal(form.sourceRequestId, "req-1");
+  assert.equal(form.setNo, "1");
+  assert.equal(form.cubeJob, "CJ-1");
+  assert.equal(form.raw.results.length, 1);
+});
+
+test("expandCubeRequestForDashboard creates one dashboard form per unique set", () => {
+  const forms = expandCubeRequestForDashboard({
+    customerBilling: "Client A",
+    projectNameOnReport: "Tower",
+    clientNameOnReport: "Client A",
+    dateOfCast: "2026-06-18",
+    cubeJobNumber: "CJ-9",
+    reportNo: "REPORT-9",
+    results: [
+      { setNo: 2, specimenRef: "T-28a", age: 28, dateOfTest: "2026-07-16" },
+      { setNo: 1, specimenRef: "T-7a", age: 7, dateOfTest: "2026-06-25" },
+      { setNo: 2, specimenRef: "T-28b", age: 28, dateOfTest: "2026-07-16" },
+      { setNo: 3, specimenRef: "T-14a", age: 14, dateOfTest: "2026-07-02" }
+    ]
+  }, "req-a");
+
+  assert.equal(forms.length, 3);
+  assert.deepEqual(forms.map((form) => form.id), ["req-a#set-1", "req-a#set-3", "req-a#set-2"]);
+  forms.forEach((form) => {
+    assert.equal(form.sourceRequestId, "req-a");
+    assert.equal(form.client, "Client A");
+    assert.equal(form.project, "Tower");
+    assert.equal(form.dateOfCast, "2026-06-18");
+    assert.equal(form.cubeJob, "CJ-9");
+    assert.equal(form.raw.results.every((row) => resultRowSetNo(row) === form.setNo), true);
+  });
+  assert.equal(forms[0].reportNo, "REPORT-9 · Set 1");
+  assert.equal(forms[0].raw.results.length, 1);
+  assert.equal(forms[2].raw.results.length, 2);
+  assert.deepEqual(uniqueDashboardFormsBySource(forms).map((form) => form.id), ["req-a#set-1"]);
+});
+
+test("mergeResultSetIntoDocument replaces only the edited set", () => {
+  const existing = [
+    { setNo: 1, specimenRef: "old-1" },
+    { setNo: 2, specimenRef: "keep-2" },
+    { setNo: 1, specimenRef: "old-1b" }
+  ];
+  const merged = mergeResultSetIntoDocument(existing, "1", [{ specimenRef: "new-1" }]);
+  assert.deepEqual(merged.map((row) => row.specimenRef), ["new-1", "keep-2"]);
+  assert.equal(merged[0].setNo, 1);
+});
+
+test("reconstructCubeRequestFromDashboardForms concatenates sibling set rows", () => {
+  const forms = expandCubeRequestForDashboard({
+    cubeJobNumber: "CJ-1",
+    results: [
+      { setNo: 1, specimenRef: "A" },
+      { setNo: 2, specimenRef: "B" }
+    ]
+  }, "req-1");
+  const reconstructed = reconstructCubeRequestFromDashboardForms(forms, "req-1");
+  assert.deepEqual(reconstructed.results.map((row) => row.specimenRef), ["A", "B"]);
+});
+
+test("filterResultsBySetNo keeps only rows for the requested set", () => {
+  const rows = [
+    { setNo: 1, specimenRef: "A" },
+    { setNo: 2, specimenRef: "B" },
+    { setNo: "", specimenRef: "C" }
+  ];
+  assert.deepEqual(filterResultsBySetNo(rows, "2").map((row) => row.specimenRef), ["B"]);
+  assert.deepEqual(filterResultsBySetNo(rows, "1").map((row) => row.specimenRef), ["A", "C"]);
+  assert.equal(filterResultsBySetNo(rows, "").length, 3);
 });
