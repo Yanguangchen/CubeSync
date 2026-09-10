@@ -121,7 +121,11 @@
     const newRow = document.createElement("tr");
     const markup = window.CubeSyncFormMarkup;
     if (!markup) return;
-    newRow.innerHTML = markup.resultRowHtml(rowCount);
+    newRow.innerHTML = markup.resultRowHtml(rowCount, {
+      lockTestingTeam: typeof markup.shouldLockTestingTeam === "function"
+        ? markup.shouldLockTestingTeam(tableBody)
+        : false
+    });
     tableBody.appendChild(newRow);
     prefillRowFromRequest(newRow, form);
     computeRowDateOfTest(newRow);

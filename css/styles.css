@@ -511,6 +511,12 @@ select:focus {
   text-align: center;
 }
 
+.results-table td > input[readonly] {
+  background: var(--subtle);
+  color: var(--muted);
+  cursor: default;
+}
+
 .col-test-number { width: 4%; }
 .col-marking { width: 6%; }
 .col-barcode { width: 12%; }

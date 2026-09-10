@@ -3,6 +3,7 @@ const assert = require("node:assert");
 const { JSDOM } = require("jsdom");
 const {
   RESULT_COLUMNS,
+  TESTING_TEAM_FIELDS,
   resultTableHeadHtml,
   resultRowHtml,
   seedResultRows,
@@ -52,13 +53,29 @@ describe("cubesync-form-markup.js", () => {
     test("leaves all testing-team result fields completely blank", () => {
       const dom = new JSDOM(`<table><tbody><tr>${resultRowHtml(1)}</tr></tbody></table>`);
 
-      for (const field of ["weightKg", "loadKn", "strength", "failureMode"]) {
+      for (const field of TESTING_TEAM_FIELDS) {
         const input = dom.window.document.querySelector(`[name="${field}1"]`);
         assert.ok(input, `${field} input should exist`);
         assert.equal(input.value, "");
         assert.equal(input.hasAttribute("value"), false);
         assert.equal(input.hasAttribute("placeholder"), false);
+        assert.equal(input.readOnly, false, `${field} stays editable unless the public form locks it`);
       }
+    });
+
+    test("locks testing-team fields as readonly when requested", () => {
+      const html = resultRowHtml(1, { lockTestingTeam: true });
+      const dom = new JSDOM(`<table><tbody><tr>${html}</tr></tbody></table>`);
+
+      for (const field of TESTING_TEAM_FIELDS) {
+        const input = dom.window.document.querySelector(`[name="${field}1"]`);
+        assert.equal(input.readOnly, true);
+        assert.equal(input.getAttribute("aria-readonly"), "true");
+        assert.equal(input.disabled, false, `${field} must remain submitted, not disabled`);
+      }
+
+      const age = dom.window.document.querySelector('[name="age1"]');
+      assert.equal(age.readOnly, false);
     });
   });
 
@@ -78,6 +95,23 @@ describe("cubesync-form-markup.js", () => {
         assert.ok(html.includes('name="setNo1"'));
         assert.ok(html.includes('name="setNo2"'));
         assert.ok(!html.includes('name="setNo3"'));
+      } finally {
+        global.document = previousDocument;
+      }
+    });
+
+    test("locks testing-team fields when the public results table asks for it", () => {
+      const dom = new JSDOM('<table data-lock-testing-team><tbody></tbody></table>');
+      const previousDocument = global.document;
+      global.document = dom.window.document;
+
+      try {
+        const tableBody = dom.window.document.querySelector("tbody");
+        seedResultRows(tableBody, 1);
+        for (const field of TESTING_TEAM_FIELDS) {
+          const input = tableBody.querySelector(`[name="${field}1"]`);
+          assert.equal(input.readOnly, true, `${field} should be readonly on the public form`);
+        }
       } finally {
         global.document = previousDocument;
       }

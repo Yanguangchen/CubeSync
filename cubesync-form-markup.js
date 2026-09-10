@@ -25,6 +25,8 @@
     { field: "invoiceNumber", label: "Invoice Number" }
   ];
 
+  const TESTING_TEAM_FIELDS = ["weightKg", "loadKn", "strength", "failureMode"];
+
   const RESULT_ROW_INPUTS = {
     setNo: { type: "number", min: "1", step: "1", value: "1", ariaSuffix: "set number" },
     size: { type: "text", ariaSuffix: "size" },
@@ -50,7 +52,12 @@
     return `<tr>${headers}<th scope="col" class="result-actions">Action</th></tr>`;
   }
 
-  function resultRowHtml(rowCount) {
+  function shouldLockTestingTeam(tableBody) {
+    return Boolean(tableBody && tableBody.closest && tableBody.closest("[data-lock-testing-team]"));
+  }
+
+  function resultRowHtml(rowCount, options) {
+    const lockTestingTeam = Boolean(options && options.lockTestingTeam);
     const cells = RESULT_COLUMNS.map(function (column) {
       const inputDef = RESULT_ROW_INPUTS[column.field];
       const attrs = [
@@ -65,6 +72,10 @@
       if (inputDef.barcode) {
         attrs.push("data-barcode-input");
         attrs.push("placeholder=\"Enter barcode text\"");
+      }
+      if (lockTestingTeam && TESTING_TEAM_FIELDS.indexOf(column.field) !== -1) {
+        attrs.push("readonly");
+        attrs.push("aria-readonly=\"true\"");
       }
 
       const inputHtml = `<input ${attrs.join(" ")}>`;
@@ -89,7 +100,9 @@
 
     for (let rowCount = 1; rowCount <= count; rowCount += 1) {
       const row = document.createElement("tr");
-      row.innerHTML = resultRowHtml(rowCount);
+      row.innerHTML = resultRowHtml(rowCount, {
+        lockTestingTeam: shouldLockTestingTeam(tableBody)
+      });
       tableBody.appendChild(row);
     }
   }
@@ -102,6 +115,8 @@
 
   return {
     RESULT_COLUMNS,
+    TESTING_TEAM_FIELDS,
+    shouldLockTestingTeam,
     resultTableHeadHtml,
     resultRowHtml,
     seedResultRows,

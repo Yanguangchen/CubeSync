@@ -245,3 +245,34 @@ test("addResultRow prefills cast date and computes date of test from age days", 
 
   assert.equal(row.querySelector('[name^="dateOfTest"]').value, "2026-06-29");
 });
+
+test("addResultRow locks testing-team fields only on public forms", () => {
+  const markup = require("./cubesync-form-markup.js");
+  const form = { elements: {} };
+
+  makeDom("");
+  global.window.CubeSyncFormMarkup = markup;
+  const unlockedBody = global.document.querySelector("tbody");
+  tableManager.addResultRow(unlockedBody, form, () => {});
+  for (const field of ["weightKg", "loadKn", "strength", "failureMode"]) {
+    assert.equal(
+      unlockedBody.querySelector(`[name^="${field}"]`).readOnly,
+      false,
+      `${field} stays editable without data-lock-testing-team`
+    );
+  }
+
+  makeDom("");
+  global.document.querySelector("table").setAttribute("data-lock-testing-team", "");
+  global.window.CubeSyncFormMarkup = markup;
+  const lockedBody = global.document.querySelector("tbody");
+  tableManager.addResultRow(lockedBody, form, () => {});
+  for (const field of ["weightKg", "loadKn", "strength", "failureMode"]) {
+    assert.equal(
+      lockedBody.querySelector(`[name^="${field}"]`).readOnly,
+      true,
+      `${field} is readonly on the client-facing form`
+    );
+  }
+  assert.equal(lockedBody.querySelector('[name^="age"]').readOnly, false);
+});

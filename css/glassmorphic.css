@@ -639,6 +639,18 @@ h1 {
   background: var(--surface);
 }
 
+.results-table td > input[readonly] {
+  background: var(--subtle);
+  color: var(--muted);
+  cursor: default;
+}
+
+.results-table td > input[readonly]:hover,
+.results-table td > input[readonly]:focus {
+  border-color: var(--line);
+  box-shadow: none;
+}
+
 .col-test-number { width: 4%; }
 .col-marking { width: 6%; }
 .col-barcode { width: 12%; }

@@ -55,6 +55,8 @@ function assertBlankTestingTeamInputs(html, expectedRows) {
       assert.equal(input.value, "");
       assert.equal(input.hasAttribute("value"), false);
       assert.equal(input.hasAttribute("placeholder"), false);
+      assert.equal(input.readOnly, true, `${input.name} should be uneditable on the original public form`);
+      assert.equal(input.disabled, false, `${input.name} must still submit`);
     });
   }
 }
@@ -221,6 +223,27 @@ test("both forms treat result age as a day count used to derive date of test", (
     /age\.value\s*=\s*diffDays/,
     "age must remain the entered day count, not be overwritten from date of test"
   );
+});
+
+test("both public forms lock testing-team result fields and dashboard does not", () => {
+  const index = fs.readFileSync("index.html", "utf8");
+  const glass = fs.readFileSync("glassmorphic.html", "utf8");
+  const dashboard = fs.readFileSync("dashboard.html", "utf8");
+  const originalCss = readBundledCss("css/styles.css");
+  const glassCss = readBundledCss("css/glassmorphic.css");
+
+  for (const [file, html] of [["index.html", index], ["glassmorphic.html", glass]]) {
+    assert.match(html, /class="results-table"[^>]*data-lock-testing-team/, `${file} should lock testing-team fields`);
+  }
+  assert.doesNotMatch(
+    dashboard,
+    /data-lock-testing-team/,
+    "dashboard edit form must keep testing-team fields editable"
+  );
+
+  for (const css of [originalCss, glassCss]) {
+    assert.match(css, /\.results-table td > input\[readonly\]/);
+  }
 });
 
 test("both form stylesheets enforce [hidden] with !important so author display rules cannot reveal disabled fields", () => {

@@ -733,3 +733,37 @@ test("both forms set date of test to date of cast plus age in days", () => {
     delete require.cache[require.resolve("./app.js")];
   }
 });
+
+test("both public forms keep testing-team measurements uneditable, including new rows", () => {
+  const testingTeamFields = ["weightKg", "loadKn", "strength", "failureMode"];
+  const forms = [
+    [indexHtml, "http://localhost/index.html"],
+    [glassHtml, "http://localhost/glassmorphic.html"]
+  ];
+
+  for (const [html, url] of forms) {
+    installDom(html, url);
+    dispatchDOMContentLoaded();
+
+    function assertLocked(row, context) {
+      for (const field of testingTeamFields) {
+        const input = row.querySelector(`[name^="${field}"]`);
+        assert.ok(input, `${url} ${context} should include ${field}`);
+        assert.equal(input.readOnly, true, `${url} ${context} ${field} should be readonly`);
+        assert.equal(input.disabled, false, `${url} ${context} ${field} should still submit`);
+      }
+      const age = row.querySelector('[name^="age"]');
+      assert.equal(age.readOnly, false, `${url} ${context} age should stay editable`);
+    }
+
+    const tableBody = global.document.querySelector(".results-table tbody");
+    const firstRow = tableBody.querySelector("tr");
+    assertLocked(firstRow, "initial row");
+
+    global.document.getElementById("addRowButton").click();
+    const rows = tableBody.querySelectorAll("tr");
+    assertLocked(rows[rows.length - 1], "added row");
+
+    delete require.cache[require.resolve("./app.js")];
+  }
+});
