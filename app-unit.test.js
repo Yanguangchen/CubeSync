@@ -252,24 +252,26 @@ test("removing a result row renumbers remaining rows", async () => {
   delete require.cache[require.resolve("./app.js")];
 });
 
-test("date-based age computation calculates days between cast and test dates", async () => {
+test("date of test is date of cast plus age in days", async () => {
   installDom(glassHtml);
   dispatchDOMContentLoaded();
 
   const tableBody = global.document.querySelector(".results-table tbody");
   const row = tableBody.querySelector("tr");
-  if (!row) return;
+  assert.ok(row, "expected a seeded result row");
 
   const castInput = row.querySelector('[name^="resultDateOfCast"]');
   const testInput = row.querySelector('[name^="dateOfTest"]');
   const ageInput = row.querySelector('[name^="age"]');
 
-  if (!castInput || !testInput || !ageInput) return;
+  assert.ok(castInput && testInput && ageInput);
+  assert.equal(ageInput.type, "number");
 
   castInput.value = "2026-06-01";
-  testInput.value = "2026-06-29";
-  testInput.dispatchEvent(new global.Event("change"));
+  ageInput.value = "28";
+  ageInput.dispatchEvent(new global.Event("input"));
 
+  assert.equal(testInput.value, "2026-06-29");
   assert.equal(ageInput.value, "28");
 
   delete require.cache[require.resolve("./app.js")];

@@ -92,3 +92,156 @@ test("request prefill leaves testing-team result measurements blank", () => {
     assert.equal(row.querySelector(`[name="${field}1"]`).value, "");
   }
 });
+
+function dateAgeRowHtml() {
+  return `
+    <tr>
+      <td><input type="date" name="resultDateOfCast1"></td>
+      <td><input type="number" name="age1" min="0" step="1"></td>
+      <td><input type="date" name="dateOfTest1"></td>
+    </tr>
+  `;
+}
+
+function dateAgeRow() {
+  makeDom(dateAgeRowHtml());
+  return global.document.querySelector("tr");
+}
+
+function setRowValues(row, { cast, age, test } = {}) {
+  if (cast != null) row.querySelector('[name^="resultDateOfCast"]').value = cast;
+  if (age != null) row.querySelector('[name^="age"]').value = age;
+  if (test != null) row.querySelector('[name^="dateOfTest"]').value = test;
+}
+
+test("computeRowDateOfTest sets date of test to date of cast plus age in days", () => {
+  const row = dateAgeRow();
+  setRowValues(row, { cast: "2026-06-01", age: "28" });
+
+  tableManager.computeRowDateOfTest(row);
+
+  assert.equal(row.querySelector('[name^="dateOfTest"]').value, "2026-06-29");
+});
+
+test("computeRowDateOfTest treats age 0 as the same calendar day as the cast", () => {
+  const row = dateAgeRow();
+  setRowValues(row, { cast: "2026-06-01", age: "0" });
+
+  tableManager.computeRowDateOfTest(row);
+
+  assert.equal(row.querySelector('[name^="dateOfTest"]').value, "2026-06-01");
+});
+
+test("computeRowDateOfTest rolls across month and year boundaries", () => {
+  const row = dateAgeRow();
+  setRowValues(row, { cast: "2026-01-28", age: "7" });
+  tableManager.computeRowDateOfTest(row);
+  assert.equal(row.querySelector('[name^="dateOfTest"]').value, "2026-02-04");
+
+  setRowValues(row, { cast: "2026-12-28", age: "7" });
+  tableManager.computeRowDateOfTest(row);
+  assert.equal(row.querySelector('[name^="dateOfTest"]').value, "2027-01-04");
+});
+
+test("computeRowDateOfTest handles leap-day addition", () => {
+  const row = dateAgeRow();
+  setRowValues(row, { cast: "2024-02-28", age: "1" });
+
+  tableManager.computeRowDateOfTest(row);
+
+  assert.equal(row.querySelector('[name^="dateOfTest"]').value, "2024-02-29");
+});
+
+test("computeRowDateOfTest leaves date of test unchanged when cast or age is missing", () => {
+  const row = dateAgeRow();
+  setRowValues(row, { test: "2026-01-01" });
+
+  tableManager.computeRowDateOfTest(row);
+  assert.equal(row.querySelector('[name^="dateOfTest"]').value, "2026-01-01");
+
+  setRowValues(row, { cast: "2026-06-01", age: "", test: "2026-01-01" });
+  tableManager.computeRowDateOfTest(row);
+  assert.equal(
+    row.querySelector('[name^="dateOfTest"]').value,
+    "2026-01-01",
+    "empty age must not be treated as 0 days"
+  );
+});
+
+test("computeRowDateOfTest ignores non-integer or negative age values", () => {
+  const row = dateAgeRow();
+  setRowValues(row, { cast: "2026-06-01", age: "-1", test: "2026-01-01" });
+  tableManager.computeRowDateOfTest(row);
+  assert.equal(row.querySelector('[name^="dateOfTest"]').value, "2026-01-01");
+
+  setRowValues(row, { age: "7.5", test: "2026-01-01" });
+  tableManager.computeRowDateOfTest(row);
+  assert.equal(row.querySelector('[name^="dateOfTest"]').value, "2026-01-01");
+
+  setRowValues(row, { age: "abc", test: "2026-01-01" });
+  tableManager.computeRowDateOfTest(row);
+  assert.equal(row.querySelector('[name^="dateOfTest"]').value, "2026-01-01");
+});
+
+test("computeRowDateOfTest is a no-op without a row or the expected inputs", () => {
+  makeDom("<tr><td>plain</td></tr>");
+  assert.doesNotThrow(() => tableManager.computeRowDateOfTest(null));
+  assert.doesNotThrow(() => tableManager.computeRowDateOfTest(global.document.querySelector("tr")));
+});
+
+test("changing age or date of cast computes date of test and does not rewrite age", () => {
+  const row = dateAgeRow();
+  const tableBody = global.document.querySelector("tbody");
+  tableManager.attachRowListeners(row, tableBody, () => {});
+
+  setRowValues(row, { cast: "2026-06-01", age: "7" });
+  row.querySelector('[name^="age"]').dispatchEvent(new global.window.Event("input", { bubbles: true }));
+  assert.equal(row.querySelector('[name^="dateOfTest"]').value, "2026-06-08");
+  assert.equal(row.querySelector('[name^="age"]').value, "7");
+
+  setRowValues(row, { cast: "2026-06-10" });
+  row.querySelector('[name^="resultDateOfCast"]').dispatchEvent(
+    new global.window.Event("change", { bubbles: true })
+  );
+  assert.equal(row.querySelector('[name^="dateOfTest"]').value, "2026-06-17");
+  assert.equal(row.querySelector('[name^="age"]').value, "7");
+});
+
+test("changing date of test does not overwrite the age field", () => {
+  const row = dateAgeRow();
+  tableManager.attachRowListeners(row, global.document.querySelector("tbody"), () => {});
+
+  setRowValues(row, { cast: "2026-06-01", age: "7", test: "2026-06-08" });
+  const testInput = row.querySelector('[name^="dateOfTest"]');
+  testInput.value = "2026-06-29";
+  testInput.dispatchEvent(new global.window.Event("change", { bubbles: true }));
+
+  assert.equal(row.querySelector('[name^="age"]').value, "7");
+  assert.equal(testInput.value, "2026-06-29");
+});
+
+test("addResultRow prefills cast date and computes date of test from age days", () => {
+  makeDom("");
+  global.window.CubeSyncFormMarkup = require("./cubesync-form-markup.js");
+  const tableBody = global.document.querySelector("tbody");
+  const form = {
+    elements: {
+      dateOfCast: { value: "2026-06-01" },
+      specimenSize: { value: "" },
+      slumpSpecified: { value: "" },
+      slumpMeasured: { value: "" },
+      concreteGrade: { value: "" }
+    }
+  };
+
+  tableManager.addResultRow(tableBody, form, () => {});
+
+  const row = tableBody.querySelector("tr");
+  assert.equal(row.querySelector('[name^="resultDateOfCast"]').value, "2026-06-01");
+
+  const ageInput = row.querySelector('[name^="age"]');
+  ageInput.value = "28";
+  ageInput.dispatchEvent(new global.window.Event("input", { bubbles: true }));
+
+  assert.equal(row.querySelector('[name^="dateOfTest"]').value, "2026-06-29");
+});
