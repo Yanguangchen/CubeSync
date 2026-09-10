@@ -734,6 +734,48 @@ test("both forms set date of test to date of cast plus age in days", () => {
   }
 });
 
+test("both public forms compute date of test and set numbers when age is entered", () => {
+  const forms = [
+    [indexHtml, "http://localhost/index.html"],
+    [glassHtml, "http://localhost/glassmorphic.html"]
+  ];
+
+  for (const [html, url] of forms) {
+    installDom(html, url);
+    dispatchDOMContentLoaded();
+
+    const form = global.document.getElementById("cubeRequestForm");
+    const requestCast = form.elements.dateOfCast.value;
+    assert.match(requestCast, /^\d{4}-\d{2}-\d{2}$/, `${url} should prefill date of cast`);
+
+    const [year, month, day] = requestCast.split("-").map(Number);
+    function expectedTestDate(ageDays) {
+      const date = new Date(Date.UTC(year, month - 1, day + ageDays));
+      return date.toISOString().slice(0, 10);
+    }
+
+    const rows = global.document.querySelectorAll(".results-table tbody tr");
+    assert.ok(rows.length >= 3, `${url} should have at least 3 result rows`);
+
+    const ages = ["28", "7", "28"];
+    ages.forEach((age, index) => {
+      const ageInput = rows[index].querySelector('[name^="age"]');
+      ageInput.value = age;
+      ageInput.dispatchEvent(new global.Event("input", { bubbles: true }));
+    });
+
+    assert.equal(rows[0].querySelector('[name^="dateOfTest"]').value, expectedTestDate(28), `${url} row 1 date of test`);
+    assert.equal(rows[1].querySelector('[name^="dateOfTest"]').value, expectedTestDate(7), `${url} row 2 date of test`);
+    assert.equal(rows[2].querySelector('[name^="dateOfTest"]').value, expectedTestDate(28), `${url} row 3 date of test`);
+
+    assert.equal(rows[0].querySelector('[name^="setNo"]').value, "2", `${url} 28-day rows are set 2`);
+    assert.equal(rows[1].querySelector('[name^="setNo"]').value, "1", `${url} 7-day rows are set 1`);
+    assert.equal(rows[2].querySelector('[name^="setNo"]').value, "2", `${url} matching 28-day rows share a set`);
+
+    delete require.cache[require.resolve("./app.js")];
+  }
+});
+
 test("both public forms keep testing-team measurements uneditable, including new rows", () => {
   const testingTeamFields = ["weightKg", "loadKn", "strength", "failureMode"];
   const forms = [

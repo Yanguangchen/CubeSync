@@ -704,6 +704,11 @@
       }
     });
 
+    if (window.CubeSyncTableManager &&
+      typeof window.CubeSyncTableManager.bindRequestDateOfCast === "function") {
+      window.CubeSyncTableManager.bindRequestDateOfCast(form, tableBody);
+    }
+
     if (currentDocId && form) {
       const store = window.CubeSyncFirestore;
       const shouldPrint = urlParams.get("print") === "true";
