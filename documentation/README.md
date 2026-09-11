@@ -26,6 +26,7 @@ Browser pages (HTML)
 Shared modules (loaded via <script>)
   ├── barcode.js ──────→ Code 128-B encoder + SVG renderer
   ├── cubesync-form-data.js ──→ Schema, serialization, normalization
+  ├── cubesync-form-prefs.js ─→ Remember request details in a browser cookie
   ├── cubesync-export.js ─────→ CSV builder + ZIP packager
   └── firestore.js ───────────→ Firebase Auth + Firestore CRUD/API client
 ```
@@ -51,6 +52,7 @@ The repo root keeps a short [README.md](../README.md) that links here.
 |--------|--------|---------|
 | `window.CubeSyncBarcode` | `barcode.js` | `encodeCode128B`, `renderBarcodeSvg`, `sanitizeBarcodeText` |
 | `window.CubeSyncFormData` | `cubesync-form-data.js` | Schema, validation, serialization, field config, free-text helpers (`collectCustomFields`, `deriveFreeTextDropdownFields`, `mergeFreeTextDropdownFields`), patch updates (`buildCubeRequestUpdatePatch`), `normalizeCubeRequestForDashboard` |
+| `window.CubeSyncFormPrefs` | `cubesync-form-prefs.js` | Remember request-header fields in cookie `cubesyncFormPrefs` and restore them on the next visit (see [form-remember-details.md](form-remember-details.md)) |
 | `window.CubeSyncObservability` | `cubesync-form-data.js` | Structured client events, privacy redaction, correlation identifiers, error classification, and global runtime error handlers (see [observability.md](observability.md)) |
 | `window.CubeSyncDashboardFilters` | `cubesync-dashboard-filters.js` | Dashboard list sort/filter — `parseDateKey`, `currentIsoDate`, `collectFilterOptions`, `applyDashboardFilters` (see [dashboard-sort-and-filter.md](dashboard-sort-and-filter.md)) |
 | `window.CubeSyncHeatmap` | `cubesync-heatmap.js` | Dashboard submission heatmap helpers — `buildHeatmap`, `resolveTimestamp`, `bucketLabels` |
@@ -368,7 +370,7 @@ Known WorkGrid permission-policy watch items:
 | `free-text-dropdown-highlighting.md` | Free-text review flags, capture vs review semantics, regression tests |
 | `dashboard-sort-and-filter.md` | Dashboard list sort and filter logic |
 | `dashboard-ux-animations.md` | Dashboard UX animations and master-detail reveal logic |
-| `form-submission-throbber.md` | Form submission save button spinner behavior |
+| `form-remember-details.md` | Cookie-backed remember/restore of public request fields (not the results table) |
 | `print-layout.md` | CSS logic for enforcing single A4 landscape sheet form printing |
 | `observability.md` | Structured event schema, request correlation, privacy rules, and production investigation runbook |
 | `test-item-lock.md` | Explanation of test item lockdown to BS EN 12390-3: 2019 standard |

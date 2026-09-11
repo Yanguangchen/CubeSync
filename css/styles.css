@@ -119,6 +119,19 @@ button:hover,
   color: #ffffff;
 }
 
+#rememberDetailsButton,
+#forgetDetailsButton {
+  background: var(--surface);
+  border-color: var(--line-strong);
+  color: var(--ink);
+}
+
+#rememberDetailsButton:hover,
+#forgetDetailsButton:hover {
+  background: var(--subtle);
+  border-color: var(--brand-blue);
+}
+
 #saveFormButton:hover,
 #printButton:hover,
 .add-row-btn:hover {

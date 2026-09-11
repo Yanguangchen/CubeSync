@@ -200,6 +200,7 @@ test("build script uses .env.local and emits non-empty public env output", () =>
     "cubesync-connectivity.js",
     "cubesync-autocomplete.js",
     "cubesync-form-data.js",
+    "cubesync-form-prefs.js",
     "cubesync-form-markup.js",
     "cubesync-export.js",
     "cubesync-table-manager.js",

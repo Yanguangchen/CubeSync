@@ -26,6 +26,7 @@ CubeSync digitizes the paper concrete cube request process. It includes public s
 | `cubesync-autocomplete.js` | Autocomplete dropdown functionality for ERP and other data fields |
 | `cubesync-table-manager.js` | Manages dynamic test results rows, date-of-test calculation from cast date plus age in days, set numbers grouped by age, and field prefilling |
 | `cubesync-form-data.js` | Schema, validation, field config, serialization, dashboard normalization, split-by-set expansion, free-text helpers, patch updates |
+| `cubesync-form-prefs.js` | Remember request-header fields in a browser cookie and restore them on load |
 | `cubesync-export.js` | CSV + ZIP export |
 | `cubesync-dashboard-filters.js` | Dashboard list sort and filter (`applyDashboardFilters`) |
 | `cubesync-today-toggle.js` | Glass "Today only" tactile switch logic |
@@ -74,4 +75,5 @@ Config document: `settings/formFieldConfig`. Cached locally as `cubesync-form-fi
 - [free-text-dropdown-highlighting.md](free-text-dropdown-highlighting.md) — free-text review flags
 - [dashboard-sort-and-filter.md](dashboard-sort-and-filter.md) — dashboard list sort and filter logic
 - [form-submission-throbber.md](form-submission-throbber.md) — save button spinner behavior
+- [form-remember-details.md](form-remember-details.md) — cookie-backed remember/restore of request details
 - [RPA_SELECTOR_REFERENCE.md](RPA_SELECTOR_REFERENCE.md) — stable selectors for automation

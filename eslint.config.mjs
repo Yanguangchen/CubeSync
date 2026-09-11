@@ -56,6 +56,7 @@ export default [
       "cubesync-autocomplete.js",
       "cubesync-export.js",
       "cubesync-form-data.js",
+      "cubesync-form-prefs.js",
       "cubesync-schema.js",
       "cubesync-form-markup.js",
       "cubesync-table-manager.js",
