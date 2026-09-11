@@ -15,6 +15,7 @@
     <script src="cubesync-connectivity.js" defer></script>
     <script src="barcode.js" defer></script>
     <script src="cubesync-form-data.js" defer></script>
+    <script src="cubesync-form-prefs.js" defer></script>
     <script src="cubesync-form-markup.js" defer></script>
     <script src="cubesync-autocomplete.js" defer></script>
     <script src="cubesync-table-manager.js" defer></script>
@@ -254,6 +255,8 @@
             <span id="saveStatus" class="save-status" role="status" aria-live="polite"></span>
             <button type="submit" form="cubeRequestForm" id="saveFormButton">Save</button>
             <button type="button" id="printButton">Print</button>
+            <button type="button" id="rememberDetailsButton">Remember details</button>
+            <button type="button" id="forgetDetailsButton" hidden>Forget saved details</button>
             <label class="print-font-control" for="printFontSize">
               <span>Print size</span>
               <input type="range" id="printFontSize" min="6" max="12" step="1" value="8" aria-label="Printed form font size">

@@ -23,6 +23,7 @@ function installDom(html, url = "http://localhost/") {
   global.window.CubeSyncBarcode = require("./barcode.js");
   global.window.CubeSyncFormMarkup = require("./cubesync-form-markup.js");
   global.window.CubeSyncFormData = require("./cubesync-form-data.js");
+  global.window.CubeSyncFormPrefs = require("./cubesync-form-prefs.js");
   global.window.CubeSyncAutocomplete = require("./cubesync-autocomplete.js");
   global.window.CubeSyncTableManager = require("./cubesync-table-manager.js");
 
@@ -505,6 +506,91 @@ test("app.js does not override dateOfCast when already populated", () => {
   dateInput.value = "2026-01-01";
   dispatchDOMContentLoaded();
   assert.equal(dateInput.value, "2026-01-01", "pre-existing value must not be overwritten");
+
+  delete require.cache[require.resolve("./app.js")];
+});
+
+test("Remember details stores request fields in a cookie and restores them on load", async () => {
+  installDom(glassHtml, "http://localhost/glassmorphic.html");
+  dispatchDOMContentLoaded();
+  fillRequiredRequestFields(global.document);
+  global.document.querySelector('[name="specimenRef1"]').value = "DO-NOT-REMEMBER";
+  global.document.querySelector('[name="barcode1"]').value = "BC-DO-NOT-REMEMBER";
+
+  global.document.getElementById("rememberDetailsButton").click();
+
+  assert.equal(global.document.getElementById("saveStatus").textContent, "Details remembered for next visit");
+  assert.equal(global.document.getElementById("forgetDetailsButton").hidden, false);
+
+  const stored = global.window.CubeSyncFormPrefs.readFormPreferenceCookie(global.document);
+  assert.ok(stored);
+  assert.equal(stored.fields.customerBilling, "Billing");
+  assert.equal(stored.fields.supplier, "Supplier");
+  assert.equal("dateOfCast" in stored.fields, false);
+  assert.equal("cubeJobNumber" in stored.fields, false);
+  assert.equal("results" in stored.fields, false);
+
+  const remembered = stored;
+  installDom(glassHtml, "http://localhost/glassmorphic.html");
+  global.window.CubeSyncFormPrefs.writeFormPreferenceCookie(global.document, remembered);
+  dispatchDOMContentLoaded();
+  await new Promise((resolve) => setTimeout(resolve, 30));
+
+  assert.equal(global.document.querySelector('[name="customerBilling"]').value, "Billing");
+  assert.equal(global.document.querySelector('[name="contact"]').value, "Contact");
+  assert.equal(global.document.querySelector('[name="supplier"]').value, "Supplier");
+  assert.notEqual(global.document.querySelector('[name="dateOfCast"]').value, "2026-06-18");
+  assert.equal(global.document.querySelector('[name="cubeJobNumber"]').value, "");
+  assert.equal(global.document.querySelector('[name="specimenRef1"]').value, "");
+  assert.equal(global.document.getElementById("forgetDetailsButton").hidden, false);
+
+  delete require.cache[require.resolve("./app.js")];
+});
+
+test("loading a saved form with ?id= does not overwrite it with remembered cookie details", async () => {
+  installDom(glassHtml, "http://localhost/glassmorphic.html?id=existing-form");
+  global.window.CubeSyncFormPrefs.writeFormPreferenceCookie(global.document, {
+    v: 1,
+    fields: { customerBilling: "Cookie Client", projectErp: "COOKIE-ERP" },
+    extraFields: {},
+    customFields: []
+  });
+  global.window.CubeSyncFirestore = {
+    getCubeRequest: async () => ({
+      customerBilling: "Loaded Client",
+      projectErp: "LOADED-ERP",
+      results: [{ specimenRef: "LOADED-REF" }]
+    })
+  };
+
+  dispatchDOMContentLoaded();
+  await new Promise((resolve) => setTimeout(resolve, 50));
+
+  assert.equal(global.document.querySelector('[name="customerBilling"]').value, "Loaded Client");
+  assert.equal(global.document.querySelector('[name="projectErp"]').value, "LOADED-ERP");
+  assert.equal(global.document.querySelector('[name="specimenRef1"]').value, "LOADED-REF");
+
+  delete require.cache[require.resolve("./app.js")];
+});
+
+test("Forget saved details clears the cookie", async () => {
+  installDom(glassHtml, "http://localhost/glassmorphic.html");
+  global.window.CubeSyncFormPrefs.writeFormPreferenceCookie(global.document, {
+    v: 1,
+    fields: { customerBilling: "Cookie Client" },
+    extraFields: {},
+    customFields: []
+  });
+  dispatchDOMContentLoaded();
+  await new Promise((resolve) => setTimeout(resolve, 30));
+
+  assert.equal(global.document.querySelector('[name="customerBilling"]').value, "Cookie Client");
+  assert.equal(global.document.getElementById("forgetDetailsButton").hidden, false);
+
+  global.document.getElementById("forgetDetailsButton").click();
+  assert.equal(global.document.getElementById("saveStatus").textContent, "Saved details cleared");
+  assert.equal(global.document.getElementById("forgetDetailsButton").hidden, true);
+  assert.equal(global.window.CubeSyncFormPrefs.hasStoredPreferences(global.document), false);
 
   delete require.cache[require.resolve("./app.js")];
 });

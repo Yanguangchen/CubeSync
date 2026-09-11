@@ -59,8 +59,9 @@ Recommend the **Digital form** (stepped) for fewer mistakes. Walk users through:
 2. Fill the **required** request fields. By default these are: **Customer (Billing)**, **Contact**, **Grade** + **Grade (free text)**, **Supplier Of Concrete** (+ display), **Location**, **Date of cast**, **Mean Slump**, **Size**, **Specified Slump**, **Person In Charge**, **Manager In Charge**. (Staff may enable/disable fields, so the live form is the source of truth.)
 3. Use the **autocomplete dropdowns** where available — start typing and pick a suggestion. Typing a value that isn't in the list is allowed but gets **flagged for staff review**.
 4. Add at least one **test-result row** with meaningful data (set number, size, specimen ref, dates, etc.). A **barcode** is generated automatically from barcode text (Code 128-B).
-5. Complete the **reCAPTCHA** ("I'm not a robot") challenge.
-6. Click **Save / Submit**. On success the request is stored as **Draft** for staff review.
+5. Click **Remember details** if you want this browser to refill the request header (customer, supplier, grades, and so on) next time. Test results, date of cast, and cube job number are never stored. Use **Forget saved details** to clear them.
+6. Complete the **reCAPTCHA** ("I'm not a robot") challenge.
+7. Click **Save / Submit**. On success the request is stored as **Draft** for staff review.
 
 If validation fails, the form jumps back to the step with the first missing field and highlights it — tell users to look there.
 
@@ -69,6 +70,7 @@ If validation fails, the form jumps back to the step with the first missing fiel
 - **Grade** vs **Grade (free text)** — the dropdown grade plus a free-text grade shown on the report.
 - **Test Item** — locked to the BS EN 12390-3:2019 standard.
 - **Additional Info** — optional free-text notes.
+- **Remember details** — stores this browser's request-header selections in a cookie and fills them on the next visit. It does not store the test-results table, date of cast, or cube job number.
 
 ## 6. Using the Dashboard (guide for staff)
 

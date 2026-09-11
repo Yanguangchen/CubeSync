@@ -31,6 +31,8 @@ These apply to both the original and glassmorphic forms.
 | Original form | `form[data-template="Original"]` | Template identifier |
 | Glassmorphic form | `form[data-template="Glassmorphic"]` | Template identifier |
 | Save button | `#saveFormButton` | Submits the form to Firestore |
+| Remember details | `#rememberDetailsButton` | Stores request-header fields in a browser cookie (not the results table) |
+| Forget saved details | `#forgetDetailsButton` | Clears the remembered-details cookie |
 | Save status | `#saveStatus` | Save/auth/status text |
 | Print button | `#printButton` | Prints the current form |
 | Print font size | `#printFontSize` | Adjusts printed form typography from 6px to 12px |

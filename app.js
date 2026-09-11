@@ -229,6 +229,56 @@
     populateResults(form, data.results, tableBody, addRow, renumberRows);
   }
 
+  function syncForgetDetailsButton() {
+    const forgetButton = document.getElementById("forgetDetailsButton");
+    const prefs = window.CubeSyncFormPrefs;
+    if (!forgetButton || !prefs || typeof prefs.hasStoredPreferences !== "function") {
+      return;
+    }
+    forgetButton.hidden = !prefs.hasStoredPreferences(document);
+  }
+
+  function restoreRememberedDetails(form, options) {
+    const prefs = window.CubeSyncFormPrefs;
+    const formData = window.CubeSyncFormData;
+    if (!form || !prefs || !formData || typeof prefs.loadFormPreferences !== "function") {
+      return false;
+    }
+    return prefs.loadFormPreferences(form, formData, document, options);
+  }
+
+  function rememberCurrentDetails(form, statusElement) {
+    const prefs = window.CubeSyncFormPrefs;
+    const formData = window.CubeSyncFormData;
+    if (!form || !prefs || !formData || typeof prefs.saveFormPreferences !== "function") {
+      setSaveStatus(statusElement, "Could not remember details in this browser", true);
+      return;
+    }
+
+    const result = prefs.saveFormPreferences(form, formData, document);
+    if (result && result.ok) {
+      setSaveStatus(statusElement, "Details remembered for next visit", false);
+    } else {
+      setSaveStatus(
+        statusElement,
+        (result && result.message) || "Could not remember details in this browser",
+        true
+      );
+    }
+    syncForgetDetailsButton();
+  }
+
+  function forgetRememberedDetails(statusElement) {
+    const prefs = window.CubeSyncFormPrefs;
+    if (!prefs || typeof prefs.clearFormPreferenceCookie !== "function") {
+      setSaveStatus(statusElement, "Could not clear saved details", true);
+      return;
+    }
+    prefs.clearFormPreferenceCookie(document);
+    setSaveStatus(statusElement, "Saved details cleared", false);
+    syncForgetDetailsButton();
+  }
+
 
 
   async function loadAndApplyFormFieldConfig(form, onSyncApply) {
@@ -325,6 +375,8 @@
     const printFontSizeValue = document.getElementById("printFontSizeValue");
     const saveButton = document.getElementById("saveFormButton");
     const saveStatus = document.getElementById("saveStatus");
+    const rememberButton = document.getElementById("rememberDetailsButton");
+    const forgetButton = document.getElementById("forgetDetailsButton");
     const recaptchaContainer = document.getElementById("recaptchaContainer");
     const barcodeInputs = getBarcodeInputs();
     const urlParams = new URLSearchParams(window.location.search);
@@ -431,6 +483,20 @@
         printForm();
       });
     }
+
+    if (rememberButton) {
+      rememberButton.addEventListener("click", function () {
+        rememberCurrentDetails(form, saveStatus);
+      });
+    }
+
+    if (forgetButton) {
+      forgetButton.addEventListener("click", function () {
+        forgetRememberedDetails(saveStatus);
+      });
+    }
+
+    syncForgetDetailsButton();
 
     if (form) {
       form.addEventListener("reset", function () {
@@ -592,9 +658,19 @@
       loadAndApplyFormFieldConfig(form, function (syncConfig) {
         activeFieldConfig = syncConfig;
         applyManualCubeJobState();
+        if (!currentDocId) {
+          restoreRememberedDetails(form);
+          applyManualCubeJobState();
+        }
+        syncForgetDetailsButton();
       }).then(function (config) {
         activeFieldConfig = config;
         applyManualCubeJobState();
+        if (!currentDocId) {
+          restoreRememberedDetails(form, { onlyEmpty: true });
+          applyManualCubeJobState();
+        }
+        syncForgetDetailsButton();
       });
     }
 

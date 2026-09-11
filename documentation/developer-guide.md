@@ -27,6 +27,7 @@ The public forms are intentionally unauthenticated, but final writes go through 
 | `dashboard.js` | Staff dashboard controller. | Coordinates CRUD, status changes, settings, free-text review, metrics, heatmap, print, and auth UI. |
 | `firestore.js` | Browser Firebase adapter. | Owns client SDK setup, auth helpers, allowlist, CRUD wrappers, and dropdown/settings access. |
 | `cubesync-form-data.js` | Canonical schema and data helpers. | Treat this as the source of truth for request/result fields and normalization logic. |
+| `cubesync-form-prefs.js` | Cookie-backed remember/restore for public request fields. | Saves header fields only; never the results table. See `documentation/form-remember-details.md`. |
 | `cubesync-export.js` | CSV and ZIP export utilities. | Shared by dashboard and RPA queue. |
 | `barcode.js` | Code 128-B encoder and SVG renderer. | Stores barcode text only; SVGs are derived client-side. |
 | `api/cube-request-submit.js` | Public submit endpoint. | Verifies reCAPTCHA and writes anonymous submissions with Firebase Admin. |
