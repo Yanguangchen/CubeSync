@@ -15,7 +15,7 @@ One option per line. Used as autocomplete suggestions on the public request form
 |------|-----------------|
 | `project erp.txt` | `projectErp` |
 | `customer billing.txt` | `customerBilling` |
-| `supplier.txt` | `supplier` |
+| `supplier.txt` | `supplier` | Restricted to the twelve approved ready-mix suppliers plus `OTHER` |
 | `Grade.txt` | `concreteGrade` |
 | `person-in-charge.txt` | `personInCharge` |
 | `manager-in-charge.txt` | `managerInCharge` |
