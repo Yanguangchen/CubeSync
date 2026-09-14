@@ -24,6 +24,7 @@ function installDom(html, url = "http://localhost/") {
   global.window.CubeSyncFormMarkup = require("./cubesync-form-markup.js");
   global.window.CubeSyncFormData = require("./cubesync-form-data.js");
   global.window.CubeSyncFormPrefs = require("./cubesync-form-prefs.js");
+  global.window.CubeSyncFormHistory = require("./cubesync-form-history.js");
   global.window.CubeSyncAutocomplete = require("./cubesync-autocomplete.js");
   global.window.CubeSyncTableManager = require("./cubesync-table-manager.js");
 

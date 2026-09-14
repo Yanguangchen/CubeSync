@@ -13,6 +13,7 @@
     <script src="barcode.js" defer></script>
     <script src="cubesync-form-data.js" defer></script>
     <script src="cubesync-form-prefs.js" defer></script>
+    <script src="cubesync-form-history.js" defer></script>
     <script src="cubesync-form-markup.js" defer></script>
     <script src="cubesync-autocomplete.js" defer></script>
     <script src="cubesync-table-manager.js" defer></script>
@@ -60,6 +61,10 @@
             <span>Email: rakmat@singnet.com.sg</span>
           </address>
         </header>
+
+        <div id="localCopyBanner" class="local-copy-banner" hidden role="status">
+          Viewing a copy saved on this device. This is not loaded from the lab. Save sends a new request.
+        </div>
 
         <h1 id="formTitle">CONCRETE CUBE TEST REQUEST FORM</h1>
 
@@ -268,6 +273,15 @@
           </div>
         </section>
 
+        <section id="localSubmissionsPanel" class="local-submissions-panel" hidden aria-labelledby="localSubmissionsTitle">
+          <div class="local-submissions-header">
+            <h2 id="localSubmissionsTitle">Previous submissions on this device</h2>
+            <button type="button" id="closeLocalSubmissionsButton">Close</button>
+          </div>
+          <p class="local-submissions-hint">These copies stay in this browser only. They are not fetched from the lab, and clearing site data removes them.</p>
+          <ul id="localSubmissionsList" class="local-submissions-list"></ul>
+        </section>
+
         <footer class="form-actions" role="group" aria-label="Form commands">
           <div id="recaptchaContainer"></div>
           <div class="form-actions-buttons">
@@ -276,6 +290,8 @@
             <button type="button" id="printButton">Print</button>
             <button type="button" id="rememberDetailsButton">Remember details</button>
             <button type="button" id="forgetDetailsButton" hidden>Forget saved details</button>
+            <button type="button" id="mySubmissionsButton" hidden aria-expanded="false" aria-controls="localSubmissionsPanel">Previous submissions</button>
+            <button type="button" id="forgetLocalCopiesButton" hidden>Forget copies on this device</button>
             <label class="print-font-control" for="printFontSize">
               <span>Print size</span>
               <input type="range" id="printFontSize" min="6" max="12" step="1" value="8" aria-label="Printed form font size">

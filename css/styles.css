@@ -120,14 +120,18 @@ button:hover,
 }
 
 #rememberDetailsButton,
-#forgetDetailsButton {
+#forgetDetailsButton,
+#mySubmissionsButton,
+#forgetLocalCopiesButton {
   background: var(--surface);
   border-color: var(--line-strong);
   color: var(--ink);
 }
 
 #rememberDetailsButton:hover,
-#forgetDetailsButton:hover {
+#forgetDetailsButton:hover,
+#mySubmissionsButton:hover,
+#forgetLocalCopiesButton:hover {
   background: var(--subtle);
   border-color: var(--brand-blue);
 }
@@ -210,6 +214,65 @@ button:hover,
   align-items: center;
   gap: 8px;
   margin-left: auto;
+}
+
+.local-copy-banner {
+  margin: 0 0 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  background: var(--subtle);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.local-submissions-panel {
+  margin-top: 24px;
+  padding: 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  background: var(--subtle);
+}
+
+.local-submissions-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.local-submissions-header h2 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.local-submissions-hint {
+  margin: 8px 0 12px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.local-submissions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.local-submissions-empty {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.local-submission-item {
+  width: 100%;
+  justify-content: flex-start;
+  text-align: left;
 }
 
 .print-font-control {
@@ -648,6 +711,8 @@ body.is-printing iframe[title="Botpress"] {
 
   .page-tools,
   .form-actions,
+  .local-copy-banner,
+  .local-submissions-panel,
   .add-row-btn,
   .result-actions {
     display: none;

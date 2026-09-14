@@ -24,6 +24,7 @@ function installDom(html, url = "http://localhost/") {
   global.window.CubeSyncFormMarkup = require("./cubesync-form-markup.js");
   global.window.CubeSyncFormData = require("./cubesync-form-data.js");
   global.window.CubeSyncFormPrefs = require("./cubesync-form-prefs.js");
+  global.window.CubeSyncFormHistory = require("./cubesync-form-history.js");
   global.window.CubeSyncAutocomplete = require("./cubesync-autocomplete.js");
   global.window.CubeSyncTableManager = require("./cubesync-table-manager.js");
 
@@ -547,6 +548,32 @@ test("Remember details stores request fields in a cookie and restores them on lo
   delete require.cache[require.resolve("./app.js")];
 });
 
+test("loading a saved form with ?id= prefers Firestore over a stale local copy", async () => {
+  installDom(glassHtml, "http://localhost/glassmorphic.html?id=live-form");
+  global.window.CubeSyncFormHistory.saveSubmission({
+    customerBilling: "Stale Client",
+    projectErp: "STALE-ERP",
+    results: [{ specimenRef: "STALE-REF" }]
+  }, "live-form", global.window.localStorage, "2026-09-14T02:00:00.000Z");
+  global.window.CubeSyncFirestore = {
+    getCubeRequest: async () => ({
+      customerBilling: "Live Client",
+      projectErp: "LIVE-ERP",
+      results: [{ specimenRef: "LIVE-REF" }]
+    })
+  };
+
+  dispatchDOMContentLoaded();
+  await new Promise((resolve) => setTimeout(resolve, 50));
+
+  assert.equal(global.document.querySelector('[name="customerBilling"]').value, "Live Client");
+  assert.equal(global.document.querySelector('[name="specimenRef1"]').value, "LIVE-REF");
+  assert.equal(global.document.getElementById("saveStatus").textContent, "Loaded");
+  assert.equal(global.document.getElementById("localCopyBanner").hidden, true);
+
+  delete require.cache[require.resolve("./app.js")];
+});
+
 test("loading a saved form with ?id= does not overwrite it with remembered cookie details", async () => {
   installDom(glassHtml, "http://localhost/glassmorphic.html?id=existing-form");
   global.window.CubeSyncFormPrefs.writeFormPreferenceCookie(global.document, {
@@ -591,6 +618,77 @@ test("Forget saved details clears the cookie", async () => {
   assert.equal(global.document.getElementById("saveStatus").textContent, "Saved details cleared");
   assert.equal(global.document.getElementById("forgetDetailsButton").hidden, true);
   assert.equal(global.window.CubeSyncFormPrefs.hasStoredPreferences(global.document), false);
+
+  delete require.cache[require.resolve("./app.js")];
+});
+
+test("Firestore permission denied falls back to a local copy on this device", async () => {
+  installDom(glassHtml, "http://localhost/glassmorphic.html?id=local-copy-1");
+  global.window.CubeSyncFormHistory.saveSubmission({
+    customerBilling: "Device Client",
+    projectErp: "DEVICE-ERP",
+    results: [{ specimenRef: "DEVICE-REF" }]
+  }, "local-copy-1", global.window.localStorage, "2026-09-14T02:00:00.000Z");
+  global.window.CubeSyncFirestore = {
+    getCubeRequest: async () => {
+      throw new Error("Firestore permission denied");
+    }
+  };
+
+  dispatchDOMContentLoaded();
+  await new Promise((resolve) => setTimeout(resolve, 50));
+
+  assert.equal(global.document.querySelector('[name="customerBilling"]').value, "Device Client");
+  assert.equal(global.document.querySelector('[name="projectErp"]').value, "DEVICE-ERP");
+  assert.equal(global.document.querySelector('[name="specimenRef1"]').value, "DEVICE-REF");
+  assert.equal(global.document.getElementById("saveStatus").textContent, "Loaded from this device");
+  assert.equal(global.document.getElementById("localCopyBanner").hidden, false);
+  assert.equal(global.document.getElementById("mySubmissionsButton").hidden, false);
+
+  delete require.cache[require.resolve("./app.js")];
+});
+
+test("Previous submissions panel loads a copy without calling Firestore", async () => {
+  installDom(glassHtml, "http://localhost/glassmorphic.html");
+  global.window.CubeSyncFormHistory.saveSubmission({
+    customerBilling: "Listed Client",
+    cubeJobNumber: "CJ-LIST",
+    locationRepresented: "Bay 9",
+    results: [{ specimenRef: "LIST-REF" }]
+  }, "listed-copy", global.window.localStorage, "2026-09-14T02:00:00.000Z");
+  let getCubeRequestCalled = false;
+  global.window.CubeSyncFirestore = {
+    getCubeRequest: async () => {
+      getCubeRequestCalled = true;
+      return null;
+    }
+  };
+
+  dispatchDOMContentLoaded();
+  await new Promise((resolve) => setTimeout(resolve, 30));
+
+  const listButton = global.document.getElementById("mySubmissionsButton");
+  assert.equal(listButton.hidden, false);
+  listButton.click();
+  assert.equal(global.document.getElementById("localSubmissionsPanel").hidden, false);
+
+  const item = global.document.querySelector(".local-submission-item");
+  assert.ok(item);
+  assert.match(item.textContent, /Listed Client/);
+  item.click();
+
+  assert.equal(getCubeRequestCalled, false);
+  assert.equal(global.document.querySelector('[name="customerBilling"]').value, "Listed Client");
+  assert.equal(global.document.querySelector('[name="specimenRef1"]').value, "LIST-REF");
+  assert.equal(global.document.getElementById("saveStatus").textContent, "Loaded from this device");
+  assert.equal(global.document.getElementById("localCopyBanner").hidden, false);
+  assert.equal(global.document.getElementById("localSubmissionsPanel").hidden, true);
+  assert.equal(new global.window.URL(global.window.location.href).searchParams.get("id"), "listed-copy");
+
+  global.document.getElementById("forgetLocalCopiesButton").click();
+  assert.equal(global.window.CubeSyncFormHistory.hasSubmissions(), false);
+  assert.equal(global.document.getElementById("mySubmissionsButton").hidden, true);
+  assert.equal(global.document.getElementById("saveStatus").textContent, "Copies on this device cleared");
 
   delete require.cache[require.resolve("./app.js")];
 });
