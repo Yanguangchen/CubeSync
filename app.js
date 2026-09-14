@@ -205,20 +205,24 @@
   }
 
   function populateResults(form, results, tableBody, addRow, renumberRows) {
-    if (!Array.isArray(results) || !tableBody) return;
+    if (!tableBody) return;
+    const rows = Array.isArray(results) ? results : [];
 
-    while (tableBody.querySelectorAll("tr").length < results.length) {
+    while (tableBody.querySelectorAll("tr").length < rows.length) {
       addRow();
     }
 
-    results.forEach(function (result, index) {
+    Array.from(tableBody.querySelectorAll("tr")).forEach(function (row, index) {
+      const result = rows[index] || {};
       const rowNumber = index + 1;
       window.CubeSyncFormData.RESULT_FIELDS.forEach(function (field) {
         populateField(form, `${field}${rowNumber}`, result[field]);
       });
     });
 
-    renumberRows();
+    if (typeof renumberRows === "function") {
+      renumberRows();
+    }
     renderAll(Array.from(document.querySelectorAll("[data-barcode-input]")));
   }
 
@@ -926,7 +930,8 @@
         bannerVisible: Boolean(banner && !banner.hidden),
         bannerText: banner ? banner.textContent : "",
         status: saveStatus ? saveStatus.textContent : "",
-        statusIsError: Boolean(saveStatus && saveStatus.classList.contains("is-error"))
+        statusIsError: Boolean(saveStatus && saveStatus.classList.contains("is-error")),
+        resultRowCount: tableBody ? tableBody.querySelectorAll("tr").length : 0
       };
     }
 
@@ -941,6 +946,17 @@
       }
       if (snapshot.payload) {
         applyRecordToForm(snapshot.payload, snapshot.bannerVisible);
+      }
+      if (tableBody && snapshot.resultRowCount > 0) {
+        while (tableBody.querySelectorAll("tr").length > snapshot.resultRowCount) {
+          const extra = tableBody.querySelector("tr:last-child");
+          if (!extra) break;
+          extra.remove();
+        }
+        if (typeof renumberRowsWrapper === "function") {
+          renumberRowsWrapper();
+        }
+        renderAll(getBarcodeInputs());
       }
       const banner = document.getElementById("localCopyBanner");
       if (banner && snapshot.bannerText) {
@@ -1159,7 +1175,7 @@
       document.body.classList.remove("is-paper-settled");
       setSaveStatus(saveStatus, "Viewing a previous submission", false);
 
-      if (prefersReducedMotion()) {
+      if (prefersReducedMotion() || typeof window.requestAnimationFrame !== "function") {
         settlePaperPreview();
       } else {
         window.requestAnimationFrame(function () {

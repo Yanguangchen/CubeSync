@@ -695,6 +695,8 @@ test("Previous submissions opens a paper preview without calling Firestore", asy
 
   global.document.getElementById("closePreviousFormButton").click();
   assert.equal(billing.value, "Draft Client");
+  assert.equal(global.document.querySelector('[name="specimenRef1"]').value, "");
+  assert.equal(global.document.querySelector('[name="cubeJobNumber"]').value, "");
   assert.equal(global.document.body.classList.contains("is-paper-preview"), false);
   assert.equal(global.document.getElementById("cubeRequestForm").hasAttribute("inert"), false);
   assert.equal(new global.window.URL(global.window.location.href).searchParams.get("id"), null);
