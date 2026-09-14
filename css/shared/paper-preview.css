@@ -119,10 +119,14 @@ body.is-paper-preview .sheet {
   backdrop-filter: none;
   transform: translate3d(-50%, 108%, 0) rotate(2.2deg);
   transform-origin: 50% 100%;
-  transition:
-    transform 0.58s cubic-bezier(0.16, 1, 0.3, 1),
-    box-shadow 0.45s ease;
+  transition: none;
   padding-bottom: max(24px, env(safe-area-inset-bottom));
+}
+
+body.is-paper-preview.is-paper-ready .sheet {
+  transition:
+    transform 0.62s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.45s ease;
 }
 
 body.is-paper-preview.is-paper-settled .sheet {
@@ -187,6 +191,7 @@ body.is-paper-preview.is-paper-settled.is-paper-readonly #editPreviousFormButton
 @media (prefers-reduced-motion: reduce) {
   .paper-preview-backdrop,
   body.is-paper-preview .sheet,
+  body.is-paper-preview.is-paper-ready .sheet,
   body.is-paper-preview.is-paper-settled .sheet {
     transition: none;
   }

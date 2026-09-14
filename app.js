@@ -982,7 +982,7 @@
       const reopenList = !adopt && paperPreview.reopenList;
       const stash = paperPreview.stash;
 
-      document.body.classList.remove("is-paper-preview", "is-paper-readonly", "is-paper-settled");
+      document.body.classList.remove("is-paper-preview", "is-paper-readonly", "is-paper-settled", "is-paper-ready");
       if (toolbar) {
         toolbar.hidden = true;
       }
@@ -1172,15 +1172,24 @@
       }
 
       document.body.classList.add("is-paper-preview", "is-paper-readonly");
-      document.body.classList.remove("is-paper-settled");
+      document.body.classList.remove("is-paper-settled", "is-paper-ready");
       setSaveStatus(saveStatus, "Viewing a previous submission", false);
 
-      if (prefersReducedMotion() || typeof window.requestAnimationFrame !== "function") {
+      function playPaperRise() {
+        document.body.classList.add("is-paper-ready");
+        if (sheet) {
+          void sheet.offsetWidth;
+        }
         settlePaperPreview();
+      }
+
+      if (sheet) {
+        void sheet.offsetWidth;
+      }
+      if (prefersReducedMotion() || typeof window.requestAnimationFrame !== "function") {
+        playPaperRise();
       } else {
-        window.requestAnimationFrame(function () {
-          window.requestAnimationFrame(settlePaperPreview);
-        });
+        window.requestAnimationFrame(playPaperRise);
       }
 
       window.setTimeout(function () {
