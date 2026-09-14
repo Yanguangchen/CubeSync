@@ -69,9 +69,9 @@ test("saveSubmission strips recaptcha tokens and caller-supplied ids from the sn
   assert.equal(result.entry.id, "doc-2");
 });
 
-test("saveSubmission keeps the newest copies and drops the oldest when the cap is reached", () => {
+test("saveSubmission keeps the newest copies and FIFO-drops the oldest at 25 entries", () => {
   const storage = memoryStorage();
-  for (let i = 0; i < history.MAX_ENTRIES + 3; i += 1) {
+  for (let i = 0; i < history.MAX_ENTRIES; i += 1) {
     const result = history.saveSubmission(
       samplePayload({ cubeJobNumber: "CJ-" + i }),
       "doc-" + i,
@@ -79,12 +79,23 @@ test("saveSubmission keeps the newest copies and drops the oldest when the cap i
       "2026-09-14T02:00:00.000Z"
     );
     assert.equal(result.ok, true);
+    assert.equal(result.evicted, 0);
   }
+
+  const overflow = history.saveSubmission(
+    samplePayload({ cubeJobNumber: "CJ-NEW" }),
+    "doc-new",
+    storage,
+    "2026-09-14T02:00:00.000Z"
+  );
+  assert.equal(overflow.ok, true);
+  assert.equal(overflow.evicted, 1);
 
   const entries = history.listSubmissions(storage);
   assert.equal(entries.length, history.MAX_ENTRIES);
-  assert.equal(entries[0].id, "doc-" + (history.MAX_ENTRIES + 2));
+  assert.equal(entries[0].id, "doc-new");
   assert.equal(history.getById("doc-0", storage), null);
+  assert.ok(history.getById("doc-1", storage));
 });
 
 test("replacing the same id does not duplicate the list", () => {
@@ -132,24 +143,95 @@ test("formatEntryLabel uses date, customer, job number, and location", () => {
   assert.match(label, /14 Sep 2026/);
 });
 
-test("oversized snapshots drop older copies so a new one can still save", () => {
+test("byte-ceiling FIFO drops the oldest copies first so the newest still saves", () => {
   const storage = memoryStorage();
   const bulky = "x".repeat(20 * 1024);
+  let last = null;
   for (let i = 0; i < 30; i += 1) {
-    history.saveSubmission(
+    last = history.saveSubmission(
       samplePayload({ additionalInformation: bulky, cubeJobNumber: "BIG-" + i }),
       "big-" + i,
       storage,
       "2026-09-14T02:00:00.000Z"
     );
+    assert.equal(last.ok, true);
   }
 
   const entries = history.listSubmissions(storage);
   assert.ok(entries.length >= 1);
-  assert.ok(entries.length <= history.MAX_ENTRIES);
-  assert.ok(JSON.stringify({ v: 1, entries }).length <= history.MAX_BYTES || entries.length < 30);
+  assert.ok(entries.length < 30);
+  assert.ok(last.evicted >= 1);
+  assert.equal(entries[0].id, "big-29");
+  assert.equal(history.getById("big-0", storage), null);
   const stored = JSON.parse(storage.getItem(history.STORAGE_KEY));
   assert.ok(JSON.stringify(stored).length <= history.MAX_BYTES);
+});
+
+function quotaStorage(maxChars) {
+  const data = new Map();
+  return {
+    getItem(key) {
+      return data.has(key) ? data.get(key) : null;
+    },
+    setItem(key, value) {
+      const encoded = String(value);
+      if (encoded.length > maxChars) {
+        const error = new Error("The quota has been exceeded.");
+        error.name = "QuotaExceededError";
+        error.code = 22;
+        throw error;
+      }
+      data.set(key, encoded);
+    },
+    removeItem(key) {
+      data.delete(key);
+    }
+  };
+}
+
+test("browser quota FIFO drops oldest copies until the new snapshot fits", () => {
+  const bulky = "x".repeat(8 * 1024);
+  const storage = quotaStorage(20 * 1024);
+  assert.equal(
+    history.saveSubmission(samplePayload({ additionalInformation: bulky }), "q-1", storage, "2026-09-14T02:00:00.000Z").ok,
+    true
+  );
+  assert.equal(
+    history.saveSubmission(samplePayload({ additionalInformation: bulky }), "q-2", storage, "2026-09-14T02:00:00.000Z").ok,
+    true
+  );
+  const third = history.saveSubmission(
+    samplePayload({ additionalInformation: bulky }),
+    "q-3",
+    storage,
+    "2026-09-14T02:00:00.000Z"
+  );
+  assert.equal(third.ok, true);
+  assert.ok(third.evicted >= 1);
+  assert.equal(history.getById("q-3", storage).id, "q-3");
+  assert.equal(history.getById("q-1", storage), null);
+  assert.ok(storage.getItem(history.STORAGE_KEY).length <= 20 * 1024);
+});
+
+test("a single snapshot larger than browser quota cannot be kept", () => {
+  const storage = quotaStorage(1000);
+  const result = history.saveSubmission(
+    samplePayload({ additionalInformation: "x".repeat(5000) }),
+    "too-big",
+    storage,
+    "2026-09-14T02:00:00.000Z"
+  );
+  assert.equal(result.ok, false);
+  assert.equal(history.getById("too-big", storage), null);
+});
+
+test("isQuotaExceededError recognizes browser quota names and codes", () => {
+  assert.equal(history.isQuotaExceededError({ name: "QuotaExceededError" }), true);
+  assert.equal(history.isQuotaExceededError({ name: "NS_ERROR_DOM_QUOTA_REACHED" }), true);
+  assert.equal(history.isQuotaExceededError({ code: 22 }), true);
+  assert.equal(history.isQuotaExceededError({ code: 1014 }), true);
+  assert.equal(history.isQuotaExceededError({ name: "TypeError" }), false);
+  assert.equal(history.isQuotaExceededError(null), false);
 });
 
 test("saveSubmission fails closed when storage throws", () => {

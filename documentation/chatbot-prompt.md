@@ -61,7 +61,7 @@ Recommend the **Digital form** (stepped) for fewer mistakes. Walk users through:
 4. Add at least one **test-result row** with meaningful data (set number, size, specimen ref, dates, etc.). A **barcode** is generated automatically from barcode text (Code 128-B).
 5. Click **Remember details** if you want this browser to refill the request header (customer, supplier, grades, and so on) next time. Test results, date of cast, and cube job number are never stored. Use **Forget saved details** to clear them.
 6. Complete the **reCAPTCHA** ("I'm not a robot") challenge.
-7. Click **Save / Submit**. On success the request is stored as **Draft** for staff review. This browser also keeps a **copy of that submission**. Later, **Previous submissions** opens copies saved on this device (not a lab login). **Forget copies on this device** removes the local list only.
+7. Click **Save / Submit**. On success the request is stored as **Draft** for staff review. This browser also keeps a **copy of that submission** (up to 25 copies or about 400 KB; the oldest copy is removed first when the limit is reached). Later, **Previous submissions** opens copies saved on this device (not a lab login). **Forget copies on this device** removes the local list only.
 
 If validation fails, the form jumps back to the step with the first missing field and highlights it — tell users to look there.
 
@@ -71,7 +71,7 @@ If validation fails, the form jumps back to the step with the first missing fiel
 - **Test Item** — locked to the BS EN 12390-3:2019 standard.
 - **Additional Info** — optional free-text notes.
 - **Remember details** — stores this browser's request-header selections in a cookie and fills them on the next visit. It does not store the test-results table, date of cast, or cube job number.
-- **Previous submissions** — copies of forms already saved from this browser, kept on the device. No sign-in. Clearing site data or using another device will not show them.
+- **Previous submissions** — copies of forms already saved from this browser, kept on the device (up to 25 copies or about 400 KB; oldest removed first). No sign-in. Clearing site data or using another device will not show them.
 
 ## 6. Using the Dashboard (guide for staff)
 

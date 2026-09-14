@@ -314,14 +314,16 @@
   function rememberSubmittedCopy(payload, id) {
     const history = formHistory();
     if (!history || typeof history.saveSubmission !== "function") {
-      return;
+      return null;
     }
+    let result = null;
     try {
-      history.saveSubmission(payload, id);
+      result = history.saveSubmission(payload, id);
     } catch {
-      // Local copies are a convenience; a failed cache must not fail the submit.
+      result = null;
     }
     syncLocalHistoryControls();
+    return result;
   }
 
 
@@ -655,12 +657,18 @@
           if (payload.projectErp) saveToLocal('savedProjectErps', payload.projectErp);
           if (payload.customerBilling) saveToLocal('savedCustomerBillings', payload.customerBilling);
 
-          rememberSubmittedCopy(payload, currentDocId);
+          const localCopy = rememberSubmittedCopy(payload, currentDocId);
 
           const url = new URL(window.location.href);
           url.searchParams.set("id", currentDocId);
           window.history.replaceState({}, "", url);
-          setSaveStatus(saveStatus, "Saved", false);
+          setSaveStatus(
+            saveStatus,
+            localCopy && localCopy.ok && localCopy.evicted
+              ? "Saved. Oldest copies on this device were removed to make room."
+              : "Saved",
+            false
+          );
           if (window.CubeSyncChime && typeof window.CubeSyncChime.showEncouragingPopup === "function") {
             window.CubeSyncChime.showEncouragingPopup("Great job! Form submitted successfully.");
           }

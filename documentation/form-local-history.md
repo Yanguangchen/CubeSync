@@ -24,7 +24,24 @@ Each entry keeps:
 - A short summary (customer, cube job #, location, date of cast, …)
 - The full request payload, including **TEST RESULTS**, extra fields, and free-text flags
 
-It does **not** keep reCAPTCHA tokens. Oldest copies are dropped after 25 entries or ~400 KB.
+It does **not** keep reCAPTCHA tokens.
+
+## Limits and FIFO
+
+Copies are **not** stored in cookies. They use `localStorage` key `cubesyncFormHistory`.
+
+| Ceiling | Typical value | When it is hit |
+|---------|---------------|----------------|
+| Copy count | **25** forms | Oldest copy is removed first (FIFO) so the new Save still keeps a copy. |
+| Snapshot size | **~400 KB** for this key | Same FIFO: drop oldest copies until the new one fits. |
+| Browser origin quota | Usually **~5 MB** for all `localStorage` on this site (shared with field-config cache, autocomplete suggestions, print size) | If `setItem` throws `QuotaExceededError`, FIFO keeps dropping the oldest copy until the write succeeds. |
+| One copy larger than the remaining quota | Rare (very long notes / many result rows) | That new device copy is skipped. The lab Save still succeeded. |
+
+A typical cube request snapshot is a few kilobytes (often about 2–8 KB). In normal use the **25-copy cap** is reached first. Forms with many result rows or long additional-info text can hit **400 KB** sooner, so fewer than 25 copies may be kept.
+
+**Remember details** is a separate cookie (`cubesyncFormPrefs`, ~3.5 KB). It only prefills request headers and is not part of this FIFO list.
+
+When FIFO removes older copies, the form status reads: `Saved. Oldest copies on this device were removed to make room.`
 
 ## Restore
 

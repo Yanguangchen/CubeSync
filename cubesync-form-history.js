@@ -20,6 +20,7 @@
 
   const STORAGE_KEY = "cubesyncFormHistory";
   const HISTORY_VERSION = 1;
+  // Soft caps for this key only. Oldest copies are dropped first (FIFO).
   const MAX_ENTRIES = 25;
   const MAX_BYTES = 400 * 1024;
   const BLOCKED_KEYS = new Set(["recaptchaToken", "recaptcha", "id"]);
@@ -113,6 +114,37 @@
     }
   }
 
+  function isQuotaExceededError(error) {
+    if (!error) {
+      return false;
+    }
+    const name = String(error.name || "");
+    if (name === "QuotaExceededError" || name === "NS_ERROR_DOM_QUOTA_REACHED") {
+      return true;
+    }
+    return error.code === 22 || error.code === 1014;
+  }
+
+  function dropOldest(history) {
+    if (!history || !Array.isArray(history.entries) || !history.entries.length) {
+      return null;
+    }
+    return history.entries.pop() || null;
+  }
+
+  function applyFifoCaps(history) {
+    let evicted = 0;
+    while (history.entries.length > MAX_ENTRIES) {
+      dropOldest(history);
+      evicted += 1;
+    }
+    while (history.entries.length > 1 && encodedSize(history) > MAX_BYTES) {
+      dropOldest(history);
+      evicted += 1;
+    }
+    return evicted;
+  }
+
   function normalizeEntry(raw) {
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
       return null;
@@ -188,19 +220,23 @@
     }
   }
 
-  function writeHistory(storage, history) {
+  function tryWriteHistory(storage, history) {
     const store = storageFor(storage);
     if (!store) {
-      return false;
+      return { ok: false, quotaExceeded: false };
     }
 
     const normalized = normalizeHistory(history);
     try {
       store.setItem(STORAGE_KEY, JSON.stringify(normalized));
-      return true;
-    } catch {
-      return false;
+      return { ok: true, quotaExceeded: false };
+    } catch (error) {
+      return { ok: false, quotaExceeded: isQuotaExceededError(error) };
     }
+  }
+
+  function writeHistory(storage, history) {
+    return tryWriteHistory(storage, history).ok;
   }
 
   function clearHistory(storage) {
@@ -268,7 +304,7 @@
   function saveSubmission(payload, id, storage, now) {
     const cloned = clonePayload(payload);
     if (!cloned) {
-      return { ok: false, message: "Could not keep a copy on this device" };
+      return { ok: false, evicted: 0, message: "Could not keep a copy on this device" };
     }
 
     const submittedAt = now instanceof Date
@@ -276,7 +312,7 @@
       : (now ? new Date(now).toISOString() : new Date().toISOString());
 
     if (submittedAt === "Invalid Date") {
-      return { ok: false, message: "Could not keep a copy on this device" };
+      return { ok: false, evicted: 0, message: "Could not keep a copy on this device" };
     }
 
     const entry = {
@@ -293,22 +329,24 @@
     });
     history.entries.unshift(entry);
 
-    while (history.entries.length > MAX_ENTRIES || encodedSize(history) > MAX_BYTES) {
-      if (history.entries.length <= 1) {
-        break;
-      }
-      history.entries.pop();
-    }
+    let evicted = applyFifoCaps(history);
 
     if (encodedSize(history) > MAX_BYTES) {
-      return { ok: false, message: "Could not keep a copy on this device" };
+      return { ok: false, evicted, message: "Could not keep a copy on this device" };
     }
 
-    if (!writeHistory(storage, history)) {
-      return { ok: false, message: "Could not keep a copy on this device" };
+    let write = tryWriteHistory(storage, history);
+    while (!write.ok && write.quotaExceeded && history.entries.length > 1) {
+      dropOldest(history);
+      evicted += 1;
+      write = tryWriteHistory(storage, history);
     }
 
-    return { ok: true, entry };
+    if (!write.ok) {
+      return { ok: false, evicted, message: "Could not keep a copy on this device" };
+    }
+
+    return { ok: true, entry, evicted };
   }
 
   return {
@@ -325,6 +363,7 @@
     hasSubmissions,
     getById,
     formatEntryLabel,
-    saveSubmission
+    saveSubmission,
+    isQuotaExceededError
   };
 });
