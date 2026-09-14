@@ -679,6 +679,7 @@ test("Previous submissions panel loads a copy without calling Firestore", async 
 
   assert.equal(getCubeRequestCalled, false);
   assert.equal(global.document.querySelector('[name="customerBilling"]').value, "Listed Client");
+  assert.equal(global.document.querySelector('[name="cubeJobNumber"]').value, "CJ-LIST");
   assert.equal(global.document.querySelector('[name="specimenRef1"]').value, "LIST-REF");
   assert.equal(global.document.getElementById("saveStatus").textContent, "Loaded from this device");
   assert.equal(global.document.getElementById("localCopyBanner").hidden, false);

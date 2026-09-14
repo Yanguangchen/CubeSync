@@ -865,6 +865,10 @@
         extraFieldValues: record.extraFields
       });
       applyManualCubeJobState();
+      const loadedJobNumber = record.cubeJobNumber || record.reportNo;
+      if (loadedJobNumber && cubeJobNumberInput) {
+        cubeJobNumberInput.value = loadedJobNumber;
+      }
       setLocalCopyBanner(Boolean(fromLocalCopy));
       return true;
     }
