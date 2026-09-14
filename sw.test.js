@@ -278,10 +278,15 @@ describe("sw.js", () => {
     assert.doesNotMatch(swContent, /CACHE_NAME = "cubesync-v22"/);
   });
 
+  test("previous-form paper preview invalidates the cubesync-v23 app shell", () => {
+    assert.doesNotMatch(swContent, /CACHE_NAME = "cubesync-v23"/);
+  });
+
   test("APP_SHELL includes shared CSS files so they are invalidated on version bump", () => {
     assert.ok(swContent.includes("./css/shared/tokens-rakmat-base.css"), "tokens-rakmat-base.css must be precached");
     assert.ok(swContent.includes("./css/shared/barcode.css"), "barcode.css must be precached");
     assert.ok(swContent.includes("./css/shared/throbber.css"), "throbber.css must be precached");
+    assert.ok(swContent.includes("./css/shared/paper-preview.css"), "paper-preview.css must be precached");
   });
 
   test("fetch event caches dropdown option files", async () => {

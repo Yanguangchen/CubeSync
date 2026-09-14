@@ -435,6 +435,15 @@
     let currentDocId = urlParams.get("id");
     let activeFieldConfig = null;
     let currentPrintFontSize = 8;
+    const paperPreview = {
+      open: false,
+      editing: false,
+      closing: false,
+      stash: null,
+      entryId: null,
+      reopenList: false,
+      lastFocus: null
+    };
 
     function clampPrintFontSize(value) {
       const parsed = Number(value);
@@ -563,6 +572,9 @@
 
       form.addEventListener("submit", async function (event) {
         event.preventDefault();
+        if (paperPreview.open && !paperPreview.editing) {
+          return;
+        }
         const submissionStartedAt = Date.now();
 
         // Block submits while offline: the write would fail (or worse, half
@@ -672,6 +684,9 @@
           if (window.CubeSyncChime && typeof window.CubeSyncChime.showEncouragingPopup === "function") {
             window.CubeSyncChime.showEncouragingPopup("Great job! Form submitted successfully.");
           }
+          if (paperPreview.open) {
+            closePaperPreview({ adopt: true, fromSave: true });
+          }
         } catch (error) {
           logClientObs({
             feature: "FormSubmission",
@@ -720,7 +735,7 @@
       loadAndApplyFormFieldConfig(form, function (syncConfig) {
         activeFieldConfig = syncConfig;
         applyManualCubeJobState();
-        if (!currentDocId) {
+        if (!currentDocId && !paperPreview.open) {
           restoreRememberedDetails(form);
           applyManualCubeJobState();
         }
@@ -728,7 +743,7 @@
       }).then(function (config) {
         activeFieldConfig = config;
         applyManualCubeJobState();
-        if (!currentDocId) {
+        if (!currentDocId && !paperPreview.open) {
           restoreRememberedDetails(form, { onlyEmpty: true });
           applyManualCubeJobState();
         }
@@ -881,6 +896,320 @@
       return true;
     }
 
+    function prefersReducedMotion() {
+      return Boolean(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+    }
+
+    function paperSheetTransitionMs(sheet) {
+      if (!sheet || prefersReducedMotion()) {
+        return 0;
+      }
+      const style = window.getComputedStyle(sheet);
+      const durationText = style.transitionDuration || "0s";
+      const delayText = style.transitionDelay || "0s";
+      const duration = parseFloat(durationText) || 0;
+      const delay = parseFloat(delayText) || 0;
+      const unitIsMs = /ms/.test(durationText) || /ms/.test(delayText);
+      return unitIsMs ? duration + delay : (duration + delay) * 1000;
+    }
+
+    function snapshotWorkingForm() {
+      const banner = document.getElementById("localCopyBanner");
+      const payload = form && window.CubeSyncFormData
+        ? window.CubeSyncFormData.buildCubeRequestFromForm(form)
+        : null;
+      return {
+        payload: payload,
+        docId: currentDocId,
+        step: currentStep,
+        url: window.location.href,
+        bannerVisible: Boolean(banner && !banner.hidden),
+        bannerText: banner ? banner.textContent : "",
+        status: saveStatus ? saveStatus.textContent : "",
+        statusIsError: Boolean(saveStatus && saveStatus.classList.contains("is-error"))
+      };
+    }
+
+    function restoreWorkingForm(snapshot) {
+      if (!snapshot) {
+        return;
+      }
+      currentDocId = snapshot.docId;
+      currentStep = snapshot.step || 1;
+      if (snapshot.url) {
+        window.history.replaceState({}, "", snapshot.url);
+      }
+      if (snapshot.payload) {
+        applyRecordToForm(snapshot.payload, snapshot.bannerVisible);
+      }
+      const banner = document.getElementById("localCopyBanner");
+      if (banner && snapshot.bannerText) {
+        banner.textContent = snapshot.bannerText;
+      }
+      if (steps.length) {
+        updateSteps();
+      }
+      setSaveStatus(saveStatus, snapshot.status || "", snapshot.statusIsError);
+    }
+
+    function settlePaperPreview() {
+      document.body.classList.add("is-paper-settled");
+    }
+
+    function finishPaperClose(adopt, fromSave) {
+      const toolbar = document.getElementById("previousFormPaperToolbar");
+      const backdrop = document.getElementById("previousFormPaperBackdrop");
+      const kicker = document.getElementById("previousFormPaperKicker");
+      const editButton = document.getElementById("editPreviousFormButton");
+      const sheet = document.querySelector("main.sheet");
+      const lastFocus = paperPreview.lastFocus;
+      const reopenList = !adopt && paperPreview.reopenList;
+      const stash = paperPreview.stash;
+
+      document.body.classList.remove("is-paper-preview", "is-paper-readonly", "is-paper-settled");
+      if (toolbar) {
+        toolbar.hidden = true;
+      }
+      if (backdrop) {
+        backdrop.hidden = true;
+      }
+      if (editButton) {
+        editButton.hidden = false;
+      }
+      if (kicker) {
+        kicker.textContent = "Previous submission";
+      }
+      if (form) {
+        form.removeAttribute("inert");
+      }
+      if (sheet) {
+        sheet.removeAttribute("role");
+        sheet.removeAttribute("aria-modal");
+      }
+      const pageTools = document.querySelector(".page-tools");
+      if (pageTools) {
+        pageTools.removeAttribute("aria-hidden");
+      }
+
+      if (!adopt && stash) {
+        restoreWorkingForm(stash);
+      } else if (adopt && !fromSave) {
+        setLocalCopyBanner(true);
+      }
+
+      paperPreview.open = false;
+      paperPreview.editing = false;
+      paperPreview.closing = false;
+      paperPreview.stash = null;
+      paperPreview.entryId = null;
+      paperPreview.reopenList = false;
+      paperPreview.lastFocus = null;
+
+      if (reopenList && localSubmissionsPanel) {
+        renderLocalHistoryList();
+        localSubmissionsPanel.hidden = false;
+        if (mySubmissionsButton) {
+          mySubmissionsButton.setAttribute("aria-expanded", "true");
+        }
+      }
+
+      if (lastFocus && typeof lastFocus.focus === "function") {
+        try {
+          lastFocus.focus();
+        } catch {
+          // The triggering control may have been removed.
+        }
+      }
+    }
+
+    function closePaperPreview(options) {
+      if (!paperPreview.open || paperPreview.closing) {
+        return;
+      }
+
+      const adopt = Boolean(options && options.adopt) || paperPreview.editing;
+      const fromSave = Boolean(options && options.fromSave);
+      const sheet = document.querySelector("main.sheet");
+      paperPreview.closing = true;
+
+      if (adopt) {
+        finishPaperClose(true, fromSave);
+        return;
+      }
+
+      document.body.classList.remove("is-paper-settled");
+      const waitMs = paperSheetTransitionMs(sheet);
+      if (!waitMs) {
+        finishPaperClose(false, false);
+        return;
+      }
+
+      let done = false;
+      function complete() {
+        if (done) {
+          return;
+        }
+        done = true;
+        if (sheet) {
+          sheet.removeEventListener("transitionend", onSheetTransitionEnd);
+        }
+        finishPaperClose(false, false);
+      }
+      function onSheetTransitionEnd(event) {
+        if (!event || event.target === sheet) {
+          complete();
+        }
+      }
+      if (sheet) {
+        sheet.addEventListener("transitionend", onSheetTransitionEnd);
+      }
+      window.setTimeout(complete, waitMs + 80);
+    }
+
+    function enablePaperEditing() {
+      if (!paperPreview.open || paperPreview.editing) {
+        return;
+      }
+
+      paperPreview.editing = true;
+      document.body.classList.remove("is-paper-readonly");
+      if (form) {
+        form.removeAttribute("inert");
+      }
+
+      const editButton = document.getElementById("editPreviousFormButton");
+      const kicker = document.getElementById("previousFormPaperKicker");
+      if (editButton) {
+        editButton.hidden = true;
+      }
+      if (kicker) {
+        kicker.textContent = "Editing previous submission";
+      }
+
+      if (paperPreview.entryId) {
+        currentDocId = paperPreview.entryId;
+        const url = new URL(window.location.href);
+        url.searchParams.set("id", paperPreview.entryId);
+        window.history.replaceState({}, "", url);
+      }
+
+      setLocalCopyBanner(true);
+      setSaveStatus(saveStatus, "You can edit this copy. Save sends a new request.", false);
+    }
+
+    function openPreviousSubmissionPaper(entry) {
+      if (!entry || !entry.payload || !form) {
+        return;
+      }
+      if (paperPreview.open && paperPreview.editing) {
+        return;
+      }
+
+      const toolbar = document.getElementById("previousFormPaperToolbar");
+      const backdrop = document.getElementById("previousFormPaperBackdrop");
+      const kicker = document.getElementById("previousFormPaperKicker");
+      const editButton = document.getElementById("editPreviousFormButton");
+      const sheet = document.querySelector("main.sheet");
+      const pageTools = document.querySelector(".page-tools");
+
+      if (!paperPreview.open) {
+        paperPreview.stash = snapshotWorkingForm();
+        paperPreview.lastFocus = document.activeElement;
+      }
+
+      paperPreview.open = true;
+      paperPreview.editing = false;
+      paperPreview.closing = false;
+      paperPreview.entryId = entry.id;
+      paperPreview.reopenList = true;
+
+      if (localSubmissionsPanel) {
+        localSubmissionsPanel.hidden = true;
+      }
+      if (mySubmissionsButton) {
+        mySubmissionsButton.setAttribute("aria-expanded", "false");
+      }
+
+      applyRecordToForm(entry.payload, true);
+      if (form) {
+        form.setAttribute("inert", "");
+      }
+      if (sheet) {
+        sheet.setAttribute("role", "dialog");
+        sheet.setAttribute("aria-modal", "true");
+        sheet.setAttribute("aria-labelledby", "formTitle");
+      }
+      if (pageTools) {
+        pageTools.setAttribute("aria-hidden", "true");
+      }
+      if (kicker) {
+        kicker.textContent = "Previous submission";
+      }
+      if (editButton) {
+        editButton.hidden = false;
+      }
+      if (toolbar) {
+        toolbar.hidden = false;
+      }
+      if (backdrop) {
+        backdrop.hidden = false;
+      }
+
+      document.body.classList.add("is-paper-preview", "is-paper-readonly");
+      document.body.classList.remove("is-paper-settled");
+      setSaveStatus(saveStatus, "Viewing a previous submission", false);
+
+      if (prefersReducedMotion()) {
+        settlePaperPreview();
+      } else {
+        window.requestAnimationFrame(function () {
+          window.requestAnimationFrame(settlePaperPreview);
+        });
+      }
+
+      window.setTimeout(function () {
+        if (editButton && typeof editButton.focus === "function") {
+          editButton.focus();
+        }
+      }, 0);
+    }
+
+    function bindPaperPreviewControls() {
+      const editButton = document.getElementById("editPreviousFormButton");
+      const closeButton = document.getElementById("closePreviousFormButton");
+      const backdrop = document.getElementById("previousFormPaperBackdrop");
+
+      if (editButton && editButton.dataset.historyBound !== "true") {
+        editButton.dataset.historyBound = "true";
+        editButton.addEventListener("click", function () {
+          enablePaperEditing();
+        });
+      }
+      if (closeButton && closeButton.dataset.historyBound !== "true") {
+        closeButton.dataset.historyBound = "true";
+        closeButton.addEventListener("click", function () {
+          closePaperPreview();
+        });
+      }
+      if (backdrop && backdrop.dataset.historyBound !== "true") {
+        backdrop.dataset.historyBound = "true";
+        backdrop.addEventListener("click", function () {
+          closePaperPreview();
+        });
+      }
+      if (document.documentElement.dataset.paperPreviewEscapeBound !== "true") {
+        document.documentElement.dataset.paperPreviewEscapeBound = "true";
+        document.addEventListener("keydown", function (event) {
+          if (event.key === "Escape" && paperPreview.open) {
+            event.preventDefault();
+            closePaperPreview();
+          }
+        });
+      }
+    }
+
+    bindPaperPreviewControls();
+
     function renderLocalHistoryList() {
       const history = formHistory();
       if (!localSubmissionsList) {
@@ -910,22 +1239,7 @@
           : "";
         button.textContent = label || entry.id;
         button.addEventListener("click", function () {
-          currentDocId = entry.id;
-          const url = new URL(window.location.href);
-          url.searchParams.set("id", entry.id);
-          window.history.replaceState({}, "", url);
-          currentStep = 1;
-          if (steps.length) {
-            updateSteps();
-          }
-          applyRecordToForm(entry.payload, true);
-          if (localSubmissionsPanel) {
-            localSubmissionsPanel.hidden = true;
-          }
-          if (mySubmissionsButton) {
-            mySubmissionsButton.setAttribute("aria-expanded", "false");
-          }
-          setSaveStatus(saveStatus, "Loaded from this device", false);
+          openPreviousSubmissionPaper(entry);
         });
         item.appendChild(button);
         localSubmissionsList.appendChild(item);

@@ -1,6 +1,7 @@
 @import url("shared/tokens-rakmat-base.css");
 @import url("shared/barcode.css");
 @import url("shared/throbber.css");
+@import url("shared/paper-preview.css");
 
 /* ==========================================================================
    Original PDF-style form — semantic tokens
