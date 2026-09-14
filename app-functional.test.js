@@ -25,6 +25,7 @@ function installDom(html, url = "http://localhost/") {
   global.window.CubeSyncFormMarkup = require("./cubesync-form-markup.js");
   global.window.CubeSyncFormData = require("./cubesync-form-data.js");
   global.window.CubeSyncFormPrefs = require("./cubesync-form-prefs.js");
+  global.window.CubeSyncFormHistory = require("./cubesync-form-history.js");
   global.window.CubeSyncAutocomplete = require("./cubesync-autocomplete.js");
   global.window.CubeSyncTableManager = require("./cubesync-table-manager.js");
 
@@ -142,6 +143,12 @@ test("glassmorphic final step saves to Firestore instead of printing", async () 
   assert.equal(signInCalls, 0);
   assert.equal(global.document.getElementById("saveStatus").textContent, "Saved");
   assert.equal(new global.window.URL(global.window.location.href).searchParams.get("id"), "saved-form-1");
+
+  const storedCopy = global.window.CubeSyncFormHistory.getById("saved-form-1");
+  assert.ok(storedCopy);
+  assert.equal(storedCopy.payload.customerBilling, "Glass Billing");
+  assert.equal(storedCopy.payload.results[0].specimenRef, "T-001");
+  assert.equal(global.document.getElementById("mySubmissionsButton").hidden, false);
 
   delete require.cache[require.resolve("./app.js")];
 });

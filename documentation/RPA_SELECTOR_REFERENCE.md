@@ -33,6 +33,9 @@ These apply to both the original and glassmorphic forms.
 | Save button | `#saveFormButton` | Submits the form to Firestore |
 | Remember details | `#rememberDetailsButton` | Stores request-header fields in a browser cookie (not the results table) |
 | Forget saved details | `#forgetDetailsButton` | Clears the remembered-details cookie |
+| Previous submissions | `#mySubmissionsButton` | Lists copies of submitted forms stored in this browser |
+| Forget copies on this device | `#forgetLocalCopiesButton` | Clears the local submission copies (not lab records) |
+| Local copy banner | `#localCopyBanner` | Shown when the form is filled from a device copy |
 | Save status | `#saveStatus` | Save/auth/status text |
 | Print button | `#printButton` | Prints the current form |
 | Print font size | `#printFontSize` | Adjusts printed form typography from 6px to 12px |

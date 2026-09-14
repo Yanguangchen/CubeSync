@@ -323,6 +323,65 @@ select:focus-visible {
   margin-left: auto;
 }
 
+.local-copy-banner {
+  margin: 0 0 var(--space-3);
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.local-submissions-panel {
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--subtle);
+}
+
+.local-submissions-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.local-submissions-header h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.local-submissions-hint {
+  margin: 8px 0 var(--space-2);
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.local-submissions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.local-submissions-empty {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.local-submission-item {
+  width: 100%;
+  justify-content: flex-start;
+  text-align: left;
+}
+
 .print-font-control {
   display: inline-flex;
   align-items: center;
@@ -811,6 +870,8 @@ h1 {
   .form-steps,
   .step-controls,
   .form-actions,
+  .local-copy-banner,
+  .local-submissions-panel,
   .add-row-btn,
   .result-actions {
     display: none;

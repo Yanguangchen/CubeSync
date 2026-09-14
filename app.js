@@ -279,6 +279,53 @@
     syncForgetDetailsButton();
   }
 
+  function formHistory() {
+    return window.CubeSyncFormHistory || null;
+  }
+
+  function setLocalCopyBanner(visible) {
+    const banner = document.getElementById("localCopyBanner");
+    if (banner) {
+      banner.hidden = !visible;
+    }
+  }
+
+  function syncLocalHistoryControls() {
+    const history = formHistory();
+    const hasCopies = Boolean(history && typeof history.hasSubmissions === "function" && history.hasSubmissions());
+    const listButton = document.getElementById("mySubmissionsButton");
+    const forgetCopiesButton = document.getElementById("forgetLocalCopiesButton");
+    const panel = document.getElementById("localSubmissionsPanel");
+
+    if (listButton) {
+      listButton.hidden = !hasCopies;
+      if (!hasCopies) {
+        listButton.setAttribute("aria-expanded", "false");
+      }
+    }
+    if (forgetCopiesButton) {
+      forgetCopiesButton.hidden = !hasCopies;
+    }
+    if (panel && !hasCopies) {
+      panel.hidden = true;
+    }
+  }
+
+  function rememberSubmittedCopy(payload, id) {
+    const history = formHistory();
+    if (!history || typeof history.saveSubmission !== "function") {
+      return null;
+    }
+    let result = null;
+    try {
+      result = history.saveSubmission(payload, id);
+    } catch {
+      result = null;
+    }
+    syncLocalHistoryControls();
+    return result;
+  }
+
 
 
   async function loadAndApplyFormFieldConfig(form, onSyncApply) {
@@ -377,6 +424,11 @@
     const saveStatus = document.getElementById("saveStatus");
     const rememberButton = document.getElementById("rememberDetailsButton");
     const forgetButton = document.getElementById("forgetDetailsButton");
+    const mySubmissionsButton = document.getElementById("mySubmissionsButton");
+    const forgetLocalCopiesButton = document.getElementById("forgetLocalCopiesButton");
+    const localSubmissionsPanel = document.getElementById("localSubmissionsPanel");
+    const localSubmissionsList = document.getElementById("localSubmissionsList");
+    const closeLocalSubmissionsButton = document.getElementById("closeLocalSubmissionsButton");
     const recaptchaContainer = document.getElementById("recaptchaContainer");
     const barcodeInputs = getBarcodeInputs();
     const urlParams = new URLSearchParams(window.location.search);
@@ -497,6 +549,7 @@
     }
 
     syncForgetDetailsButton();
+    syncLocalHistoryControls();
 
     if (form) {
       form.addEventListener("reset", function () {
@@ -504,6 +557,7 @@
           applyPrintFontSize(currentPrintFontSize, false);
           renderAll(getBarcodeInputs());
           setSaveStatus(saveStatus, "", false);
+          setLocalCopyBanner(false);
         }, 0);
       });
 
@@ -603,10 +657,18 @@
           if (payload.projectErp) saveToLocal('savedProjectErps', payload.projectErp);
           if (payload.customerBilling) saveToLocal('savedCustomerBillings', payload.customerBilling);
 
+          const localCopy = rememberSubmittedCopy(payload, currentDocId);
+
           const url = new URL(window.location.href);
           url.searchParams.set("id", currentDocId);
           window.history.replaceState({}, "", url);
-          setSaveStatus(saveStatus, "Saved", false);
+          setSaveStatus(
+            saveStatus,
+            localCopy && localCopy.ok && localCopy.evicted
+              ? "Saved. Oldest copies on this device were removed to make room."
+              : "Saved",
+            false
+          );
           if (window.CubeSyncChime && typeof window.CubeSyncChime.showEncouragingPopup === "function") {
             window.CubeSyncChime.showEncouragingPopup("Great job! Form submitted successfully.");
           }
@@ -785,42 +847,168 @@
       window.CubeSyncTableManager.bindRequestDateOfCast(form, tableBody);
     }
 
+    function applyRecordToForm(record, fromLocalCopy) {
+      if (!record || !form || !window.CubeSyncFormData) {
+        return false;
+      }
+
+      const setNo = urlParams.get("setNo");
+      const recordForForm = setNo && window.CubeSyncFormData.filterResultsBySetNo
+        ? Object.assign({}, record, {
+          results: window.CubeSyncFormData.filterResultsBySetNo(record.results, setNo)
+        })
+        : record;
+      if (setNo && Array.isArray(recordForForm.results) && recordForForm.results.length) {
+        while (tableBody && tableBody.querySelectorAll("tr").length > recordForForm.results.length) {
+          const extra = tableBody.querySelector("tr:last-child");
+          if (!extra) break;
+          extra.remove();
+        }
+      }
+
+      populateForm(form, recordForForm, tableBody, addResultRowWrapper, renumberRowsWrapper);
+      window.CubeSyncFormData.applyFreeTextFlags(form, record.customFields);
+      activeFieldConfig = window.CubeSyncFormData.applyFormFieldConfig(form, activeFieldConfig, {
+        activeStep: currentStep,
+        extraFieldValues: record.extraFields
+      });
+      applyManualCubeJobState();
+      const loadedJobNumber = record.cubeJobNumber || record.reportNo;
+      if (loadedJobNumber && cubeJobNumberInput) {
+        cubeJobNumberInput.value = loadedJobNumber;
+      }
+      setLocalCopyBanner(Boolean(fromLocalCopy));
+      return true;
+    }
+
+    function renderLocalHistoryList() {
+      const history = formHistory();
+      if (!localSubmissionsList) {
+        return;
+      }
+
+      localSubmissionsList.replaceChildren();
+      const entries = history && typeof history.listSubmissions === "function"
+        ? history.listSubmissions()
+        : [];
+
+      if (!entries.length) {
+        const empty = document.createElement("li");
+        empty.className = "local-submissions-empty";
+        empty.textContent = "No copies on this device yet. Submit a form to keep one here.";
+        localSubmissionsList.appendChild(empty);
+        return;
+      }
+
+      entries.forEach(function (entry) {
+        const item = document.createElement("li");
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "local-submission-item";
+        const label = history && typeof history.formatEntryLabel === "function"
+          ? history.formatEntryLabel(entry)
+          : "";
+        button.textContent = label || entry.id;
+        button.addEventListener("click", function () {
+          currentDocId = entry.id;
+          const url = new URL(window.location.href);
+          url.searchParams.set("id", entry.id);
+          window.history.replaceState({}, "", url);
+          currentStep = 1;
+          if (steps.length) {
+            updateSteps();
+          }
+          applyRecordToForm(entry.payload, true);
+          if (localSubmissionsPanel) {
+            localSubmissionsPanel.hidden = true;
+          }
+          if (mySubmissionsButton) {
+            mySubmissionsButton.setAttribute("aria-expanded", "false");
+          }
+          setSaveStatus(saveStatus, "Loaded from this device", false);
+        });
+        item.appendChild(button);
+        localSubmissionsList.appendChild(item);
+      });
+    }
+
+    if (mySubmissionsButton && mySubmissionsButton.dataset.historyBound !== "true") {
+      mySubmissionsButton.dataset.historyBound = "true";
+      mySubmissionsButton.addEventListener("click", function () {
+        if (!localSubmissionsPanel) {
+          return;
+        }
+        const opening = localSubmissionsPanel.hidden;
+        if (opening) {
+          renderLocalHistoryList();
+        }
+        localSubmissionsPanel.hidden = !opening;
+        mySubmissionsButton.setAttribute("aria-expanded", opening ? "true" : "false");
+      });
+    }
+
+    if (closeLocalSubmissionsButton && localSubmissionsPanel && closeLocalSubmissionsButton.dataset.historyBound !== "true") {
+      closeLocalSubmissionsButton.dataset.historyBound = "true";
+      closeLocalSubmissionsButton.addEventListener("click", function () {
+        localSubmissionsPanel.hidden = true;
+        if (mySubmissionsButton) {
+          mySubmissionsButton.setAttribute("aria-expanded", "false");
+        }
+      });
+    }
+
+    if (forgetLocalCopiesButton && forgetLocalCopiesButton.dataset.historyBound !== "true") {
+      forgetLocalCopiesButton.dataset.historyBound = "true";
+      forgetLocalCopiesButton.addEventListener("click", function () {
+        const history = formHistory();
+        if (!history || typeof history.clearHistory !== "function") {
+          setSaveStatus(saveStatus, "Could not clear copies on this device", true);
+          return;
+        }
+        history.clearHistory();
+        setLocalCopyBanner(false);
+        if (localSubmissionsList) {
+          localSubmissionsList.replaceChildren();
+        }
+        syncLocalHistoryControls();
+        setSaveStatus(saveStatus, "Copies on this device cleared", false);
+      });
+    }
+
     if (currentDocId && form) {
       const store = window.CubeSyncFirestore;
       const shouldPrint = urlParams.get("print") === "true";
+      const history = formHistory();
+      const localEntry = history && typeof history.getById === "function"
+        ? history.getById(currentDocId)
+        : null;
+
+      function loadLocalFallback() {
+        if (!localEntry || !localEntry.payload) {
+          return false;
+        }
+        applyRecordToForm(localEntry.payload, true);
+        setSaveStatus(saveStatus, "Loaded from this device", false);
+        if (shouldPrint) {
+          window.setTimeout(function () {
+            printForm();
+          }, 500);
+        }
+        return true;
+      }
 
       if (store && window.CubeSyncFormData) {
         setSaveStatus(saveStatus, "Loading...", false);
         store.getCubeRequest(currentDocId)
           .then(function (record) {
             if (!record) {
-              setSaveStatus(saveStatus, "Form not found", true);
+              if (!loadLocalFallback()) {
+                setSaveStatus(saveStatus, "Form not found", true);
+              }
               return;
             }
 
-            const setNo = urlParams.get("setNo");
-            const recordForForm = setNo && window.CubeSyncFormData.filterResultsBySetNo
-              ? Object.assign({}, record, {
-                results: window.CubeSyncFormData.filterResultsBySetNo(record.results, setNo)
-              })
-              : record;
-            if (setNo && Array.isArray(recordForForm.results) && recordForForm.results.length) {
-              while (tableBody && tableBody.querySelectorAll("tr").length > recordForForm.results.length) {
-                const extra = tableBody.querySelector("tr:last-child");
-                if (!extra) break;
-                extra.remove();
-              }
-            }
-
-            populateForm(form, recordForForm, tableBody, addResultRowWrapper, renumberRowsWrapper);
-            if (window.CubeSyncFormData) {
-              window.CubeSyncFormData.applyFreeTextFlags(form, record.customFields);
-              activeFieldConfig = window.CubeSyncFormData.applyFormFieldConfig(form, activeFieldConfig, {
-                activeStep: currentStep,
-                extraFieldValues: record.extraFields
-              });
-              applyManualCubeJobState();
-            }
+            applyRecordToForm(record, false);
             setSaveStatus(saveStatus, "Loaded", false);
 
             if (shouldPrint) {
@@ -830,8 +1018,12 @@
             }
           })
           .catch(function (error) {
-            setSaveStatus(saveStatus, error.message || "Load failed", true);
+            if (!loadLocalFallback()) {
+              setSaveStatus(saveStatus, error.message || "Load failed", true);
+            }
           });
+      } else {
+        loadLocalFallback();
       }
     }
   });

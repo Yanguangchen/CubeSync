@@ -106,6 +106,21 @@ classDiagram
         +applyDashboardFilters(forms: Array, criteria: Object) Array
     }
 
+    class CubeSyncFormPrefs {
+        +String COOKIE_NAME
+        +saveFormPreferences(form, formData, doc) Object
+        +loadFormPreferences(form, formData, doc, options) Boolean
+        +clearFormPreferenceCookie(doc) Boolean
+    }
+
+    class CubeSyncFormHistory {
+        +String STORAGE_KEY
+        +saveSubmission(payload, id, storage, now) Object
+        +listSubmissions(storage) Array
+        +getById(id, storage) Object
+        +clearHistory(storage) Boolean
+    }
+
     class CubeSyncExport {
         +Number CSV_RESULT_HEADER_ROW
         +Number CSV_TEST_DATA_START_ROW
@@ -190,6 +205,8 @@ classDiagram
 
     AppController --> CubeSyncBarcode : uses
     AppController --> CubeSyncFormData : uses
+    AppController --> CubeSyncFormPrefs : uses
+    AppController --> CubeSyncFormHistory : uses
     AppController --> CubeSyncFirestore : uses
 
     DashboardController --> CubeSyncBarcode : uses

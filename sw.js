@@ -4,7 +4,7 @@
 // - use stale-while-revalidate for same-origin static assets and pages
 // - bypass caching for live APIs, Firebase, auth, and runtime env
 
-const CACHE_NAME = "cubesync-v22";
+const CACHE_NAME = "cubesync-v23";
 
 const APP_SHELL = [
   "./",
@@ -25,6 +25,7 @@ const APP_SHELL = [
   "./cubesync-notifications.js",
   "./cubesync-form-data.js",
   "./cubesync-form-prefs.js",
+  "./cubesync-form-history.js",
   "./cubesync-export.js",
   "./cubesync-form-markup.js",
   "./cubesync-table-manager.js",

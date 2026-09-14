@@ -25,6 +25,8 @@ The cookie is `Path=/; SameSite=Lax; Max-Age=365 days` (and `Secure` on HTTPS) s
 
 `app.js` restores the cookie after field settings are applied, only when the page is **not** loading an existing record (`?id=`). Empty fields are filled; values the user already typed are left alone. **Forget saved details** (`#forgetDetailsButton`) clears the cookie. **Clear** on the form empties the current page only — it does not forget the cookie.
 
+This is not a history of submitted forms. For copies of completed submissions on this device, see [form-local-history.md](form-local-history.md).
+
 ## Code
 
 | Piece | Role |
