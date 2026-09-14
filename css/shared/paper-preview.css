@@ -1,0 +1,226 @@
+/**
+ * Previous-submission paper preview.
+ * The live sheet lifts from the bottom of the viewport like a paper form.
+ */
+
+.paper-preview-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  background:
+    radial-gradient(ellipse at 50% 120%, rgba(80, 58, 28, 0.22), transparent 55%),
+    rgba(28, 22, 16, 0.52);
+  opacity: 0;
+  cursor: pointer;
+  pointer-events: none;
+  transition: opacity 0.35s ease;
+}
+
+body.is-paper-preview.is-paper-settled .paper-preview-backdrop {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.paper-preview-toolbar {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border: 1px solid rgba(80, 60, 30, 0.14);
+  border-radius: 4px;
+  background: rgba(255, 252, 245, 0.92);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.8) inset;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+body.is-paper-preview .paper-preview-toolbar {
+  display: flex;
+}
+
+.paper-preview-kicker {
+  margin: 0;
+  color: #6b542e;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.paper-preview-toolbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.paper-preview-toolbar #editPreviousFormButton,
+.paper-preview-toolbar #closePreviousFormButton {
+  min-height: 40px;
+  padding: 0 16px;
+  font-size: 14px;
+}
+
+.paper-preview-toolbar #editPreviousFormButton {
+  background: var(--brand-blue);
+  border-color: var(--brand-blue);
+  color: #ffffff;
+  box-shadow: 0 8px 18px rgba(0, 51, 153, 0.28);
+}
+
+.paper-preview-toolbar #editPreviousFormButton:hover {
+  background: var(--brand-blue-strong);
+  border-color: var(--brand-blue-strong);
+}
+
+.paper-preview-toolbar #closePreviousFormButton {
+  background: #fffdf8;
+  border-color: rgba(80, 60, 30, 0.28);
+  color: #3f2f18;
+}
+
+html:has(body.is-paper-preview),
+body.is-paper-preview {
+  overflow: hidden;
+}
+
+body.is-paper-preview .page-tools {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+body.is-paper-preview .sheet {
+  position: fixed;
+  left: 50%;
+  bottom: 0;
+  z-index: 90;
+  width: min(1100px, calc(100vw - 16px));
+  max-height: calc(100vh - 12px);
+  max-height: calc(100dvh - 12px);
+  margin: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  background:
+    linear-gradient(180deg, #fffef9 0%, #f8f1e3 100%);
+  border: 1px solid rgba(80, 60, 30, 0.18);
+  border-bottom: 0;
+  border-radius: 10px 10px 0 0;
+  box-shadow:
+    8px 12px 0 0 #efe6d3,
+    16px 22px 0 0 #e4d8c0,
+    0 18px 50px rgba(28, 22, 16, 0.28);
+  backdrop-filter: none;
+  transform: translate3d(-50%, 108%, 0) rotate(2.2deg);
+  transform-origin: 50% 100%;
+  transition: none;
+  padding-bottom: max(24px, env(safe-area-inset-bottom));
+}
+
+body.is-paper-preview.is-paper-ready .sheet {
+  transition:
+    transform 0.62s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.45s ease;
+}
+
+body.is-paper-preview.is-paper-settled .sheet {
+  transform: translate3d(-50%, 0, 0) rotate(0deg);
+  box-shadow:
+    8px 12px 0 0 #efe6d3,
+    16px 22px 0 0 #e4d8c0,
+    0 28px 70px rgba(28, 22, 16, 0.38);
+}
+
+body.is-paper-preview.is-paper-readonly .form-actions,
+body.is-paper-preview .form-steps,
+body.is-paper-preview .step-controls,
+body.is-paper-preview.is-paper-readonly .add-row-btn,
+body.is-paper-preview.is-paper-readonly .result-actions,
+body.is-paper-preview .local-submissions-panel,
+body.is-paper-preview .local-copy-banner,
+body.is-paper-preview #mySubmissionsButton,
+body.is-paper-preview #forgetLocalCopiesButton {
+  display: none !important;
+}
+
+body.is-paper-preview .form-step {
+  display: block !important;
+  animation: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+}
+
+body.is-paper-readonly #cubeRequestForm :is(input, select, textarea) {
+  user-select: none;
+  caret-color: transparent;
+}
+
+body.is-paper-preview .bpFab,
+body.is-paper-preview .bpFabWrapper,
+body.is-paper-preview .bpWebchat,
+body.is-paper-preview .bpChatContainer,
+body.is-paper-preview iframe[title="Botpress"] {
+  display: none !important;
+}
+
+body.is-paper-preview.is-paper-settled.is-paper-readonly #editPreviousFormButton {
+  animation: paper-edit-pop 0.45s 0.28s cubic-bezier(0.22, 1.2, 0.36, 1) both;
+}
+
+@keyframes paper-edit-pop {
+  0% {
+    opacity: 0;
+    transform: translateY(14px) scale(0.72);
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(-3px) scale(1.08);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .paper-preview-backdrop,
+  body.is-paper-preview .sheet,
+  body.is-paper-preview.is-paper-ready .sheet,
+  body.is-paper-preview.is-paper-settled .sheet {
+    transition: none;
+  }
+
+  body.is-paper-preview .sheet {
+    transform: translate3d(-50%, 0, 0) rotate(0deg);
+  }
+
+  body.is-paper-preview.is-paper-settled.is-paper-readonly #editPreviousFormButton {
+    animation: none;
+  }
+}
+
+@media print {
+  .paper-preview-backdrop,
+  .paper-preview-toolbar {
+    display: none !important;
+  }
+
+  body.is-paper-preview .sheet {
+    position: static;
+    left: auto;
+    bottom: auto;
+    width: 100%;
+    max-height: none;
+    overflow: visible;
+    transform: none;
+    border-radius: 0;
+    box-shadow: none;
+    background: #ffffff;
+  }
+}

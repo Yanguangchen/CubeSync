@@ -23,7 +23,7 @@ The public forms are intentionally unauthenticated, but final writes go through 
 | `dashboard.html` | Staff dashboard shell. | Loads dashboard modules for auth, list/detail views, edit mode, settings, filters, and export. |
 | `rpa-dashboard.html` | Bot-facing queue. | Optimized for predictable selectors and export workflows. |
 | `rpa-view.html` | Single request read-only view for automation. | Keep selectors stable for bots. |
-| `app.js` | Public form controller. | Handles steps, autocomplete, custom field rendering, validation messaging, reCAPTCHA, and submit. |
+| `app.js` | Public form controller. | Handles steps, autocomplete, custom field rendering, validation messaging, reCAPTCHA, submit, and the previous-submission paper preview. |
 | `dashboard.js` | Staff dashboard controller. | Coordinates CRUD, status changes, settings, free-text review, metrics, heatmap, print, and auth UI. |
 | `firestore.js` | Browser Firebase adapter. | Owns client SDK setup, auth helpers, allowlist, CRUD wrappers, and dropdown/settings access. |
 | `cubesync-form-data.js` | Canonical schema and data helpers. | Treat this as the source of truth for request/result fields and normalization logic. |

@@ -113,6 +113,10 @@ test("original and glassmorphic forms submit the same Firestore fields", () => {
     assert.match(html, /id="forgetLocalCopiesButton"/);
     assert.match(html, /id="localSubmissionsPanel"/);
     assert.match(html, /id="localCopyBanner"/);
+    assert.match(html, /id="previousFormPaperToolbar"/);
+    assert.match(html, /id="editPreviousFormButton"/);
+    assert.match(html, /id="closePreviousFormButton"/);
+    assert.match(html, /id="previousFormPaperBackdrop"/);
     assert.match(html, /id="saveStatus"/);
   }
 });

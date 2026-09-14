@@ -49,6 +49,13 @@
     </header>
 
     <main class="sheet" aria-labelledby="formTitle">
+      <div id="previousFormPaperToolbar" class="paper-preview-toolbar" hidden role="toolbar" aria-label="Previous submission actions">
+        <p class="paper-preview-kicker" id="previousFormPaperKicker">Previous submission</p>
+        <div class="paper-preview-toolbar-actions">
+          <button type="button" id="editPreviousFormButton">Edit</button>
+          <button type="button" id="closePreviousFormButton">Close</button>
+        </div>
+      </div>
       <form id="cubeRequestForm" data-template="Original" novalidate>
         <header class="form-header">
           <div class="brand">
@@ -302,6 +309,7 @@
         </footer>
       </form>
     </main>
+    <div id="previousFormPaperBackdrop" class="paper-preview-backdrop" hidden></div>
     <script src="https://cdn.botpress.cloud/webchat/v3.6/inject.js"></script>
     <script src="https://files.bpcontent.cloud/2026/07/13/11/20260713114506-CZSWDJVU.js" defer></script>
     <script>if("serviceWorker"in navigator){navigator.serviceWorker.register("./sw.js").catch(()=>{});}</script>

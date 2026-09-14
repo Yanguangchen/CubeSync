@@ -35,7 +35,10 @@ These apply to both the original and glassmorphic forms.
 | Forget saved details | `#forgetDetailsButton` | Clears the remembered-details cookie |
 | Previous submissions | `#mySubmissionsButton` | Lists copies of submitted forms stored in this browser |
 | Forget copies on this device | `#forgetLocalCopiesButton` | Clears the local submission copies (not lab records) |
-| Local copy banner | `#localCopyBanner` | Shown when the form is filled from a device copy |
+| Previous form paper | `#previousFormPaperToolbar` | Edit/Close chrome on the paper preview |
+| Previous form Edit | `#editPreviousFormButton` | Unlocks the paper preview for editing |
+| Previous form Close | `#closePreviousFormButton` | Closes the paper preview |
+| Local copy banner | `#localCopyBanner` | Shown when the working form is a device copy |
 | Save status | `#saveStatus` | Save/auth/status text |
 | Print button | `#printButton` | Prints the current form |
 | Print font size | `#printFontSize` | Adjusts printed form typography from 6px to 12px |

@@ -1,6 +1,6 @@
 # Previous submissions on this device
 
-Public users can **see copies of forms they already submitted** without signing in and without any extra server CRUD. Each successful Save stores a snapshot in this browser’s `localStorage`. Opening **Previous submissions** lists those copies and fills the form so they can review or print.
+Public users can **see copies of forms they already submitted** without signing in and without any extra server CRUD. Each successful Save stores a snapshot in this browser’s `localStorage`. Opening **Previous submissions** lists those copies. Choosing one raises a paper-style preview from the bottom of the screen so they can review the full form without overwriting the form they were filling in.
 
 This is separate from [Remember details](form-remember-details.md), which only prefills request-header fields for the *next* new form.
 
@@ -47,7 +47,7 @@ When FIFO removes older copies, the form status reads: `Saved. Oldest copies on 
 
 | Path | Behavior |
 |------|----------|
-| **Previous submissions** | Lists local copies. Choosing one fills the form and shows a banner: this is a device copy, not a lab fetch. Save still creates a **new** lab request (the public API is create-only). |
+| **Previous submissions** | Lists local copies. Choosing one opens a paper preview (the current form is stashed). **Close** puts the paper away and restores what you were filling in. **Edit** unlocks the copy so you can change it; Save still creates a **new** lab request (the public API is create-only). |
 | Reload with `?id=` after submit | Staff: live Firestore record wins. Public users: Firestore read is denied, so the matching local copy is shown instead of “permission denied”. |
 | **Forget copies on this device** | Deletes the `localStorage` list only. It does not delete lab records. |
 
@@ -58,6 +58,7 @@ Copies exist only in **this browser on this device**. Clearing site data, anothe
 | Piece | Role |
 |-------|------|
 | `cubesync-form-history.js` | Snapshot read/write, caps, labels |
-| `app.js` | Save-after-submit, list UI, Firestore-then-local load |
+| `app.js` | Save-after-submit, list UI, paper preview (Edit/Close), Firestore-then-local load |
+| `css/shared/paper-preview.css` | Paper rise animation and preview chrome |
 | `form-history.test.js` | Storage unit tests |
-| `app-unit.test.js` / `app-functional.test.js` | List, fallback, submit snapshot |
+| `app-unit.test.js` / `app-functional.test.js` | List, paper preview, fallback, submit snapshot |

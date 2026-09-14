@@ -648,7 +648,7 @@ test("Firestore permission denied falls back to a local copy on this device", as
   delete require.cache[require.resolve("./app.js")];
 });
 
-test("Previous submissions panel loads a copy without calling Firestore", async () => {
+test("Previous submissions opens a paper preview without calling Firestore", async () => {
   installDom(glassHtml, "http://localhost/glassmorphic.html");
   global.window.CubeSyncFormHistory.saveSubmission({
     customerBilling: "Listed Client",
@@ -667,6 +667,9 @@ test("Previous submissions panel loads a copy without calling Firestore", async 
   dispatchDOMContentLoaded();
   await new Promise((resolve) => setTimeout(resolve, 30));
 
+  const billing = global.document.querySelector('[name="customerBilling"]');
+  billing.value = "Draft Client";
+
   const listButton = global.document.getElementById("mySubmissionsButton");
   assert.equal(listButton.hidden, false);
   listButton.click();
@@ -678,12 +681,40 @@ test("Previous submissions panel loads a copy without calling Firestore", async 
   item.click();
 
   assert.equal(getCubeRequestCalled, false);
-  assert.equal(global.document.querySelector('[name="customerBilling"]').value, "Listed Client");
+  assert.equal(billing.value, "Listed Client");
   assert.equal(global.document.querySelector('[name="cubeJobNumber"]').value, "CJ-LIST");
   assert.equal(global.document.querySelector('[name="specimenRef1"]').value, "LIST-REF");
-  assert.equal(global.document.getElementById("saveStatus").textContent, "Loaded from this device");
-  assert.equal(global.document.getElementById("localCopyBanner").hidden, false);
+  assert.equal(global.document.getElementById("saveStatus").textContent, "Viewing a previous submission");
   assert.equal(global.document.getElementById("localSubmissionsPanel").hidden, true);
+  assert.equal(new global.window.URL(global.window.location.href).searchParams.get("id"), null);
+  assert.equal(global.document.body.classList.contains("is-paper-preview"), true);
+  assert.equal(global.document.body.classList.contains("is-paper-readonly"), true);
+  assert.equal(global.document.getElementById("cubeRequestForm").hasAttribute("inert"), true);
+  assert.equal(global.document.getElementById("previousFormPaperToolbar").hidden, false);
+  assert.equal(global.document.getElementById("editPreviousFormButton").hidden, false);
+
+  global.document.getElementById("closePreviousFormButton").click();
+  assert.equal(billing.value, "Draft Client");
+  assert.equal(global.document.querySelector('[name="specimenRef1"]').value, "");
+  assert.equal(global.document.querySelector('[name="cubeJobNumber"]').value, "");
+  assert.equal(global.document.body.classList.contains("is-paper-preview"), false);
+  assert.equal(global.document.getElementById("cubeRequestForm").hasAttribute("inert"), false);
+  assert.equal(new global.window.URL(global.window.location.href).searchParams.get("id"), null);
+  assert.equal(global.document.getElementById("localSubmissionsPanel").hidden, false);
+
+  global.document.querySelector(".local-submission-item").click();
+  global.document.getElementById("editPreviousFormButton").click();
+  assert.equal(global.document.body.classList.contains("is-paper-readonly"), false);
+  assert.equal(global.document.getElementById("cubeRequestForm").hasAttribute("inert"), false);
+  assert.equal(global.document.getElementById("editPreviousFormButton").hidden, true);
+  assert.equal(global.document.getElementById("previousFormPaperKicker").textContent, "Editing previous submission");
+  billing.value = "Edited Client";
+  assert.equal(new global.window.URL(global.window.location.href).searchParams.get("id"), "listed-copy");
+
+  global.document.getElementById("closePreviousFormButton").click();
+  assert.equal(billing.value, "Edited Client");
+  assert.equal(global.document.body.classList.contains("is-paper-preview"), false);
+  assert.equal(global.document.getElementById("localCopyBanner").hidden, false);
   assert.equal(new global.window.URL(global.window.location.href).searchParams.get("id"), "listed-copy");
 
   global.document.getElementById("forgetLocalCopiesButton").click();
