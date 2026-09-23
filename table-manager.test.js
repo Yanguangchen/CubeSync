@@ -388,3 +388,28 @@ test("changing age regroups set numbers in chronological order", () => {
 test("assignSetNumbersByAge is a no-op without a table body", () => {
   assert.doesNotThrow(() => tableManager.assignSetNumbersByAge(null));
 });
+
+test("clearResultRows resets result inputs to their defaults and keeps rows", () => {
+  makeDom(
+    '<tr><td><input name="setNo1" value="1"><input name="specimenRef1"><select name="failureMode1">' +
+    '<option value="" selected>-</option><option value="A">A</option></select></td></tr>' +
+    '<tr><td><input name="setNo2" value="1"><input name="age2"></td></tr>'
+  );
+  const tableBody = global.document.querySelector("tbody");
+  tableBody.querySelector('[name="setNo1"]').value = "3";
+  tableBody.querySelector('[name="specimenRef1"]').value = "REF-1";
+  tableBody.querySelector('[name="failureMode1"]').value = "A";
+  tableBody.querySelector('[name="age2"]').value = "7";
+
+  tableManager.clearResultRows(tableBody);
+
+  assert.equal(tableBody.querySelectorAll("tr").length, 2);
+  assert.equal(tableBody.querySelector('[name="setNo1"]').value, "1");
+  assert.equal(tableBody.querySelector('[name="specimenRef1"]').value, "");
+  assert.equal(tableBody.querySelector('[name="failureMode1"]').value, "");
+  assert.equal(tableBody.querySelector('[name="age2"]').value, "");
+});
+
+test("clearResultRows tolerates a missing table body", () => {
+  assert.doesNotThrow(() => tableManager.clearResultRows(null));
+});

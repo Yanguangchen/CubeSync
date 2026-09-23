@@ -184,6 +184,23 @@
     }
   }
 
+  // Reset every input in the results table back to its default value while
+  // leaving the request details and the number of rows untouched.
+  function clearResultRows(tableBody) {
+    if (!tableBody) return;
+    tableBody.querySelectorAll("input, select, textarea").forEach(function (input) {
+      if (input.tagName === "SELECT") {
+        Array.from(input.options).forEach(function (option) {
+          option.selected = option.defaultSelected;
+        });
+      } else if (input.type === "checkbox" || input.type === "radio") {
+        input.checked = input.defaultChecked;
+      } else {
+        input.value = input.defaultValue;
+      }
+    });
+  }
+
   function bindRequestDateOfCast(form, tableBody) {
     if (!form || !tableBody || !form.elements) return;
     const dateOfCast = form.elements.dateOfCast;
@@ -230,6 +247,7 @@
     prefillRowFromRequest: prefillRowFromRequest,
     renumberRows: renumberRows,
     attachRowListeners: attachRowListeners,
+    clearResultRows: clearResultRows,
     addResultRow: addResultRow
   };
 });

@@ -854,6 +854,20 @@
       addRowBtn.addEventListener("click", addResultRowWrapper);
     }
 
+    const clearResultsBtn = document.getElementById("clearResultsButton");
+    if (clearResultsBtn && tableBody) {
+      clearResultsBtn.addEventListener("click", function () {
+        if (!window.CubeSyncTableManager ||
+          typeof window.CubeSyncTableManager.clearResultRows !== "function") {
+          setSaveStatus(saveStatus, "Could not clear test results", true);
+          return;
+        }
+        window.CubeSyncTableManager.clearResultRows(tableBody);
+        renderAll(Array.from(tableBody.querySelectorAll("[data-barcode-input]")));
+        setSaveStatus(saveStatus, "Test results cleared", false);
+      });
+    }
+
     document.querySelectorAll(".remove-row-btn").forEach((button) => {
       if (window.CubeSyncTableManager &&
         typeof window.CubeSyncTableManager.attachRowListeners === "function") {

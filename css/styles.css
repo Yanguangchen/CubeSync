@@ -510,6 +510,27 @@ select:focus {
   text-align: left;
 }
 
+.results-header-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.clear-results-btn {
+  min-height: 28px;
+  padding: 0 10px;
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--surface);
+  color: var(--ink);
+  border-color: var(--line-strong);
+}
+
+.clear-results-btn:hover {
+  background: var(--subtle);
+  border-color: var(--brand-blue);
+}
+
 .add-row-btn {
   min-height: 28px;
   padding: 0 10px;
@@ -715,6 +736,7 @@ body.is-printing iframe[title="Botpress"] {
   .local-copy-banner,
   .local-submissions-panel,
   .add-row-btn,
+  .clear-results-btn,
   .result-actions {
     display: none;
   }

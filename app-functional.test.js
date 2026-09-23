@@ -705,6 +705,37 @@ test("form reset clears barcodes and save status", async () => {
   delete require.cache[require.resolve("./app.js")];
 });
 
+test("clear test results empties the results table but keeps request details", () => {
+  for (const html of [indexHtml, glassHtml]) {
+    installDom(html);
+    require("./app.js");
+    dispatchDOMContentLoaded();
+
+    const requestInput = global.document.querySelector('[name="projectNameOnReport"]');
+    const barcodeInput = global.document.querySelector('[name="barcode1"]');
+    const specimenInput = global.document.querySelector('[name="specimenRef1"]');
+    const rowCount = global.document.querySelectorAll(".results-table tbody tr").length;
+    const saveStatus = global.document.getElementById("saveStatus");
+
+    requestInput.value = "Keep me";
+    specimenInput.value = "REF-1";
+    barcodeInput.value = "TEST-BC";
+    barcodeInput.dispatchEvent(new global.Event("input"));
+    assert.ok(barcodeInput.closest(".barcode-cell").classList.contains("has-barcode"));
+
+    global.document.getElementById("clearResultsButton").click();
+
+    assert.equal(requestInput.value, "Keep me");
+    assert.equal(specimenInput.value, "");
+    assert.equal(barcodeInput.value, "");
+    assert.equal(barcodeInput.closest(".barcode-cell").classList.contains("has-barcode"), false);
+    assert.equal(global.document.querySelectorAll(".results-table tbody tr").length, rowCount);
+    assert.equal(saveStatus.textContent, "Test results cleared");
+
+    delete require.cache[require.resolve("./app.js")];
+  }
+});
+
 test("both forms set date of test to date of cast plus age in days", () => {
   const forms = [
     [indexHtml, "http://localhost/index.html"],
