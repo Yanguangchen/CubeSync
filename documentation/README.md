@@ -152,7 +152,8 @@ Test-result table headers and cells use `data-result-field="{name}"` for column 
 | `customFields` | Dropdown field names typed as free text at submit time (see [Free-text dropdown review](#free-text-dropdown-review)) |
 | `extraFields` | Map of staff-defined custom field id → value (`{ [customFieldId]: value }`) |
 | `createdAt`, `updatedAt` | Server timestamps |
-| `rpaStatus`, `erpStatus`, `attemptCount` | RPA queue / ERP automation metadata |
+| `rpaStatus`, `erpStatus`, `attemptCount` | RPA queue / ERP automation metadata. On a multi-set request, `rpaStatus`/`erpStatus` are a roll-up of the sets |
+| `rpaSets` | Per-set RPA state for multi-set requests: `{ "<setNo>": { rpaStatus, erpStatus } }`. Each set is its own RPA queue row and ERP submission |
 
 Legacy aliases (`reportNo`, `client`, `project`, `internalDate`, etc.) may still exist on older documents; the dashboard and export normalize them on read.
 
@@ -263,7 +264,7 @@ Staff edits from `dashboard.html` use a **patch update** path:
 
 `withoutUndefined()` recurses only into plain objects and arrays. Firestore sentinels (`serverTimestamp()` / `FieldValue`), `Timestamp`, and `Date` instances must pass through unchanged — flattening them causes rules validation to reject the write with `permission-denied`.
 
-RPA status updates use the same `updateCubeRequest()` helper but typically send a single field (`rpaStatus` or `erpStatus`).
+RPA status updates use the same `updateCubeRequest()` helper but typically send a single field (`rpaStatus` or `erpStatus`). For a set of a multi-set request, `buildRpaSetStatusUpdate()` writes that set's entry through dotted `rpaSets.<setNo>` paths plus the request-level roll-up, so sibling sets are never overwritten. Requests with no `rpaSets` entries (queued before per-set tracking) fall back to their document-level status.
 
 ## Barcodes
 

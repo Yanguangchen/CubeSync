@@ -44,8 +44,26 @@
   };
 
   const params = new URLSearchParams(window.location.search);
-  const documentId = params.get("id");
+  const requestedId = parseRequestedId(params.get("id"), params.get("setNo"));
+  const documentId = requestedId.sourceRequestId;
+  // The full Firestore document, and the record rendered from it: for a set of
+  // a multi-set request that is the shared details plus only that set's rows
+  // and RPA state.
+  let sourceRecord = null;
   let currentRecord = null;
+  let viewSetNo = null;
+
+  // Accepts ?id=<doc>&setNo=<n> as well as a queue row id (<doc>#set-<n>).
+  function parseRequestedId(id, setNo) {
+    const formData = window.CubeSyncFormData;
+    const parsed = id && formData && typeof formData.parseDashboardFormId === "function"
+      ? formData.parseDashboardFormId(id)
+      : { sourceRequestId: id, setNo: null };
+    return {
+      sourceRequestId: parsed.sourceRequestId,
+      setNo: setNo != null && setNo !== "" ? setNo : parsed.setNo
+    };
+  }
 
   function escapeHtml(value) {
     return String(value == null ? "" : value)
@@ -169,7 +187,10 @@
     const statusBadge = document.getElementById("statusBadge");
     const disableButton = document.getElementById("btnDisable");
 
-    document.getElementById("reportNoDisplay").textContent = record.reportNo || record.cubeJobNumber || documentId;
+    const reportNo = record.reportNo || record.cubeJobNumber || documentId;
+    document.getElementById("reportNoDisplay").textContent = viewSetNo != null
+      ? `${reportNo} · Set ${viewSetNo}`
+      : reportNo;
     document.getElementById("submittedAtDisplay").textContent = submittedDate
       ? `Submitted: ${submittedDate.toLocaleString("en-SG", { timeZone: "Asia/Singapore" })}`
       : "";
@@ -179,11 +200,44 @@
     disableButton.classList.toggle("danger", status !== "Disabled");
   }
 
+  // Returns the record to render, or null when the requested set is missing.
+  // A set is only scoped when the request still has more than one set, which
+  // matches when the RPA queue shows it as its own row.
+  function recordForView(record) {
+    const formData = window.CubeSyncFormData;
+    viewSetNo = null;
+    if (requestedId.setNo == null || !formData || typeof formData.groupResultRowsBySet !== "function") {
+      return record;
+    }
+
+    const groups = formData.groupResultRowsBySet(record.results);
+    if (groups.length <= 1) {
+      return record;
+    }
+
+    const group = groups.find((item) => item.setNo === formData.normalizeSetNo(requestedId.setNo));
+    if (!group) {
+      return null;
+    }
+
+    viewSetNo = group.setNo;
+    return Object.assign({}, record, { results: group.rows }, formData.rpaStateForSet(record, group.setNo));
+  }
+
   function renderRecord(record) {
-    currentRecord = record;
-    renderSummary(record);
-    renderFieldGrid(record);
-    renderResults(record);
+    sourceRecord = record;
+    const viewRecord = recordForView(record);
+    if (!viewRecord) {
+      currentRecord = null;
+      setMessage(`Set ${requestedId.setNo} is no longer on this request.`, true);
+      return false;
+    }
+
+    currentRecord = viewRecord;
+    renderSummary(viewRecord);
+    renderFieldGrid(viewRecord);
+    renderResults(viewRecord);
+    return true;
   }
 
   async function loadRecord() {
@@ -206,8 +260,9 @@
         return;
       }
 
-      renderRecord(record);
-      setMessage("", false);
+      if (renderRecord(record)) {
+        setMessage("", false);
+      }
     } catch (error) {
       setMessage(error.message || "Unable to load Firestore form.", true);
     }
@@ -217,11 +272,19 @@
     if (!currentRecord || !window.CubeSyncFirestore) return;
 
     const nextStatus = rpaStatus(currentRecord) === "Disabled" ? "Ready for Bot" : "Disabled";
+    const formData = window.CubeSyncFormData;
+    const updates = viewSetNo != null
+      ? formData.buildRpaSetStatusUpdate(sourceRecord, { [viewSetNo]: { rpaStatus: nextStatus } })
+      : { rpaStatus: nextStatus };
 
     try {
-      await window.CubeSyncFirestore.updateCubeRequest(documentId, { rpaStatus: nextStatus });
-      currentRecord.rpaStatus = nextStatus;
-      renderSummary(currentRecord);
+      await window.CubeSyncFirestore.updateCubeRequest(documentId, updates);
+      if (viewSetNo != null) {
+        renderRecord(formData.applyRpaSetStatusUpdate(sourceRecord, updates));
+      } else {
+        currentRecord.rpaStatus = nextStatus;
+        renderSummary(currentRecord);
+      }
     } catch (error) {
       setMessage(error.message || "Unable to update RPA status.", true);
     }

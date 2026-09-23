@@ -326,6 +326,37 @@ test("staff cannot update cubeRequests with disallowed keys", async () => {
   );
 });
 
+test("staff can track per-set RPA state in the rpaSets map, but only as a map", async () => {
+  await testEnv.clearFirestore();
+  const staff = authedDb("staff-rpa-sets", STAFF_EMAIL);
+  const docRef = staff.collection("cubeRequests").doc("req-rpa-sets");
+
+  await assertSucceeds(docRef.set(minimalCubeRequest({
+    results: [resultRow(1), resultRow(2)],
+  })));
+
+  await assertSucceeds(docRef.update({
+    "rpaSets.1": { rpaStatus: "Submitted to ERP", erpStatus: "Success" },
+    "rpaSets.2": { rpaStatus: "In Progress", erpStatus: "Processing" },
+    rpaStatus: "In Progress",
+    erpStatus: "Processing",
+    updatedAt: new Date().toISOString(),
+  }));
+  await assertSucceeds(docRef.update({
+    "rpaSets.2.rpaStatus": "Submitted to ERP",
+    "rpaSets.2.erpStatus": "Success",
+    rpaStatus: "Submitted to ERP",
+    erpStatus: "Success",
+  }));
+
+  await assertFails(docRef.update({ rpaSets: "Success" }));
+  await assertFails(
+    staff.collection("cubeRequests").doc("req-rpa-sets-bad").set(
+      minimalCubeRequest({ rpaSets: ["Success"] })
+    )
+  );
+});
+
 test("settings/formFieldConfig is publicly readable but not publicly writable", async () => {
   await testEnv.clearFirestore();
   const outsider = authedDb("outsider-2", NON_STAFF_EMAIL);

@@ -33,7 +33,13 @@ const {
   filterResultsBySetNo,
   reconstructCubeRequestFromDashboardForms,
   mergeResultSetIntoDocument,
-  expandCubeRequestForDashboard
+  expandCubeRequestForDashboard,
+  rpaSetKey,
+  rpaStateForSet,
+  rollUpRpaStates,
+  buildRpaSetStatusUpdate,
+  applyRpaSetStatusUpdate,
+  expandCubeRequestForRpa
 } = require("./cubesync-form-data");
 
 function formFieldNames(html) {
@@ -836,4 +842,123 @@ test("filterResultsBySetNo keeps only rows for the requested set", () => {
   assert.deepEqual(filterResultsBySetNo(rows, "2").map((row) => row.specimenRef), ["B"]);
   assert.deepEqual(filterResultsBySetNo(rows, "1").map((row) => row.specimenRef), ["A", "C"]);
   assert.equal(filterResultsBySetNo(rows, "").length, 3);
+});
+
+function threeSetRequest(extra) {
+  return {
+    cubeJobNumber: "CJ-3",
+    status: "Ready",
+    results: [
+      { setNo: 1, specimenRef: "A", age: 7, dateOfTest: "2026-06-25" },
+      { setNo: 2, specimenRef: "B", age: 14, dateOfTest: "2026-07-02" },
+      { setNo: 3, specimenRef: "C", age: 28, dateOfTest: "2026-07-16" }
+    ],
+    ...extra
+  };
+}
+
+test("rpaSetKey matches set numbering and keeps keys safe as field-path segments", () => {
+  assert.equal(rpaSetKey(2), "2");
+  assert.equal(rpaSetKey(""), "1");
+  assert.equal(rpaSetKey("A.1"), "A_1");
+});
+
+test("rpaStateForSet falls back to the document state until any set has its own entry", () => {
+  const legacy = threeSetRequest({ rpaStatus: "Submitted to ERP", erpStatus: "Success" });
+  assert.deepEqual(rpaStateForSet(legacy, "2"), { rpaStatus: "Submitted to ERP", erpStatus: "Success" });
+  assert.deepEqual(rpaStateForSet({}, "1"), { rpaStatus: "Ready for Bot", erpStatus: "Pending" });
+
+  const tracked = threeSetRequest({
+    rpaStatus: "In Progress",
+    erpStatus: "Processing",
+    rpaSets: { 1: { rpaStatus: "Submitted to ERP", erpStatus: "Success" } }
+  });
+  assert.deepEqual(rpaStateForSet(tracked, "1"), { rpaStatus: "Submitted to ERP", erpStatus: "Success" });
+  assert.deepEqual(rpaStateForSet(tracked, "3"), { rpaStatus: "Ready for Bot", erpStatus: "Pending" });
+  assert.deepEqual(rpaStateForSet(tracked, null), { rpaStatus: "In Progress", erpStatus: "Processing" });
+});
+
+test("rollUpRpaStates summarizes set states for the whole request", () => {
+  const ready = { rpaStatus: "Ready for Bot", erpStatus: "Pending" };
+  const done = { rpaStatus: "Submitted to ERP", erpStatus: "Success" };
+  const failed = { rpaStatus: "Failed", erpStatus: "Error" };
+  const disabled = { rpaStatus: "Disabled", erpStatus: "Pending" };
+
+  assert.deepEqual(rollUpRpaStates([ready, ready]), ready);
+  assert.deepEqual(rollUpRpaStates([done, ready]), { rpaStatus: "In Progress", erpStatus: "Processing" });
+  assert.deepEqual(rollUpRpaStates([done, done]), done);
+  assert.deepEqual(rollUpRpaStates([done, disabled]), done);
+  assert.deepEqual(rollUpRpaStates([done, failed]), failed);
+  assert.deepEqual(rollUpRpaStates([disabled, disabled]), { rpaStatus: "Disabled", erpStatus: "Pending" });
+});
+
+test("buildRpaSetStatusUpdate seeds sibling sets from the document state on the first per-set write", () => {
+  const record = threeSetRequest({ rpaStatus: "Disabled", erpStatus: "Pending" });
+  const update = buildRpaSetStatusUpdate(record, { 2: { rpaStatus: "Ready for Bot" } });
+
+  assert.deepEqual(update, {
+    "rpaSets.1": { rpaStatus: "Disabled", erpStatus: "Pending" },
+    "rpaSets.2": { rpaStatus: "Ready for Bot", erpStatus: "Pending" },
+    "rpaSets.3": { rpaStatus: "Disabled", erpStatus: "Pending" },
+    rpaStatus: "Ready for Bot",
+    erpStatus: "Pending"
+  });
+});
+
+test("buildRpaSetStatusUpdate writes only the changed fields of sets that already have entries", () => {
+  const record = threeSetRequest({
+    rpaSets: {
+      1: { rpaStatus: "Submitted to ERP", erpStatus: "Success" },
+      2: { rpaStatus: "Ready for Bot", erpStatus: "Pending" },
+      3: { rpaStatus: "Ready for Bot", erpStatus: "Pending" }
+    }
+  });
+  const update = buildRpaSetStatusUpdate(record, {
+    2: { erpStatus: "Success", rpaStatus: "Submitted to ERP" },
+    3: { erpStatus: "Success", rpaStatus: "Submitted to ERP" }
+  });
+
+  assert.deepEqual(update, {
+    "rpaSets.2.rpaStatus": "Submitted to ERP",
+    "rpaSets.2.erpStatus": "Success",
+    "rpaSets.3.rpaStatus": "Submitted to ERP",
+    "rpaSets.3.erpStatus": "Success",
+    rpaStatus: "Submitted to ERP",
+    erpStatus: "Success"
+  });
+
+  const applied = applyRpaSetStatusUpdate(record, update);
+  assert.deepEqual(applied.rpaSets[2], { rpaStatus: "Submitted to ERP", erpStatus: "Success" });
+  assert.deepEqual(applied.rpaSets[1], record.rpaSets[1]);
+  assert.equal(applied.erpStatus, "Success");
+  assert.equal(record.rpaSets[2].erpStatus, "Pending", "the source record is not mutated");
+});
+
+test("applyRpaSetStatusUpdate leaves rpaSets alone for document-level updates", () => {
+  const applied = applyRpaSetStatusUpdate({ id: "x" }, { rpaStatus: "Disabled" });
+  assert.deepEqual(applied, { id: "x", rpaStatus: "Disabled" });
+});
+
+test("expandCubeRequestForRpa gives each set row its own RPA state", () => {
+  const record = threeSetRequest({
+    rpaStatus: "In Progress",
+    erpStatus: "Processing",
+    rpaSets: {
+      1: { rpaStatus: "Submitted to ERP", erpStatus: "Success" },
+      2: { rpaStatus: "Disabled", erpStatus: "Pending" }
+    }
+  });
+  const forms = expandCubeRequestForRpa(record, "req-3");
+
+  assert.deepEqual(forms.map((form) => form.id), ["req-3#set-1", "req-3#set-2", "req-3#set-3"]);
+  assert.deepEqual(forms.map((form) => form.raw.erpStatus), ["Success", "Pending", "Pending"]);
+  assert.deepEqual(forms.map((form) => form.raw.rpaStatus), ["Submitted to ERP", "Disabled", "Ready for Bot"]);
+  assert.equal(record.rpaStatus, "In Progress", "the source record keeps its roll-up");
+
+  const [single] = expandCubeRequestForRpa({
+    rpaStatus: "Failed",
+    results: [{ setNo: 1, specimenRef: "A" }]
+  }, "req-1");
+  assert.equal(single.id, "req-1");
+  assert.equal(single.raw.rpaStatus, "Failed");
 });

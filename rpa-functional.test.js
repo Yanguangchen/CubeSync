@@ -413,3 +413,212 @@ test("rpa-dashboard.js daily queue groups forms by submission/creation date, not
   // Since it was created/submitted today, it should show up in today's daily queue
   assert.match(list.innerHTML, /TODAY-SUBMITTED/);
 });
+
+// Updates are built inside the jsdom window; copy them into this realm so
+// deepStrictEqual compares values rather than cross-realm prototypes.
+function plain(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function multiSetRequest(extra) {
+  return {
+    id: "multi",
+    reportNo: "MS-1",
+    client: "Set Client",
+    project: "Set Project",
+    status: "Ready",
+    createdAt: new Date().toISOString(),
+    results: [
+      { setNo: 1, specimenRef: "SET1-A", barcode: "BC-1A", age: 7, dateOfTest: "2026-06-25" },
+      { setNo: 2, specimenRef: "SET2-A", barcode: "BC-2A", age: 28, dateOfTest: "2026-07-16" },
+      { setNo: 2, specimenRef: "SET2-B", barcode: "BC-2B", age: 28, dateOfTest: "2026-07-16" }
+    ],
+    ...extra
+  };
+}
+
+test("rpa-dashboard.js lists each set of a multi-set request as its own queue row", async () => {
+  const { window } = await bootDashboard({
+    firestore: {
+      listCubeRequests: async () => [
+        multiSetRequest({
+          rpaSets: { 1: { rpaStatus: "Submitted to ERP", erpStatus: "Success" } }
+        })
+      ],
+      updateCubeRequest: async () => {}
+    }
+  });
+
+  const rows = Array.from(window.document.querySelectorAll("#queueList tr[data-id]"));
+  assert.deepEqual(rows.map((row) => row.dataset.id), ["multi#set-1", "multi#set-2"]);
+  assert.match(rows[0].textContent, /MS-1 · Set 1/);
+  assert.match(rows[1].textContent, /MS-1 · Set 2/);
+  rows.forEach((row) => assert.match(row.textContent, /Set Client/));
+  assert.deepEqual(
+    rows.map((row) => row.querySelector('select[data-action="update-erp"]').value),
+    ["Success", "Pending"]
+  );
+  assert.equal(window.document.getElementById("disableAllButton").textContent, "Disable all RPA (2)");
+});
+
+test("rpa-dashboard.js changes the ERP status of one set without touching its siblings", async () => {
+  const updates = [];
+  const { window } = await bootDashboard({
+    firestore: {
+      listCubeRequests: async () => [multiSetRequest()],
+      updateCubeRequest: async (id, data) => {
+        updates.push({ id, data: plain(data) });
+      }
+    }
+  });
+
+  const selector = window.document.querySelector('select[data-id="multi#set-2"]');
+  selector.value = "Processing";
+  selector.dispatchEvent(new window.Event("change", { bubbles: true }));
+  await waitForAsync();
+
+  assert.deepEqual(updates, [{
+    id: "multi",
+    data: {
+      "rpaSets.1": { rpaStatus: "Ready for Bot", erpStatus: "Pending" },
+      "rpaSets.2": { rpaStatus: "In Progress", erpStatus: "Processing" },
+      rpaStatus: "In Progress",
+      erpStatus: "Processing"
+    }
+  }]);
+});
+
+// Applies Firestore-style dotted field paths so a mock store keeps what the
+// dashboard wrote across reloads.
+function applyDottedUpdate(record, data) {
+  Object.entries(data).forEach(([path, value]) => {
+    const parts = path.split(".");
+    let target = record;
+    parts.slice(0, -1).forEach((part) => {
+      target[part] = target[part] || {};
+      target = target[part];
+    });
+    target[parts[parts.length - 1]] = value;
+  });
+}
+
+test("rpa-dashboard.js toggles and bulk-disables sets with one write per request", async () => {
+  const updates = [];
+  const records = {
+    multi: multiSetRequest(),
+    single: { id: "single", reportNo: "S-1", status: "Ready", createdAt: new Date().toISOString(), results: [] }
+  };
+  const { window } = await bootDashboard({
+    firestore: {
+      listCubeRequests: async () => Object.values(records).map(plain),
+      updateCubeRequest: async (id, data) => {
+        updates.push({ id, data: plain(data) });
+        applyDottedUpdate(records[id], plain(data));
+      }
+    }
+  });
+
+  window.document.querySelector('button[data-action="toggle-disable"][data-id="multi#set-1"]').click();
+  await waitForAsync();
+  assert.deepEqual(updates.shift(), {
+    id: "multi",
+    data: {
+      "rpaSets.1": { rpaStatus: "Disabled", erpStatus: "Pending" },
+      "rpaSets.2": { rpaStatus: "Ready for Bot", erpStatus: "Pending" },
+      rpaStatus: "Ready for Bot",
+      erpStatus: "Pending"
+    }
+  });
+  assert.match(
+    window.document.querySelector('tr[data-id="multi#set-1"]').textContent,
+    /Enable RPA/
+  );
+  assert.equal(window.document.getElementById("disableAllButton").textContent, "Disable all RPA (2)");
+
+  window.confirm = () => true;
+  window.document.getElementById("disableAllButton").click();
+  await waitForAsync(100);
+
+  assert.deepEqual(updates.sort((left, right) => left.id.localeCompare(right.id)), [
+    { id: "multi", data: { "rpaSets.2.rpaStatus": "Disabled", rpaStatus: "Disabled", erpStatus: "Pending" } },
+    { id: "single", data: { rpaStatus: "Disabled" } }
+  ]);
+});
+
+test("rpa-dashboard.js exports one CSV per set with that set's rows and status", async () => {
+  let exported = null;
+  const { window } = await bootDashboard({
+    firestore: {
+      listCubeRequests: async () => [
+        multiSetRequest({
+          rpaSets: {
+            1: { rpaStatus: "Submitted to ERP", erpStatus: "Success" },
+            2: { rpaStatus: "Ready for Bot", erpStatus: "Pending" }
+          }
+        })
+      ],
+      updateCubeRequest: async () => {}
+    }
+  });
+
+  window.CubeSyncExport.downloadFilesAsZip = (files) => {
+    exported = files;
+  };
+  window.document.getElementById("exportAllButton").click();
+
+  assert.equal(exported.length, 2);
+  assert.match(exported[0].name, /MS-1-·-Set-1\.csv$/);
+  assert.match(exported[0].content, /SET1-A/);
+  assert.doesNotMatch(exported[0].content, /SET2-A/);
+  assert.match(exported[0].content, /ERP status,Success/);
+  assert.match(exported[1].content, /SET2-A/);
+  assert.match(exported[1].content, /SET2-B/);
+  assert.match(exported[1].content, /ERP status,Pending/);
+});
+
+test("rpa-view.js shows only the requested set and toggles that set's RPA status", async () => {
+  const updates = [];
+  const { window } = await bootView({
+    url: "http://localhost/?id=multi&setNo=2",
+    firestore: {
+      getCubeRequest: async (id) => {
+        assert.equal(id, "multi");
+        return multiSetRequest({
+          rpaSets: {
+            1: { rpaStatus: "Submitted to ERP", erpStatus: "Success" },
+            2: { rpaStatus: "Ready for Bot", erpStatus: "Pending" }
+          }
+        });
+      },
+      updateCubeRequest: async (id, data) => {
+        updates.push({ id, data: plain(data) });
+      }
+    }
+  });
+
+  assert.equal(window.document.getElementById("reportNoDisplay").textContent, "MS-1 · Set 2");
+  const results = window.document.getElementById("resultsBody");
+  assert.equal(results.querySelectorAll("tr").length, 2);
+  assert.match(results.innerHTML, /SET2-A/);
+  assert.doesNotMatch(results.innerHTML, /SET1-A/);
+  assert.equal(window.document.getElementById("statusBadge").textContent, "Ready for Bot / ERP: Pending");
+
+  window.document.getElementById("btnDisable").click();
+  await waitForAsync();
+
+  assert.deepEqual(updates, [{
+    id: "multi",
+    data: { "rpaSets.2.rpaStatus": "Disabled", rpaStatus: "Submitted to ERP", erpStatus: "Success" }
+  }]);
+  assert.equal(window.document.getElementById("statusBadge").textContent, "Disabled / ERP: Pending");
+  assert.equal(window.document.getElementById("btnDisable").textContent, "Enable RPA");
+});
+
+test("rpa-view.js reports a set that is no longer on the request", async () => {
+  const { window } = await bootView({
+    url: "http://localhost/?id=multi&setNo=9",
+    firestore: { getCubeRequest: async () => multiSetRequest() }
+  });
+
+  assert.match(window.document.getElementById("viewMessage").textContent, /Set 9 is no longer on this request/);
+});

@@ -97,7 +97,8 @@ Anonymous submissions are forced to `Draft` by the API. Only authenticated staff
 | `customFields` | array | Dropdown-backed fields that may need free-text review. |
 | `extraFields` | map | Staff-defined custom request field values by custom field id. |
 | `createdAt` / `updatedAt` | timestamp | Server-managed create/update times. |
-| `rpaStatus` / `erpStatus` | string | Automation state metadata. |
+| `rpaStatus` / `erpStatus` | string | Automation state metadata (a roll-up of the sets on a multi-set request). |
+| `rpaSets` | map | Per-set automation state for multi-set requests, keyed by set number. |
 | `attemptCount` | number | Automation retry metadata. |
 
 ### Settings documents

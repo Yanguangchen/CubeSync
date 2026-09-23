@@ -39,6 +39,8 @@ Skip records that are disabled, already submitted, failed and awaiting review, o
 
 Open the record using its visible Open or View action.
 
+A request submitted with several sets is listed once per set, with the Report No ending in `· Set N`. Treat each set row as its own RPA record and its own ERP Cube Job: its page shows the shared request details with only that set's result rows, and its ERP Status changes only that set.
+
 ## Read the RPA Record
 
 Read all visible fields from the RPA record. Scroll to the bottom of the page and horizontally across any wide tables.
@@ -127,6 +129,8 @@ Before creating a new Cube Job, search the ERP using:
 Inspect the search results carefully.
 
 Do not create a duplicate if an existing ERP record clearly represents the same RPA submission.
+
+Sets of the same request share the Cube Job Number and Report Number. For a `· Set N` record, an ERP match is the same submission only when its specimen references and barcodes match this set's result rows. A job holding another set's specimens is not a duplicate.
 
 If a matching record already exists, report the RPA record as skipped or already transferred.
 

@@ -19,7 +19,7 @@ Do not use generated barcode SVG markup as stored data. Barcodes are stored as t
 | Glassmorphic form | `glassmorphic.html` | Modern form using the same Firestore fields |
 | Dashboard | `dashboard.html` | CRUD dashboard for submitted forms |
 | RPA dashboard | `rpa-dashboard.html` | RPA queue and ERP status controls |
-| RPA view | `rpa-view.html` | Full read-only view of all form fields and test results |
+| RPA view | `rpa-view.html` | Full read-only view of all form fields and test results (`?id=<doc>&setNo=<n>` scopes it to one set) |
 
 ## Main Form Selectors
 
@@ -247,6 +247,9 @@ These selectors apply to `rpa-dashboard.html`.
 | Open form button | `button[data-action="open"]` |
 | Disable/enable RPA button | `button[data-action="toggle-disable"]` |
 | Disabled queue row | `.disabled-row` |
+| Queue row | `tr[data-id]` (`<doc>` or, for one set of a multi-set request, `<doc>#set-<n>`) |
+
+A request with more than one set is listed as one row per set (`Report No · Set N`). Every set row is its own ERP submission with its own ERP status, and **Open Form** shows the shared request details with only that set's result rows.
 
 ## RPA View Selectors
 
