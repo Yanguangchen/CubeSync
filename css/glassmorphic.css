@@ -612,6 +612,18 @@ h1 {
   margin: 0;
 }
 
+.results-header-actions {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.clear-results-btn {
+  min-height: 32px;
+  padding: 0 14px;
+  font-size: 12px;
+}
+
 .add-row-btn {
   min-height: 32px;
   padding: 0 14px;
@@ -874,6 +886,7 @@ h1 {
   .local-copy-banner,
   .local-submissions-panel,
   .add-row-btn,
+  .clear-results-btn,
   .result-actions {
     display: none;
   }
