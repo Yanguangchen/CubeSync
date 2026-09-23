@@ -43,6 +43,7 @@
 
   const state = {
     forms: [],
+    records: new Map(),
     viewDate: todaySGT,
     loading: false,
     disablingAll: false
@@ -223,7 +224,12 @@
 
     try {
       const records = await firestore.listCubeRequests();
-      state.forms = records.map((record) => formData.normalizeCubeRequestForDashboard(record, record.id));
+      // A multi-set request becomes one queue row per set, matching the staff
+      // dashboard; each set is its own ERP submission with its own status.
+      state.records = new Map(records.map((record) => [record.id, record]));
+      state.forms = records.flatMap((record) => typeof formData.expandCubeRequestForRpa === "function"
+        ? formData.expandCubeRequestForRpa(record, record.id)
+        : [formData.normalizeCubeRequestForDashboard(record, record.id)]);
     } catch (error) {
       logRpaObs({
         feature: "RpaDashboard",
@@ -234,6 +240,7 @@
         error: error
       });
       state.forms = [];
+      state.records = new Map();
       state.loading = false;
       setToolbarButtonStates();
       elements.queueList.innerHTML = `<tr><td colspan="7">${escapeHtml(formatRpaError(error, error && error.message ? error.message : "Unable to load Firestore forms."))}</td></tr>`;
@@ -252,6 +259,7 @@
 
   function clearQueue() {
     state.forms = [];
+    state.records = new Map();
     state.loading = false;
     renderQueue();
   }
@@ -341,6 +349,65 @@
     });
   }
 
+  function parseQueueId(id) {
+    const formData = helper();
+    return formData && typeof formData.parseDashboardFormId === "function"
+      ? formData.parseDashboardFormId(id)
+      : { sourceRequestId: String(id), setNo: null };
+  }
+
+  // Turn a status change on queue rows into Firestore writes, one per document.
+  // A set row of a multi-set request changes only that set (plus the request
+  // roll-up), and sets of the same request share one write so they cannot
+  // overwrite each other.
+  function buildStatusWrites(forms, changes) {
+    const formData = helper();
+    const writes = new Map();
+
+    forms.forEach((form) => {
+      const parsed = parseQueueId(form.id);
+      if (parsed.setNo == null || !formData || typeof formData.buildRpaSetStatusUpdate !== "function") {
+        writes.set(form.id, { id: form.id, updates: { ...changes }, formCount: 1 });
+        return;
+      }
+
+      const write = writes.get(parsed.sourceRequestId) || { id: parsed.sourceRequestId, sets: {}, formCount: 0 };
+      write.sets[parsed.setNo] = changes;
+      write.formCount += 1;
+      writes.set(parsed.sourceRequestId, write);
+    });
+
+    return Array.from(writes.values()).map((write) => {
+      if (!write.sets) return write;
+      const record = state.records.get(write.id) || {};
+      return { id: write.id, updates: formData.buildRpaSetStatusUpdate(record, write.sets), formCount: write.formCount };
+    });
+  }
+
+  // Apply a write to the cached record before it reaches Firestore, so a second
+  // change made while the first is in flight builds on it, not on stale data.
+  function rememberWrite(write) {
+    const formData = helper();
+    const record = state.records.get(write.id);
+    if (record && formData && typeof formData.applyRpaSetStatusUpdate === "function") {
+      state.records.set(write.id, formData.applyRpaSetStatusUpdate(record, write.updates));
+    }
+  }
+
+  function writeStatus(forms, changes) {
+    const firestore = store();
+    const writes = buildStatusWrites(forms, changes);
+    writes.forEach(rememberWrite);
+    return Promise.allSettled(writes.map((write) => firestore.updateCubeRequest(write.id, write.updates)))
+      .then((results) => results.map((result, index) => ({ ...result, write: writes[index] })));
+  }
+
+  async function writeRowStatus(id, changes) {
+    const form = state.forms.find((item) => item.id === id);
+    const [result] = await writeStatus([form || { id }], changes);
+    if (result.status === "rejected") throw result.reason;
+  }
+
   async function updateERPStatus(id, newStatus) {
     const firestore = store();
     if (!firestore) return;
@@ -352,7 +419,7 @@
     if (newStatus === "Pending") updates.rpaStatus = "Ready for Bot";
 
     try {
-      await firestore.updateCubeRequest(id, updates);
+      await writeRowStatus(id, updates);
       await loadQueue();
     } catch (error) {
       logRpaObs({
@@ -361,10 +428,11 @@
         operation: "updateCubeRequest",
         status: "failed",
         category: "DatabaseWrite",
-        safeId: id,
+        safeId: parseQueueId(id).sourceRequestId,
         error: error
       });
       window.alert(formatRpaError(error, "Unable to update ERP status."));
+      await loadQueue();
     }
   }
 
@@ -375,7 +443,7 @@
 
     const nextStatus = rpaStatus(form) === "Disabled" ? "Ready for Bot" : "Disabled";
     try {
-      await firestore.updateCubeRequest(id, { rpaStatus: nextStatus });
+      await writeRowStatus(id, { rpaStatus: nextStatus });
       await loadQueue();
     } catch (error) {
       logRpaObs({
@@ -384,10 +452,11 @@
         operation: "updateCubeRequest",
         status: "failed",
         category: "DatabaseWrite",
-        safeId: id,
+        safeId: parseQueueId(id).sourceRequestId,
         error: error
       });
       window.alert(formatRpaError(error, "Unable to toggle disable status."));
+      await loadQueue();
     }
   }
 
@@ -411,13 +480,12 @@
     state.disablingAll = true;
     setDisableAllButtonState();
 
-    const results = await Promise.allSettled(
-      targets.map((form) => firestore.updateCubeRequest(form.id, { rpaStatus: "Disabled" }))
-    );
+    const results = await writeStatus(targets, { rpaStatus: "Disabled" });
 
     state.disablingAll = false;
 
     const failures = results.filter((result) => result.status === "rejected");
+    const failedForms = failures.reduce((count, result) => count + result.write.formCount, 0);
 
     if (failures.length) {
       logRpaObs({
@@ -429,7 +497,7 @@
         error: failures[0].reason
       });
       window.alert(
-        `${failures.length} of ${targets.length} forms could not be disabled. ` +
+        `${failedForms} of ${targets.length} forms could not be disabled. ` +
         formatRpaError(failures[0].reason, "Unable to disable every RPA form.")
       );
     }
@@ -487,6 +555,14 @@
     }
   }
 
+  // Set rows open the source request scoped to their set, using the same
+  // ?id=&setNo= convention as the staff dashboard's print links.
+  function viewUrl(id) {
+    const parsed = parseQueueId(id);
+    const setParam = parsed.setNo != null ? `&setNo=${encodeURIComponent(parsed.setNo)}` : "";
+    return `rpa-view.html?id=${encodeURIComponent(parsed.sourceRequestId)}${setParam}`;
+  }
+
   function bindElements() {
     [
       "authGate", "dashboardShell", "signInButton", "signOutButton", "authUser",
@@ -520,7 +596,7 @@
         return;
       }
 
-      window.location.href = `rpa-view.html?id=${encodeURIComponent(id)}`;
+      window.location.href = viewUrl(id);
     });
 
     elements.queueList.addEventListener("change", async function (event) {

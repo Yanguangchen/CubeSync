@@ -181,6 +181,7 @@
     "updatedAt",
     "erpStatus",
     "rpaStatus",
+    "rpaSets",
     "attemptCount"
   ]);
 
@@ -1788,6 +1789,184 @@
     });
   }
 
+  // --- Per-set RPA state ------------------------------------------------------
+  // A multi-set request is one Firestore document, but every set is its own ERP
+  // submission, so the RPA queue tracks each set's state in the `rpaSets` map:
+  // { "<setNo>": { rpaStatus, erpStatus } }. The document-level rpaStatus /
+  // erpStatus are rewritten as a roll-up of the sets (for metrics and
+  // notifications) and stay the source of truth for documents that have no
+  // `rpaSets` entries yet, such as requests queued before per-set tracking.
+  const RPA_STATUS_DEFAULT = "Ready for Bot";
+  const ERP_STATUS_DEFAULT = "Pending";
+  const RPA_STATE_FIELDS = ["rpaStatus", "erpStatus"];
+
+  // Keys are written as Firestore field-path segments (`rpaSets.<key>`), so keep
+  // them to characters that never need escaping.
+  function rpaSetKey(setNo) {
+    return normalizeSetNo(setNo).replace(/[^A-Za-z0-9_-]/g, "_") || "1";
+  }
+
+  function rpaSetEntries(record) {
+    const value = record && record.rpaSets;
+    return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  }
+
+  function hasRpaSetEntry(entries, key) {
+    const entry = entries[key];
+    return Boolean(entry) && typeof entry === "object" && !Array.isArray(entry);
+  }
+
+  function rpaStateFromFields(source) {
+    const fields = source && typeof source === "object" ? source : {};
+    return {
+      rpaStatus: normalizeText(fields.rpaStatus) || RPA_STATUS_DEFAULT,
+      erpStatus: normalizeText(fields.erpStatus) || ERP_STATUS_DEFAULT
+    };
+  }
+
+  // Effective RPA state of one set. Without per-set entries every set inherits
+  // the document-level state; once any set has an entry, a set without one was
+  // added later and starts fresh.
+  function rpaStateForSet(record, setNo) {
+    const entries = rpaSetEntries(record);
+    if (setNo == null || setNo === "" || !Object.keys(entries).length) {
+      return rpaStateFromFields(record);
+    }
+    return rpaStateFromFields(entries[rpaSetKey(setNo)]);
+  }
+
+  // Request-level summary of the set states. Disabled sets are ignored unless
+  // every set is disabled; a request is only Submitted/Success once every
+  // active set is, and In Progress/Processing while some are done or running.
+  function rollUpRpaStates(states) {
+    const list = (Array.isArray(states) ? states : []).map(rpaStateFromFields);
+    if (!list.length) {
+      return rpaStateFromFields(null);
+    }
+
+    const active = list.filter(function (state) {
+      return state.rpaStatus !== "Disabled";
+    });
+    const pool = active.length ? active : list;
+    const some = function (field, values) {
+      return pool.some(function (state) { return values.includes(state[field]); });
+    };
+    const every = function (field, value) {
+      return pool.every(function (state) { return state[field] === value; });
+    };
+
+    let rpaStatus = RPA_STATUS_DEFAULT;
+    if (!active.length) {
+      rpaStatus = "Disabled";
+    } else if (some("rpaStatus", ["Failed"])) {
+      rpaStatus = "Failed";
+    } else if (every("rpaStatus", "Submitted to ERP")) {
+      rpaStatus = "Submitted to ERP";
+    } else if (some("rpaStatus", ["In Progress", "Submitted to ERP"])) {
+      rpaStatus = "In Progress";
+    }
+
+    let erpStatus = ERP_STATUS_DEFAULT;
+    if (some("erpStatus", ["Error"])) {
+      erpStatus = "Error";
+    } else if (every("erpStatus", "Success")) {
+      erpStatus = "Success";
+    } else if (some("erpStatus", ["Processing", "Success"])) {
+      erpStatus = "Processing";
+    }
+
+    return { rpaStatus: rpaStatus, erpStatus: erpStatus };
+  }
+
+  // Firestore update applying `changesBySet` ({ "<setNo>": { rpaStatus?,
+  // erpStatus? } }) to one request. Changed sets are written field by field;
+  // other sets without an entry yet are written with their current state, so
+  // the first per-set write on an older request keeps its siblings as they
+  // were. The document-level fields are rewritten as the roll-up of every set.
+  function buildRpaSetStatusUpdate(record, changesBySet) {
+    const source = record && typeof record === "object" ? record : {};
+    const entries = rpaSetEntries(source);
+    const changes = {};
+    Object.keys(changesBySet || {}).forEach(function (setNo) {
+      const picked = {};
+      RPA_STATE_FIELDS.forEach(function (field) {
+        const value = normalizeText(changesBySet[setNo] && changesBySet[setNo][field]);
+        if (value) {
+          picked[field] = value;
+        }
+      });
+      changes[rpaSetKey(setNo)] = picked;
+    });
+
+    const setNos = groupResultRowsBySet(source.results).map(function (group) {
+      return group.setNo;
+    });
+    const update = {};
+    const states = [];
+    const seen = new Set();
+
+    setNos.concat(Object.keys(changes)).forEach(function (setNo) {
+      const key = rpaSetKey(setNo);
+      if (seen.has(key)) {
+        return;
+      }
+      seen.add(key);
+
+      const current = rpaStateForSet(source, setNo);
+      const change = changes[key];
+      const next = change ? Object.assign({}, current, change) : current;
+      states.push(next);
+
+      if (!hasRpaSetEntry(entries, key)) {
+        update[`rpaSets.${key}`] = next;
+      } else if (change) {
+        Object.keys(change).forEach(function (field) {
+          update[`rpaSets.${key}.${field}`] = next[field];
+        });
+      }
+    });
+
+    return Object.assign(update, rollUpRpaStates(states));
+  }
+
+  // Apply a buildRpaSetStatusUpdate() result to an in-memory record, mirroring
+  // how Firestore resolves the dotted `rpaSets.<key>[.<field>]` paths.
+  function applyRpaSetStatusUpdate(record, update) {
+    const next = Object.assign({}, record && typeof record === "object" ? record : {});
+    const sets = Object.assign({}, rpaSetEntries(next));
+    let touchedSets = false;
+    Object.keys(update || {}).forEach(function (path) {
+      const parts = path.split(".");
+      if (parts[0] !== "rpaSets") {
+        next[path] = update[path];
+        return;
+      }
+      touchedSets = true;
+      if (parts.length === 2) {
+        sets[parts[1]] = Object.assign({}, update[path]);
+      } else if (parts.length === 3) {
+        sets[parts[1]] = Object.assign({}, sets[parts[1]], { [parts[2]]: update[path] });
+      }
+    });
+    if (touchedSets) {
+      next.rpaSets = sets;
+    }
+    return next;
+  }
+
+  // RPA queue rows: one per set (like the staff dashboard), with each set row's
+  // raw rpaStatus / erpStatus replaced by that set's own state so the queue,
+  // the view, and the CSV export all read the per-set value.
+  function expandCubeRequestForRpa(data, id) {
+    const record = data && typeof data === "object" ? data : {};
+    return expandCubeRequestForDashboard(record, id).map(function (form) {
+      if (parseDashboardFormId(form.id).setNo != null) {
+        Object.assign(form.raw, rpaStateForSet(record, form.setNo));
+      }
+      return form;
+    });
+  }
+
   function normalizeCubeRequestForDashboard(data, id) {
     const customFields = normalizeCustomFields(data.customFields);
 
@@ -2328,6 +2507,12 @@
     reconstructCubeRequestFromDashboardForms,
     mergeResultSetIntoDocument,
     expandCubeRequestForDashboard,
+    rpaSetKey,
+    rpaStateForSet,
+    rollUpRpaStates,
+    buildRpaSetStatusUpdate,
+    applyRpaSetStatusUpdate,
+    expandCubeRequestForRpa,
     CUBE_REQUEST_UPDATE_FIELDS,
     sanitizeCubeRequestUpdatePayload,
     buildCubeRequestUpdatePatch,
