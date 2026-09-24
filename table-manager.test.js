@@ -413,3 +413,61 @@ test("clearResultRows resets result inputs to their defaults and keeps rows", ()
 test("clearResultRows tolerates a missing table body", () => {
   assert.doesNotThrow(() => tableManager.clearResultRows(null));
 });
+
+function changeValue(input, value) {
+  input.value = value;
+  input.dispatchEvent(new global.window.Event("input", { bubbles: true }));
+  input.dispatchEvent(new global.window.Event("change", { bubbles: true }));
+}
+
+test("changing the request date of cast after clearing results recalculates date of test", () => {
+  makeFormDom(`
+    <input type="date" name="dateOfCast">
+    <table><tbody>${resultRowHtml(1)}</tbody></table>
+  `);
+  const form = global.document.getElementById("cubeRequestForm");
+  const tableBody = global.document.querySelector("tbody");
+  const row = tableBody.querySelector("tr");
+  tableManager.attachRowListeners(row, tableBody, () => {});
+  tableManager.bindRequestDateOfCast(form, tableBody);
+
+  changeValue(form.elements.dateOfCast, "2026-09-01");
+  changeValue(row.querySelector('[name^="age"]'), "3");
+  assert.equal(row.querySelector('[name^="dateOfTest"]').value, "2026-09-04");
+
+  // Next form: clear the results, enter the age, then pick the new cast date.
+  tableManager.clearResultRows(tableBody);
+  changeValue(row.querySelector('[name^="age"]'), "3");
+  changeValue(form.elements.dateOfCast, "2026-09-13");
+
+  assert.equal(row.querySelector('[name^="resultDateOfCast"]').value, "2026-09-13");
+  assert.equal(row.querySelector('[name^="dateOfTest"]').value, "2026-09-16");
+});
+
+test("changing the request date of cast moves rows that followed it", () => {
+  makeFormDom(`
+    <input type="date" name="dateOfCast" value="2026-09-01">
+    <table><tbody>${resultRowHtml(1)}${resultRowHtml(2)}</tbody></table>
+  `);
+  const form = global.document.getElementById("cubeRequestForm");
+  const tableBody = global.document.querySelector("tbody");
+  const [followRow, ownRow] = Array.from(tableBody.querySelectorAll("tr"));
+  // Loaded rows (e.g. a saved form) carry the request cast date on the row.
+  followRow.querySelector('[name^="resultDateOfCast"]').value = "2026-09-01";
+  followRow.querySelector('[name^="age"]').value = "7";
+  followRow.querySelector('[name^="dateOfTest"]').value = "2026-09-08";
+  [followRow, ownRow].forEach((row) => tableManager.attachRowListeners(row, tableBody, () => {}));
+  tableManager.bindRequestDateOfCast(form, tableBody);
+
+  // A row with its own cast date keeps it when the request date changes.
+  changeValue(ownRow.querySelector('[name^="resultDateOfCast"]'), "2026-08-30");
+  changeValue(ownRow.querySelector('[name^="age"]'), "28");
+
+  form.elements.dateOfCast.dispatchEvent(new global.window.Event("focus"));
+  changeValue(form.elements.dateOfCast, "2026-09-13");
+
+  assert.equal(followRow.querySelector('[name^="resultDateOfCast"]').value, "2026-09-13");
+  assert.equal(followRow.querySelector('[name^="dateOfTest"]').value, "2026-09-20");
+  assert.equal(ownRow.querySelector('[name^="resultDateOfCast"]').value, "2026-08-30");
+  assert.equal(ownRow.querySelector('[name^="dateOfTest"]').value, "2026-09-27");
+});
