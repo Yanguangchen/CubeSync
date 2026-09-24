@@ -207,13 +207,28 @@
     if (!dateOfCast || dateOfCast.dataset.cubesyncResultSyncBound === "true") return;
     dateOfCast.dataset.cubesyncResultSyncBound = "true";
 
+    // Row cast dates are copied from the request date, so a row still showing
+    // the previous request date (or none) follows it to the new date. A row
+    // given its own cast date keeps it. The previous value is re-read on focus
+    // because loading a saved form sets the request date without events.
+    let previousCast = dateOfCast.value;
+
     function syncRows() {
+      const nextCast = dateOfCast.value;
       Array.from(tableBody.querySelectorAll("tr")).forEach(function (row) {
+        const cast = row.querySelector('[name^="resultDateOfCast"]');
+        if (nextCast && cast && (!cast.value || cast.value === previousCast)) {
+          cast.value = nextCast;
+        }
         computeRowDateOfTest(row, form);
       });
       assignSetNumbersByAge(tableBody);
+      if (nextCast) previousCast = nextCast;
     }
 
+    dateOfCast.addEventListener("focus", function () {
+      previousCast = dateOfCast.value;
+    });
     dateOfCast.addEventListener("change", syncRows);
     dateOfCast.addEventListener("input", syncRows);
   }

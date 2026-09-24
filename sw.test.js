@@ -286,6 +286,10 @@ describe("sw.js", () => {
     assert.doesNotMatch(swContent, /CACHE_NAME = "cubesync-v24"/);
   });
 
+  test("date-of-cast follow-up release invalidates the cubesync-v25 app shell", () => {
+    assert.doesNotMatch(swContent, /CACHE_NAME = "cubesync-v25"/);
+  });
+
   test("APP_SHELL includes shared CSS files so they are invalidated on version bump", () => {
     assert.ok(swContent.includes("./css/shared/tokens-rakmat-base.css"), "tokens-rakmat-base.css must be precached");
     assert.ok(swContent.includes("./css/shared/barcode.css"), "barcode.css must be precached");
