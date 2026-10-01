@@ -224,6 +224,10 @@
       renumberRows();
     }
     renderAll(Array.from(document.querySelectorAll("[data-barcode-input]")));
+    if (window.CubeSyncTableManager &&
+      typeof window.CubeSyncTableManager.refreshBarcodePlaceholders === "function") {
+      window.CubeSyncTableManager.refreshBarcodePlaceholders(tableBody);
+    }
   }
 
   function populateForm(form, data, tableBody, addRow, renumberRows) {

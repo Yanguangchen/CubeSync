@@ -471,3 +471,241 @@ test("changing the request date of cast moves rows that followed it", () => {
   assert.equal(ownRow.querySelector('[name^="resultDateOfCast"]').value, "2026-08-30");
   assert.equal(ownRow.querySelector('[name^="dateOfTest"]').value, "2026-09-27");
 });
+
+function resultTable(rowCount, renderBarcode = () => {}) {
+  const markup = require("./cubesync-form-markup.js");
+  makeDom("");
+  global.window.CubeSyncFormMarkup = markup;
+  const tableBody = global.document.querySelector("tbody");
+  markup.seedResultRows(tableBody, rowCount);
+  Array.from(tableBody.querySelectorAll("tr")).forEach((row) => {
+    tableManager.attachRowListeners(row, tableBody, renderBarcode);
+  });
+  return tableBody;
+}
+
+function fieldInputs(tableBody, field) {
+  return Array.from(tableBody.querySelectorAll(`[name^="${field}"]`));
+}
+
+function fieldValues(tableBody, field) {
+  return fieldInputs(tableBody, field).map((input) => input.value);
+}
+
+// Type one character at a time, firing input like a keyboard would.
+function typeInto(input, text) {
+  input.focus();
+  for (const character of text) {
+    input.value += character;
+    input.dispatchEvent(new global.window.Event("input", { bubbles: true }));
+  }
+}
+
+// Replace the whole value in one input event, like select-all then paste.
+function replaceValue(input, value) {
+  input.focus();
+  input.value = value;
+  input.dispatchEvent(new global.window.Event("input", { bubbles: true }));
+}
+
+test("nextSpecimenRef counts on from the trailing number and keeps zero padding", () => {
+  assert.equal(tableManager.nextSpecimenRef("CUBE-01"), "CUBE-02");
+  assert.equal(tableManager.nextSpecimenRef("CUBE-09"), "CUBE-10");
+  assert.equal(tableManager.nextSpecimenRef("CUBE-99"), "CUBE-100");
+  assert.equal(tableManager.nextSpecimenRef("TT-1"), "TT-2");
+  assert.equal(tableManager.nextSpecimenRef("ABC007"), "ABC008");
+  assert.equal(tableManager.nextSpecimenRef(" TT-01 "), "TT-02");
+  assert.equal(tableManager.nextSpecimenRef("12"), "13");
+  assert.equal(tableManager.nextSpecimenRef("CUBE"), "");
+  assert.equal(tableManager.nextSpecimenRef(""), "");
+  assert.equal(tableManager.nextSpecimenRef(null), "");
+});
+
+test("barcodePrefix returns the project code before the running number", () => {
+  assert.equal(tableManager.barcodePrefix("PYY-0002/00166"), "PYY-0002/");
+  assert.equal(tableManager.barcodePrefix("ABC12345"), "ABC");
+  assert.equal(tableManager.barcodePrefix("PYY-0002/"), "");
+  assert.equal(tableManager.barcodePrefix("00166"), "");
+  assert.equal(tableManager.barcodePrefix(""), "");
+});
+
+test("typing the first specimen ref numbers the rows below it", () => {
+  const tableBody = resultTable(4);
+
+  typeInto(fieldInputs(tableBody, "specimenRef")[0], "CUBE-01");
+
+  assert.deepEqual(fieldValues(tableBody, "specimenRef"), ["CUBE-01", "CUBE-02", "CUBE-03", "CUBE-04"]);
+});
+
+test("a hand-typed specimen ref is kept and the rows below count on from it", () => {
+  const tableBody = resultTable(4);
+  const refs = fieldInputs(tableBody, "specimenRef");
+  typeInto(refs[0], "CUBE-01");
+
+  replaceValue(refs[2], "SPEC-10");
+  assert.deepEqual(fieldValues(tableBody, "specimenRef"), ["CUBE-01", "CUBE-02", "SPEC-10", "SPEC-11"]);
+
+  replaceValue(refs[0], "TT-01");
+  assert.deepEqual(fieldValues(tableBody, "specimenRef"), ["TT-01", "TT-02", "SPEC-10", "SPEC-11"]);
+});
+
+test("clearing the first specimen ref clears the refs that followed it", () => {
+  const tableBody = resultTable(3);
+  const refs = fieldInputs(tableBody, "specimenRef");
+  typeInto(refs[0], "CUBE-01");
+
+  replaceValue(refs[0], "");
+
+  assert.deepEqual(fieldValues(tableBody, "specimenRef"), ["", "", ""]);
+});
+
+test("specimen refs loaded without events follow an edit to the first ref", () => {
+  const tableBody = resultTable(3);
+  const refs = fieldInputs(tableBody, "specimenRef");
+  ["A-1", "A-2", "A-3"].forEach((value, index) => {
+    refs[index].value = value;
+  });
+
+  replaceValue(refs[0], "B-1");
+
+  assert.deepEqual(fieldValues(tableBody, "specimenRef"), ["B-1", "B-2", "B-3"]);
+});
+
+test("addResultRow continues the specimen ref of the row above", () => {
+  const tableBody = resultTable(1);
+  typeInto(fieldInputs(tableBody, "specimenRef")[0], "CUBE-07");
+
+  tableManager.addResultRow(tableBody, { elements: {} }, () => {});
+
+  assert.deepEqual(fieldValues(tableBody, "specimenRef"), ["CUBE-07", "CUBE-08"]);
+
+  // The new row follows later edits to the row above as well.
+  replaceValue(fieldInputs(tableBody, "specimenRef")[0], "CUBE-20");
+  assert.deepEqual(fieldValues(tableBody, "specimenRef"), ["CUBE-20", "CUBE-21"]);
+});
+
+test("addResultRow leaves the specimen ref blank when the row above has no number", () => {
+  const tableBody = resultTable(1);
+  typeInto(fieldInputs(tableBody, "specimenRef")[0], "CUBE");
+
+  tableManager.addResultRow(tableBody, { elements: {} }, () => {});
+
+  assert.deepEqual(fieldValues(tableBody, "specimenRef"), ["CUBE", ""]);
+});
+
+test("focusing an empty barcode fills in the project code of the barcode above", async () => {
+  const tableBody = resultTable(3);
+  const barcodes = fieldInputs(tableBody, "barcode");
+  typeInto(barcodes[0], "PYY-0002/00166");
+
+  barcodes[1].focus();
+  assert.equal(barcodes[1].value, "PYY-0002/");
+  assert.equal(barcodes[1].selectionStart, "PYY-0002/".length);
+
+  // Clicking or tabbing in may move the caret after focus; it is put back.
+  barcodes[1].setSelectionRange(0, barcodes[1].value.length);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(barcodes[1].selectionStart, "PYY-0002/".length);
+  assert.equal(barcodes[1].selectionEnd, "PYY-0002/".length);
+
+  typeInto(barcodes[1], "00165");
+  barcodes[1].blur();
+  assert.equal(barcodes[1].value, "PYY-0002/00165");
+
+  // A row further down takes the code from the nearest barcode above it.
+  barcodes[2].focus();
+  assert.equal(barcodes[2].value, "PYY-0002/");
+});
+
+test("leaving a barcode without typing a running number empties it again", () => {
+  const rendered = [];
+  const tableBody = resultTable(2, (input) => rendered.push(input.value));
+  const barcodes = fieldInputs(tableBody, "barcode");
+  typeInto(barcodes[0], "PYY-0002/00166");
+  rendered.length = 0;
+
+  barcodes[1].focus();
+  barcodes[1].blur();
+
+  assert.equal(barcodes[1].value, "");
+  assert.deepEqual(rendered, [""]);
+});
+
+test("focusing a barcode leaves it alone without a project code above or when it has a value", () => {
+  const tableBody = resultTable(3);
+  const barcodes = fieldInputs(tableBody, "barcode");
+
+  barcodes[0].focus();
+  assert.equal(barcodes[0].value, "");
+  barcodes[1].focus();
+  assert.equal(barcodes[1].value, "", "no barcode above yet");
+
+  typeInto(barcodes[0], "00166");
+  barcodes[1].focus();
+  assert.equal(barcodes[1].value, "", "the barcode above has no project code");
+
+  replaceValue(barcodes[0], "PYY-0002/00166");
+  barcodes[2].value = "XYZ-1/00001";
+  barcodes[2].focus();
+  assert.equal(barcodes[2].value, "XYZ-1/00001");
+
+  barcodes[1].readOnly = true;
+  barcodes[1].focus();
+  assert.equal(barcodes[1].value, "");
+});
+
+test("typing or scanning the whole barcode after the filled-in code keeps one copy", () => {
+  const tableBody = resultTable(3);
+  const barcodes = fieldInputs(tableBody, "barcode");
+  typeInto(barcodes[0], "PYY-0002/00166");
+
+  typeInto(barcodes[1], "PYY-0002/00165");
+  assert.equal(barcodes[1].value, "PYY-0002/00165");
+
+  barcodes[2].focus();
+  barcodes[2].value += "PYY-0002/00164";
+  barcodes[2].dispatchEvent(new global.window.Event("input", { bubbles: true }));
+  assert.equal(barcodes[2].value, "PYY-0002/00164");
+});
+
+test("empty barcodes show the carried project code as their placeholder", () => {
+  const tableBody = resultTable(3);
+  const barcodes = fieldInputs(tableBody, "barcode");
+  const placeholders = () => barcodes.map((input) => input.getAttribute("placeholder"));
+
+  typeInto(barcodes[0], "PYY-0002/00166");
+  assert.deepEqual(placeholders(), ["Enter barcode text", "PYY-0002/", "PYY-0002/"]);
+
+  tableManager.addResultRow(tableBody, { elements: {} }, () => {});
+  assert.equal(fieldInputs(tableBody, "barcode")[3].getAttribute("placeholder"), "PYY-0002/");
+
+  tableManager.clearResultRows(tableBody);
+  assert.deepEqual(placeholders(), ["Enter barcode text", "Enter barcode text", "Enter barcode text"]);
+});
+
+test("removing a row refreshes the carried barcode placeholders", () => {
+  const tableBody = resultTable(3);
+  typeInto(fieldInputs(tableBody, "barcode")[0], "PYY-0002/00166");
+
+  tableBody.querySelector("tr .remove-row-btn").dispatchEvent(
+    new global.window.Event("click", { bubbles: true })
+  );
+
+  assert.deepEqual(
+    fieldInputs(tableBody, "barcode").map((input) => input.getAttribute("placeholder")),
+    ["Enter barcode text", "Enter barcode text"]
+  );
+});
+
+test("clicking into a barcode with only the filled-in code puts the caret after it", () => {
+  const tableBody = resultTable(2);
+  const barcodes = fieldInputs(tableBody, "barcode");
+  typeInto(barcodes[0], "PYY-0002/00166");
+
+  barcodes[1].focus();
+  // The mouse release puts the caret where the click landed.
+  barcodes[1].setSelectionRange(0, 0);
+  barcodes[1].dispatchEvent(new global.window.MouseEvent("click", { bubbles: true }));
+
+  assert.equal(barcodes[1].selectionStart, "PYY-0002/".length);
+});

@@ -15,6 +15,7 @@ Digital concrete cube test request forms, staff dashboard, and RPA queue for R.A
 | Dashboard sort & filter | [documentation/dashboard-sort-and-filter.md](documentation/dashboard-sort-and-filter.md) |
 | Dashboard UX animations | [documentation/dashboard-ux-animations.md](documentation/dashboard-ux-animations.md) |
 | Form submission throbber | [documentation/form-submission-throbber.md](documentation/form-submission-throbber.md) |
+| Test result row auto-fill | [documentation/result-row-autofill.md](documentation/result-row-autofill.md) |
 | Print layout | [documentation/print-layout.md](documentation/print-layout.md) |
 | Observability | [documentation/observability.md](documentation/observability.md) |
 | Test item lock | [documentation/test-item-lock.md](documentation/test-item-lock.md) |
