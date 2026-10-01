@@ -15,6 +15,43 @@
     resultDateOfCast: "dateOfCast"
   };
 
+  const SPECIMEN_REF_SELECTOR = '[name^="specimenRef"]';
+  const BARCODE_SELECTOR = "[data-barcode-input]";
+
+  // Split a value into its leading text and trailing running number:
+  // "CUBE-01" -> { prefix: "CUBE-", digits: "01" }. Null without a number.
+  function splitRunningNumber(value) {
+    const match = /^(.*?)(\d+)$/.exec(String(value == null ? "" : value).trim());
+    return match ? { prefix: match[1], digits: match[2] } : null;
+  }
+
+  // Add one to a digit string, keeping its zero padding ("09" -> "10").
+  function incrementDigits(digits) {
+    const chars = digits.split("");
+    for (let index = chars.length - 1; index >= 0; index -= 1) {
+      if (chars[index] !== "9") {
+        chars[index] = String(Number(chars[index]) + 1);
+        return chars.join("");
+      }
+      chars[index] = "0";
+    }
+    return "1" + chars.join("");
+  }
+
+  // The specimen ref that follows `value`: "CUBE-01" -> "CUBE-02". Empty when
+  // the ref has no trailing number to count on from.
+  function nextSpecimenRef(value) {
+    const parts = splitRunningNumber(value);
+    return parts ? parts.prefix + incrementDigits(parts.digits) : "";
+  }
+
+  // The project code in front of a barcode's running number:
+  // "PYY-0002/00166" -> "PYY-0002/". Empty when there is no such code.
+  function barcodePrefix(value) {
+    const parts = splitRunningNumber(value);
+    return parts ? parts.prefix : "";
+  }
+
   function parseIsoDateParts(value) {
     const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || "").trim());
     if (!match) return null;
@@ -134,6 +171,122 @@
     });
   }
 
+  // After the specimen ref in `fromRow` changes from `previousValue`, carry the
+  // count down the table: each following ref that is blank or still continues
+  // the sequence of the ref above it is renumbered from the new value. The
+  // first ref typed by hand stops the chain, so it and the rows below keep
+  // their refs.
+  function followSpecimenRefs(tableBody, fromRow, previousValue) {
+    if (!tableBody || !fromRow) return;
+    const rows = Array.from(tableBody.querySelectorAll("tr"));
+    const start = rows.indexOf(fromRow);
+    const source = fromRow.querySelector(SPECIMEN_REF_SELECTOR);
+    if (start < 0 || !source) return;
+
+    let oldAbove = previousValue == null ? "" : String(previousValue);
+    let newAbove = source.value;
+    for (let index = start + 1; index < rows.length && oldAbove !== newAbove; index += 1) {
+      const input = rows[index].querySelector(SPECIMEN_REF_SELECTOR);
+      if (!input) return;
+      const current = input.value;
+      if (current && current !== nextSpecimenRef(oldAbove)) return;
+      input.value = nextSpecimenRef(newAbove);
+      oldAbove = current;
+      newAbove = input.value;
+    }
+  }
+
+  function continueSpecimenRef(row) {
+    const input = row.querySelector(SPECIMEN_REF_SELECTOR);
+    const above = row.previousElementSibling &&
+      row.previousElementSibling.querySelector(SPECIMEN_REF_SELECTOR);
+    if (input && above && !input.value) {
+      input.value = nextSpecimenRef(above.value);
+    }
+  }
+
+  // The project code of the nearest barcode above `row`, if any.
+  function findCarriedBarcodePrefix(tableBody, row) {
+    const rows = Array.from(tableBody.querySelectorAll("tr"));
+    for (let index = rows.indexOf(row) - 1; index >= 0; index -= 1) {
+      const input = rows[index].querySelector(BARCODE_SELECTOR);
+      const prefix = input ? barcodePrefix(input.value) : "";
+      if (prefix) return prefix;
+    }
+    return "";
+  }
+
+  // Show the project code an empty barcode will be given as its placeholder,
+  // falling back to the input's own placeholder when no barcode above has one.
+  function refreshBarcodePlaceholders(tableBody) {
+    if (!tableBody) return;
+    let carried = "";
+    Array.from(tableBody.querySelectorAll("tr")).forEach(function (row) {
+      const input = row.querySelector(BARCODE_SELECTOR);
+      if (!input) return;
+      if (input.dataset.defaultPlaceholder === undefined) {
+        input.dataset.defaultPlaceholder = input.getAttribute("placeholder") || "";
+      }
+      const placeholder = carried || input.dataset.defaultPlaceholder;
+      if (placeholder) {
+        input.setAttribute("placeholder", placeholder);
+      } else {
+        input.removeAttribute("placeholder");
+      }
+      carried = barcodePrefix(input.value) || carried;
+    });
+  }
+
+  function placeCaretAtEnd(input) {
+    if (typeof input.setSelectionRange === "function") {
+      input.setSelectionRange(input.value.length, input.value.length);
+    }
+  }
+
+  // Barcodes in one request share a project code ("PYY-0002/") and differ only
+  // in the running number. Focusing an empty barcode fills in the code from
+  // the barcode above, so only the running number has to be typed; leaving it
+  // without typing anything empties it again, so unused rows never save a
+  // bare project code.
+  function attachBarcodePrefixListeners(input, row, tableBody, renderBarcodeCb) {
+    input.addEventListener("focus", function () {
+      if (input.value || input.readOnly || input.disabled) return;
+      const prefix = findCarriedBarcodePrefix(tableBody, row);
+      if (!prefix) return;
+      input.value = prefix;
+      input.dataset.carriedBarcodePrefix = prefix;
+      placeCaretAtEnd(input);
+      // Tab can still select all the text once this handler returns, so put
+      // the caret back at the end.
+      setTimeout(function () {
+        if (input.ownerDocument.activeElement === input && input.value === prefix) {
+          placeCaretAtEnd(input);
+        }
+      }, 0);
+    });
+
+    // A click places the caret where it lands when the mouse is released,
+    // which could be in front of the project code.
+    input.addEventListener("click", function () {
+      const prefix = input.dataset.carriedBarcodePrefix;
+      if (prefix && input.value === prefix) {
+        placeCaretAtEnd(input);
+      }
+    });
+
+    input.addEventListener("blur", function () {
+      const prefix = input.dataset.carriedBarcodePrefix;
+      if (!prefix) return;
+      delete input.dataset.carriedBarcodePrefix;
+      if (input.value === prefix) {
+        input.value = "";
+        if (typeof renderBarcodeCb === "function") {
+          renderBarcodeCb(input);
+        }
+      }
+    });
+  }
+
   function renumberRows(tableBody) {
     if (!tableBody) return;
     const rows = tableBody.querySelectorAll("tr");
@@ -153,12 +306,33 @@
   }
 
   function attachRowListeners(row, tableBody, renderBarcodeCb) {
-    const newInput = row.querySelector("[data-barcode-input]");
+    const newInput = row.querySelector(BARCODE_SELECTOR);
     if (newInput) {
       newInput.addEventListener("input", function () {
+        // Typing or scanning the whole barcode after the filled-in project
+        // code would repeat the code; keep one copy.
+        const carried = newInput.dataset.carriedBarcodePrefix;
+        if (carried && newInput.value.indexOf(carried + carried) === 0) {
+          newInput.value = newInput.value.slice(carried.length);
+        }
         if (typeof renderBarcodeCb === "function") {
           renderBarcodeCb(newInput);
         }
+        refreshBarcodePlaceholders(tableBody);
+      });
+      attachBarcodePrefixListeners(newInput, row, tableBody, renderBarcodeCb);
+    }
+
+    const specimenRef = row.querySelector(SPECIMEN_REF_SELECTOR);
+    if (specimenRef) {
+      // Re-read on focus because loading a saved form sets refs without events.
+      let previousRef = specimenRef.value;
+      specimenRef.addEventListener("focus", function () {
+        previousRef = specimenRef.value;
+      });
+      specimenRef.addEventListener("input", function () {
+        followSpecimenRefs(tableBody, row, previousRef);
+        previousRef = specimenRef.value;
       });
     }
 
@@ -180,6 +354,7 @@
         row.remove();
         renumberRows(tableBody);
         assignSetNumbersByAge(tableBody);
+        refreshBarcodePlaceholders(tableBody);
       });
     }
   }
@@ -199,6 +374,7 @@
         input.value = input.defaultValue;
       }
     });
+    refreshBarcodePlaceholders(tableBody);
   }
 
   function bindRequestDateOfCast(form, tableBody) {
@@ -246,10 +422,12 @@
     });
     tableBody.appendChild(newRow);
     prefillRowFromRequest(newRow, form);
+    continueSpecimenRef(newRow);
     computeRowDateOfTest(newRow, form);
     attachRowListeners(newRow, tableBody, renderBarcodeCb);
     assignSetNumbersByAge(tableBody);
-    
+    refreshBarcodePlaceholders(tableBody);
+
     if (typeof onRowAdded === "function") {
       onRowAdded(newRow);
     }
@@ -258,6 +436,10 @@
   return {
     computeRowDateOfTest: computeRowDateOfTest,
     assignSetNumbersByAge: assignSetNumbersByAge,
+    nextSpecimenRef: nextSpecimenRef,
+    barcodePrefix: barcodePrefix,
+    followSpecimenRefs: followSpecimenRefs,
+    refreshBarcodePlaceholders: refreshBarcodePlaceholders,
     bindRequestDateOfCast: bindRequestDateOfCast,
     prefillRowFromRequest: prefillRowFromRequest,
     renumberRows: renumberRows,
