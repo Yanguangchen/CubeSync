@@ -4,7 +4,7 @@ Two helpers in the TEST RESULTS table save customers from retyping the same text
 
 ## Specimen Ref # counts on
 
-A specimen ref is the **specimen reference**, a `-`, then the **sequence**. The sequence is a number (`1, 2, 3`) or a single letter (`A, B, C`); the reference in front can be letters, digits or both. Typing a ref with a sequence fills the rows below by stepping the sequence and keeping the reference:
+A specimen ref is the **specimen reference**, a `-`, then the **sequence**. The sequence is a number (`1, 2, 3`), a single letter (`A, B, C`), or a number followed by a single letter (`001A, 001B, 001C`); the reference in front can be letters, digits or both. Typing a ref with a sequence fills the rows below by stepping the sequence and keeping the reference:
 
 | Row 1 typed | Rows below |
 |-------------|------------|
@@ -14,9 +14,11 @@ A specimen ref is the **specimen reference**, a `-`, then the **sequence**. The 
 | `CUBE-A` | `CUBE-B`, `CUBE-C`, `CUBE-D`, … |
 | `123-A` | `123-B`, `123-C`, … |
 | `PYY-0002-1` | `PYY-0002-2`, `PYY-0002-3`, … |
+| `20261002-001A` | `20261002-001B`, `20261002-001C`, … |
 
 - The sequence is whatever follows the **last** `-`, so a reference may contain dashes itself (`PYY-0002-1`).
 - Numbers keep their zero padding (`CUBE-09` → `CUBE-10`, `123-001` → `123-002`). Letters keep their case and stop at `Z`: the row after `CUBE-Z` is left blank.
+- In a number followed by a letter, the number stays fixed and only the letter steps (`20261002-001A` → `20261002-001B`). After `001Z` the row is left blank; the number is not moved on to `002`. A letter before the number (`A001`), two letters (`001AB`) or a digit after the letter (`001A2`) is not a sequence.
 - A ref with no `-` sequence is a reference on its own and is never counted, so typing the numeric reference `123` does not fill `124`, `125` below; the rows fill once `-1` is typed. A word after the dash (`TT-TOP`) is not a sequence either.
 - Any ref can be overwritten by hand, including switching row 1 between numbers and letters (`123-1` → `123-A`); the rows that were following it switch too.
 - **+ Add New Set** gives the new row the next ref after the row above it.

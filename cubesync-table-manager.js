@@ -39,19 +39,23 @@
   }
 
   // A specimen ref is the specimen reference, a "-", then its sequence: a
-  // number or a single letter ("CUBE-01", "123-1", "CUBE-A"). The next ref
-  // steps the sequence after the last "-" ("CUBE-02", "123-2", "CUBE-B"),
-  // keeping a number's zero padding and a letter's case; letters stop at Z.
-  // Empty without a sequence, so a reference on its own ("123", "CUBE") is
-  // never counted.
+  // number, a single letter, or a number followed by a single letter
+  // ("CUBE-01", "123-1", "CUBE-A", "20261002-001A"). The next ref steps the
+  // sequence after the last "-" ("CUBE-02", "123-2", "CUBE-B",
+  // "20261002-001B"): a number keeps its zero padding, a letter keeps its case
+  // and stops at Z, and a number in front of a letter stays as it is. Empty
+  // without a sequence, so a reference on its own ("123", "CUBE") is never
+  // counted.
   function nextSpecimenRef(value) {
-    const match = /^(.*-\s*)(\d+|[A-Za-z])$/.exec(String(value == null ? "" : value).trim());
+    const match = /^(.*-\s*)(?:(\d+)|(\d*)([A-Za-z]))$/.exec(String(value == null ? "" : value).trim());
     if (!match) return "";
     const reference = match[1];
-    const sequence = match[2];
-    if (/\d/.test(sequence)) return reference + incrementDigits(sequence);
-    if (sequence === "Z" || sequence === "z") return "";
-    return reference + String.fromCharCode(sequence.charCodeAt(0) + 1);
+    const number = match[2];
+    const fixedNumber = match[3];
+    const letter = match[4];
+    if (number) return reference + incrementDigits(number);
+    if (letter === "Z" || letter === "z") return "";
+    return reference + fixedNumber + String.fromCharCode(letter.charCodeAt(0) + 1);
   }
 
   // The project code in front of a barcode's running number:

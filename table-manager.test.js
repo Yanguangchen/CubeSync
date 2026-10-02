@@ -540,6 +540,22 @@ test("nextSpecimenRef steps a single-letter sequence after the dash", () => {
   assert.equal(tableManager.nextSpecimenRef("CUBE-A1"), "");
 });
 
+test("nextSpecimenRef steps the letter after a fixed number and keeps the number", () => {
+  assert.equal(tableManager.nextSpecimenRef("20261002-001A"), "20261002-001B");
+  assert.equal(tableManager.nextSpecimenRef("20261002-001b"), "20261002-001c");
+  assert.equal(tableManager.nextSpecimenRef("20261002-001Y"), "20261002-001Z");
+  assert.equal(tableManager.nextSpecimenRef("CUBE-01A"), "CUBE-01B");
+  assert.equal(tableManager.nextSpecimenRef("123-1A"), "123-1B");
+  assert.equal(tableManager.nextSpecimenRef("PYY-0002-12C"), "PYY-0002-12D");
+  // The letter stops at Z rather than moving the number on.
+  assert.equal(tableManager.nextSpecimenRef("20261002-001Z"), "");
+  // Only digits then one letter: a letter first, two letters or a trailing
+  // digit is not a sequence.
+  assert.equal(tableManager.nextSpecimenRef("20261002-A001"), "");
+  assert.equal(tableManager.nextSpecimenRef("20261002-001AB"), "");
+  assert.equal(tableManager.nextSpecimenRef("20261002-001A2"), "");
+});
+
 test("nextSpecimenRef does not count a reference without a dash sequence", () => {
   assert.equal(tableManager.nextSpecimenRef("123"), "");
   assert.equal(tableManager.nextSpecimenRef("ABC007"), "");
@@ -799,4 +815,17 @@ test("a numeric specimen reference can count by letters too", () => {
   replaceValue(refs[0], "123-A");
 
   assert.deepEqual(fieldValues(tableBody, "specimenRef"), ["123-A", "123-B", "123-C"]);
+});
+
+test("typing a dated ref with a lettered sequence fills the rows below alphabetically", () => {
+  const tableBody = resultTable(3);
+
+  typeInto(fieldInputs(tableBody, "specimenRef")[0], "20261002-001A");
+  assert.deepEqual(
+    fieldValues(tableBody, "specimenRef"),
+    ["20261002-001A", "20261002-001B", "20261002-001C"]
+  );
+
+  tableManager.addResultRow(tableBody, { elements: {} }, () => {});
+  assert.equal(fieldValues(tableBody, "specimenRef")[3], "20261002-001D");
 });
