@@ -38,15 +38,20 @@
     return "1" + chars.join("");
   }
 
-  // The specimen ref that follows `value`: "CUBE-01" -> "CUBE-02", or by the
-  // alphabet "CUBE-A" -> "CUBE-B". Only a single trailing letter counts (so a
-  // word like "CUBE" is not stepped to "CUBF") and the letters stop at Z.
-  // Empty when there is nothing to count on from.
+  // A specimen ref is the specimen reference, a "-", then its sequence: a
+  // number or a single letter ("CUBE-01", "123-1", "CUBE-A"). The next ref
+  // steps the sequence after the last "-" ("CUBE-02", "123-2", "CUBE-B"),
+  // keeping a number's zero padding and a letter's case; letters stop at Z.
+  // Empty without a sequence, so a reference on its own ("123", "CUBE") is
+  // never counted.
   function nextSpecimenRef(value) {
-    const parts = splitRunningNumber(value);
-    if (parts) return parts.prefix + incrementDigits(parts.digits);
-    const letter = /^(.*[^A-Za-z])?([A-Ya-y])$/.exec(String(value == null ? "" : value).trim());
-    return letter ? (letter[1] || "") + String.fromCharCode(letter[2].charCodeAt(0) + 1) : "";
+    const match = /^(.*-\s*)(\d+|[A-Za-z])$/.exec(String(value == null ? "" : value).trim());
+    if (!match) return "";
+    const reference = match[1];
+    const sequence = match[2];
+    if (/\d/.test(sequence)) return reference + incrementDigits(sequence);
+    if (sequence === "Z" || sequence === "z") return "";
+    return reference + String.fromCharCode(sequence.charCodeAt(0) + 1);
   }
 
   // The project code in front of a barcode's running number:
