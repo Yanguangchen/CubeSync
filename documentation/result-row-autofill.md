@@ -4,18 +4,24 @@ Two helpers in the TEST RESULTS table save customers from retyping the same text
 
 ## Specimen Ref # counts on
 
-Typing a ref that ends in a number fills the rows below it, counting up and keeping the zero padding:
+A specimen ref is the **specimen reference**, a `-`, then the **sequence**. The sequence is a number (`1, 2, 3`) or a single letter (`A, B, C`); the reference in front can be letters, digits or both. Typing a ref with a sequence fills the rows below by stepping the sequence and keeping the reference:
 
 | Row 1 typed | Rows below |
 |-------------|------------|
 | `CUBE-01` | `CUBE-02`, `CUBE-03`, `CUBE-04`, … |
 | `TT-9` | `TT-10`, `TT-11`, … |
-| `ABC007` | `ABC008`, `ABC009`, … |
+| `123-1` | `123-2`, `123-3`, … |
+| `CUBE-A` | `CUBE-B`, `CUBE-C`, `CUBE-D`, … |
+| `123-A` | `123-B`, `123-C`, … |
+| `PYY-0002-1` | `PYY-0002-2`, `PYY-0002-3`, … |
 
-- The name in front of the number can be anything; only the trailing digits are counted.
+- The sequence is whatever follows the **last** `-`, so a reference may contain dashes itself (`PYY-0002-1`).
+- Numbers keep their zero padding (`CUBE-09` → `CUBE-10`, `123-001` → `123-002`). Letters keep their case and stop at `Z`: the row after `CUBE-Z` is left blank.
+- A ref with no `-` sequence is a reference on its own and is never counted, so typing the numeric reference `123` does not fill `124`, `125` below; the rows fill once `-1` is typed. A word after the dash (`TT-TOP`) is not a sequence either.
+- Any ref can be overwritten by hand, including switching row 1 between numbers and letters (`123-1` → `123-A`); the rows that were following it switch too.
 - **+ Add New Set** gives the new row the next ref after the row above it.
 - Editing a ref renumbers the rows below that are blank or still continue its sequence. A ref typed by hand that breaks the sequence is kept, and the rows below it keep theirs.
-- Clearing a ref, or typing one with no trailing number, clears the rows that followed it.
+- Clearing a ref, or typing one with no sequence, clears the rows that followed it.
 - Removing a row does not renumber the others, so the refs already given to physical cubes stay put.
 
 ## Barcode carries the project code
@@ -33,6 +39,6 @@ Barcodes in one request share a project code and differ only in the running numb
 |-------|------|
 | `cubesync-table-manager.js` | `nextSpecimenRef`, `followSpecimenRefs`, `barcodePrefix`, `refreshBarcodePlaceholders`, and the row listeners that drive them |
 | `app.js` | Refreshes barcode placeholders after a saved or previous form is loaded |
-| `table-manager.test.js` | Counting, padding, hand-typed refs, added rows, barcode fill / empty / de-duplicate / placeholders |
+| `table-manager.test.js` | Number and letter counting, padding, hand-typed refs, added rows, barcode fill / empty / de-duplicate / placeholders |
 
 The dashboard editor uses the same table manager, so staff get the same behaviour when editing a submission.

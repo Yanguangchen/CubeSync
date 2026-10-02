@@ -38,11 +38,20 @@
     return "1" + chars.join("");
   }
 
-  // The specimen ref that follows `value`: "CUBE-01" -> "CUBE-02". Empty when
-  // the ref has no trailing number to count on from.
+  // A specimen ref is the specimen reference, a "-", then its sequence: a
+  // number or a single letter ("CUBE-01", "123-1", "CUBE-A"). The next ref
+  // steps the sequence after the last "-" ("CUBE-02", "123-2", "CUBE-B"),
+  // keeping a number's zero padding and a letter's case; letters stop at Z.
+  // Empty without a sequence, so a reference on its own ("123", "CUBE") is
+  // never counted.
   function nextSpecimenRef(value) {
-    const parts = splitRunningNumber(value);
-    return parts ? parts.prefix + incrementDigits(parts.digits) : "";
+    const match = /^(.*-\s*)(\d+|[A-Za-z])$/.exec(String(value == null ? "" : value).trim());
+    if (!match) return "";
+    const reference = match[1];
+    const sequence = match[2];
+    if (/\d/.test(sequence)) return reference + incrementDigits(sequence);
+    if (sequence === "Z" || sequence === "z") return "";
+    return reference + String.fromCharCode(sequence.charCodeAt(0) + 1);
   }
 
   // The project code in front of a barcode's running number:
