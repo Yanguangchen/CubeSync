@@ -38,11 +38,15 @@
     return "1" + chars.join("");
   }
 
-  // The specimen ref that follows `value`: "CUBE-01" -> "CUBE-02". Empty when
-  // the ref has no trailing number to count on from.
+  // The specimen ref that follows `value`: "CUBE-01" -> "CUBE-02", or by the
+  // alphabet "CUBE-A" -> "CUBE-B". Only a single trailing letter counts (so a
+  // word like "CUBE" is not stepped to "CUBF") and the letters stop at Z.
+  // Empty when there is nothing to count on from.
   function nextSpecimenRef(value) {
     const parts = splitRunningNumber(value);
-    return parts ? parts.prefix + incrementDigits(parts.digits) : "";
+    if (parts) return parts.prefix + incrementDigits(parts.digits);
+    const letter = /^(.*[^A-Za-z])?([A-Ya-y])$/.exec(String(value == null ? "" : value).trim());
+    return letter ? (letter[1] || "") + String.fromCharCode(letter[2].charCodeAt(0) + 1) : "";
   }
 
   // The project code in front of a barcode's running number:

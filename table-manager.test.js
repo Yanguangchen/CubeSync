@@ -521,6 +521,20 @@ test("nextSpecimenRef counts on from the trailing number and keeps zero padding"
   assert.equal(tableManager.nextSpecimenRef(null), "");
 });
 
+test("nextSpecimenRef counts on alphabetically from a single trailing letter", () => {
+  assert.equal(tableManager.nextSpecimenRef("CUBE-A"), "CUBE-B");
+  assert.equal(tableManager.nextSpecimenRef("CUBE-Y"), "CUBE-Z");
+  assert.equal(tableManager.nextSpecimenRef("cube-c"), "cube-d");
+  assert.equal(tableManager.nextSpecimenRef("TT A"), "TT B");
+  assert.equal(tableManager.nextSpecimenRef("1A"), "1B");
+  assert.equal(tableManager.nextSpecimenRef("A"), "B");
+  assert.equal(tableManager.nextSpecimenRef(" CUBE-A "), "CUBE-B");
+  // The letters stop at Z, and a trailing word is not a letter sequence.
+  assert.equal(tableManager.nextSpecimenRef("CUBE-Z"), "");
+  assert.equal(tableManager.nextSpecimenRef("CUBE-AB"), "");
+  assert.equal(tableManager.nextSpecimenRef("TT-CUBE"), "");
+});
+
 test("barcodePrefix returns the project code before the running number", () => {
   assert.equal(tableManager.barcodePrefix("PYY-0002/00166"), "PYY-0002/");
   assert.equal(tableManager.barcodePrefix("ABC12345"), "ABC");
@@ -584,7 +598,7 @@ test("addResultRow continues the specimen ref of the row above", () => {
   assert.deepEqual(fieldValues(tableBody, "specimenRef"), ["CUBE-20", "CUBE-21"]);
 });
 
-test("addResultRow leaves the specimen ref blank when the row above has no number", () => {
+test("addResultRow leaves the specimen ref blank when the row above has nothing to count on", () => {
   const tableBody = resultTable(1);
   typeInto(fieldInputs(tableBody, "specimenRef")[0], "CUBE");
 
@@ -708,4 +722,44 @@ test("clicking into a barcode with only the filled-in code puts the caret after 
   barcodes[1].dispatchEvent(new global.window.MouseEvent("click", { bubbles: true }));
 
   assert.equal(barcodes[1].selectionStart, "PYY-0002/".length);
+});
+
+test("typing a lettered specimen ref fills the rows below alphabetically", () => {
+  const tableBody = resultTable(4);
+
+  typeInto(fieldInputs(tableBody, "specimenRef")[0], "CUBE-A");
+
+  assert.deepEqual(fieldValues(tableBody, "specimenRef"), ["CUBE-A", "CUBE-B", "CUBE-C", "CUBE-D"]);
+});
+
+test("switching the first ref between numbers and letters renumbers the rows that follow", () => {
+  const tableBody = resultTable(3);
+  const refs = fieldInputs(tableBody, "specimenRef");
+  typeInto(refs[0], "CUBE-01");
+
+  replaceValue(refs[0], "CUBE-A");
+  assert.deepEqual(fieldValues(tableBody, "specimenRef"), ["CUBE-A", "CUBE-B", "CUBE-C"]);
+
+  replaceValue(refs[0], "CUBE-01");
+  assert.deepEqual(fieldValues(tableBody, "specimenRef"), ["CUBE-01", "CUBE-02", "CUBE-03"]);
+});
+
+test("a lettered ref typed over an auto-filled one is kept and the rows below follow it", () => {
+  const tableBody = resultTable(4);
+  const refs = fieldInputs(tableBody, "specimenRef");
+  typeInto(refs[0], "CUBE-A");
+
+  replaceValue(refs[2], "CUBE-X");
+  assert.deepEqual(fieldValues(tableBody, "specimenRef"), ["CUBE-A", "CUBE-B", "CUBE-X", "CUBE-Y"]);
+
+  replaceValue(refs[0], "TT-A");
+  assert.deepEqual(fieldValues(tableBody, "specimenRef"), ["TT-A", "TT-B", "CUBE-X", "CUBE-Y"]);
+});
+
+test("lettered refs stop filling after Z", () => {
+  const tableBody = resultTable(3);
+
+  typeInto(fieldInputs(tableBody, "specimenRef")[0], "CUBE-Y");
+
+  assert.deepEqual(fieldValues(tableBody, "specimenRef"), ["CUBE-Y", "CUBE-Z", ""]);
 });
