@@ -375,7 +375,7 @@ Known WorkGrid permission-policy watch items:
 | `dashboard-ux-animations.md` | Dashboard UX animations and master-detail reveal logic |
 | `form-remember-details.md` | Cookie-backed remember/restore of public request fields (not the results table) |
 | `form-local-history.md` | Device-local previous submissions (no sign-in, no server CRUD) |
-| `result-row-autofill.md` | TEST RESULTS auto-fill: Specimen Ref # counts on (numbers, letters, or number + letter), barcodes carry the project code |
+| `result-row-autofill.md` | TEST RESULTS auto-fill: Specimen Ref # rules and regex, accepted / rejected examples, worked scenarios, barcode project-code carry, troubleshooting, developer reference |
 | `print-layout.md` | CSS logic for enforcing single A4 landscape sheet form printing |
 | `observability.md` | Structured event schema, request correlation, privacy rules, and production investigation runbook |
 | `test-item-lock.md` | Explanation of test item lockdown to BS EN 12390-3: 2019 standard |

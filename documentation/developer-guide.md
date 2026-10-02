@@ -31,6 +31,7 @@ The public forms are intentionally unauthenticated, but final writes go through 
 | `cubesync-form-history.js` | Device-local copies of submitted public forms. | `localStorage` only; no sign-in and no extra server CRUD. See `documentation/form-local-history.md`. |
 | `cubesync-export.js` | CSV and ZIP export utilities. | Shared by dashboard and RPA queue. |
 | `barcode.js` | Code 128-B encoder and SVG renderer. | Stores barcode text only; SVGs are derived client-side. |
+| `cubesync-table-manager.js` | Results-table row behaviour shared by the public forms and the dashboard editor. | Add/remove/clear rows, date of test from age, set numbers by age, Specimen Ref # auto-fill and barcode project-code carry. See `documentation/result-row-autofill.md`. |
 | `api/cube-request-submit.js` | Public submit endpoint. | Verifies reCAPTCHA and writes anonymous submissions with Firebase Admin. |
 | `api/dropdown-options.js` | Dropdown option API endpoint. | Supports shared autocomplete option management where deployed. |
 | `api/_utils/firebase-api-helper.js` | Server observability and API utilities. | Owns structured JSON logs, privacy redaction, request correlation, CORS headers, and Firebase Admin setup. |
