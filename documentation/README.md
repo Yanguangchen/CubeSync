@@ -122,7 +122,7 @@ All forms are stored in the `cubeRequests` Firestore collection. Canonical field
 | `quote` | Quote | No |
 | `testItem` | Test Item | No |
 | `concreteGrade` | Grade | Yes |
-| `reportGrade` | Grade (free text) | Yes |
+| `reportGrade` | Grade Display | Yes |
 | `supplier` | Supplier Of Concrete | Yes |
 | `supplierDisplay` | Supplier Of Concrete Display | Yes |
 | `locationRepresented` | Location | Yes |

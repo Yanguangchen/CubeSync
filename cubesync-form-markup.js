@@ -16,7 +16,7 @@
     { field: "meanSlump", label: "Mean Slump" },
     { field: "resultGrade", label: "Concrete Grade" },
     { field: "resultDateOfCast", label: "Date Of Cast" },
-    { field: "age", label: "Age" },
+    { field: "age", label: "Age (days)" },
     { field: "dateOfTest", label: "Date Of Test" },
     { field: "weightKg", label: "WEIGHT AS RECEIVED (kg)" },
     { field: "loadKn", label: "LOAD (kN)" },
