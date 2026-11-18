@@ -17,7 +17,7 @@ const {
 } = require("./_utils/firebase-api-helper");
 
 const COLLECTION_NAME = "cubeRequests";
-const ALLOWED_TEMPLATES = new Set(["Original", "Glassmorphic"]);
+const ALLOWED_TEMPLATES = new Set(["Original", "Glassmorphic", "Guided"]);
 // Public submissions are always created as Drafts. "Ready"/"Archived" are staff
 // lifecycle states promoted only through the authenticated dashboard, never here.
 const PUBLIC_SUBMISSION_STATUS = "Draft";

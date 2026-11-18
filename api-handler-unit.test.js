@@ -383,6 +383,29 @@ test("cleanPayload rejects invalid template", withRecaptcha(async () => {
   assert.match(JSON.parse(response.body).error, /Invalid form template/);
 }));
 
+test("cleanPayload accepts submissions from the guided form template", withRecaptcha(async () => {
+  let savedData = null;
+  setFirebaseAdminForTest(mockFirestoreAdmin({
+    add: async (data) => {
+      savedData = data;
+      return { id: "guided-id" };
+    }
+  }));
+
+  const response = mockResponse();
+  await handler({
+    method: "POST",
+    headers: {},
+    body: {
+      recaptchaToken: "token",
+      payload: validPayload({ template: "Guided" })
+    }
+  }, response);
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(savedData.template, "Guided");
+}));
+
 test("cleanPayload forces any supplied status to Draft", withRecaptcha(async () => {
   let savedData = null;
   setFirebaseAdminForTest(mockFirestoreAdmin({

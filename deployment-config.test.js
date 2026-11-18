@@ -85,7 +85,7 @@ test("Vercel deployment serves generated public output", () => {
 test("every script referenced in HTML is included in build STATIC_FILES", () => {
   const buildScript = fs.readFileSync("scripts/write-env.js", "utf8");
 
-  const htmlFiles = ["index.html", "dashboard.html", "metrics.html", "glassmorphic.html"];
+  const htmlFiles = ["index.html", "dashboard.html", "metrics.html", "glassmorphic.html", "guided.html"];
   const missingScripts = [];
 
   for (const htmlFile of htmlFiles) {
@@ -112,7 +112,7 @@ test("every script referenced in HTML is included in build STATIC_FILES", () => 
 test("build copies HTML-referenced scripts to public output", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "cubesync-scripts-"));
 
-  const htmlFiles = ["index.html", "dashboard.html", "metrics.html", "glassmorphic.html"];
+  const htmlFiles = ["index.html", "dashboard.html", "metrics.html", "glassmorphic.html", "guided.html"];
   const allScripts = new Set();
 
   for (const htmlFile of htmlFiles) {
@@ -190,11 +190,13 @@ test("build script uses .env.local and emits non-empty public env output", () =>
     "dashboard.html",
     "metrics.html",
     "glassmorphic.html",
+    "guided.html",
     "index.html",
     "rpa-dashboard.html",
     "rpa-view.html",
     "tutorial.html",
     "app.js",
+    "guided.js",
     "barcode.js",
     "chime.js",
     "cubesync-connectivity.js",
@@ -242,6 +244,8 @@ test("build script uses .env.local and emits non-empty public env output", () =>
   assert.equal(envSiteKey(path.join(root, "public/env.js")), "local-test-site-key");
   assert.ok(fs.existsSync(path.join(root, "public/index.html")));
   assert.ok(fs.existsSync(path.join(root, "public/glassmorphic.html")));
+  assert.ok(fs.existsSync(path.join(root, "public/guided.html")));
+  assert.ok(fs.existsSync(path.join(root, "public/guided.js")));
   assert.ok(fs.existsSync(path.join(root, "public/assets/logo.png")));
   assert.ok(fs.existsSync(path.join(root, "public/css/styles.css")));
   assert.ok(fs.existsSync(path.join(root, "public/css/rpa/xp-theme.css")));

@@ -17,19 +17,21 @@ Do not use generated barcode SVG markup as stored data. Barcodes are stored as t
 | --- | --- | --- |
 | Original form | `index.html` | PDF-style concrete cube request form |
 | Glassmorphic form | `glassmorphic.html` | Modern form using the same Firestore fields |
+| Guided form | `guided.html` | One question per screen; same field names, only the current field is visible |
 | Dashboard | `dashboard.html` | CRUD dashboard for submitted forms |
 | RPA dashboard | `rpa-dashboard.html` | RPA queue and ERP status controls |
 | RPA view | `rpa-view.html` | Full read-only view of all form fields and test results (`?id=<doc>&setNo=<n>` scopes it to one set) |
 
 ## Main Form Selectors
 
-These apply to both the original and glassmorphic forms.
+These apply to the original and glassmorphic forms, and to the guided form except where a control does not exist there (the guided form has no print, remember/forget, previous-submissions or step buttons; `#addRowButton` and `#saveFormButton` are present but only visible on their own screens).
 
 | Target | Selector | Notes |
 | --- | --- | --- |
 | Main form | `#cubeRequestForm` | Root form element |
 | Original form | `form[data-template="Original"]` | Template identifier |
 | Glassmorphic form | `form[data-template="Glassmorphic"]` | Template identifier |
+| Guided form | `form[data-template="Guided"]` | Template identifier |
 | Save button | `#saveFormButton` | Submits the form to Firestore |
 | Remember details | `#rememberDetailsButton` | Stores request-header fields in a browser cookie (not the results table) |
 | Forget saved details | `#forgetDetailsButton` | Clears the remembered-details cookie |

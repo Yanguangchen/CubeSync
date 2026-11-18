@@ -187,6 +187,14 @@
     }
   }
 
+  // Lets page-specific controllers (e.g. guided.js) react to app.js milestones
+  // without reaching into its closure: "cubesync:saved" after a successful
+  // submission and "cubesync:recordapplied" after a saved record fills the form.
+  function dispatchFormEvent(form, name, detail) {
+    if (!form || typeof window.CustomEvent !== "function") return;
+    form.dispatchEvent(new window.CustomEvent(name, { detail: detail || {} }));
+  }
+
   function submitForm(form, submitter) {
     if (!form) return;
 
@@ -367,7 +375,10 @@
       try {
         const remoteConfig = await store.getFormFieldConfig();
         if (remoteConfig) {
-          activeConfig = formData.applyFormFieldConfig(form, remoteConfig, { activeStep: 1 });
+          activeConfig = formData.applyFormFieldConfig(form, remoteConfig, {
+            activeStep: 1,
+            extraFieldValues: formData.collectExtraFields(form)
+          });
           localStorage.setItem(formData.FORM_FIELD_CONFIG_STORAGE_KEY, JSON.stringify(activeConfig));
         }
       } catch {
@@ -695,6 +706,7 @@
           if (paperPreview.open) {
             closePaperPreview({ adopt: true, fromSave: true });
           }
+          dispatchFormEvent(form, "cubesync:saved", { id: currentDocId, payload: payload });
         } catch (error) {
           logClientObs({
             feature: "FormSubmission",
@@ -840,7 +852,12 @@
         typeof window.CubeSyncTableManager.addResultRow === "function") {
         window.CubeSyncTableManager.addResultRow(tableBody, form, renderBarcode, function() {
           if (activeFieldConfig && window.CubeSyncFormData) {
-            window.CubeSyncFormData.applyFormFieldConfig(form, activeFieldConfig, { activeStep: currentStep });
+            // Re-applying the config re-renders the custom request fields, so
+            // carry their current values across instead of blanking them.
+            window.CubeSyncFormData.applyFormFieldConfig(form, activeFieldConfig, {
+              activeStep: currentStep,
+              extraFieldValues: window.CubeSyncFormData.collectExtraFields(form)
+            });
             applyManualCubeJobState();
           }
         });
@@ -915,6 +932,7 @@
         cubeJobNumberInput.value = loadedJobNumber;
       }
       setLocalCopyBanner(Boolean(fromLocalCopy));
+      dispatchFormEvent(form, "cubesync:recordapplied", { fromLocalCopy: Boolean(fromLocalCopy) });
       return true;
     }
 

@@ -91,7 +91,7 @@ Anonymous submissions are forced to `Draft` by the API. Only authenticated staff
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `template` | string | Public form variant such as `Original` or `Glassmorphic`. |
+| `template` | string | Public form variant: `Original`, `Glassmorphic`, or `Guided`. |
 | `status` | string | Human review lifecycle status. |
 | `results` | array | Test-result rows using `RESULT_FIELDS`. |
 | `customFields` | array | Dropdown-backed fields that may need free-text review. |

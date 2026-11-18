@@ -2141,7 +2141,9 @@
 
     const parsed = parseDashboardFormId(id);
     const sourceId = parsed.sourceRequestId || id;
-    const url = form.template === "Glassmorphic" ? "glassmorphic.html" : "index.html";
+    // The guided page shows one question at a time, so it prints through the
+    // digital layout, which lays out every field.
+    const url = form.template === "Glassmorphic" || form.template === "Guided" ? "glassmorphic.html" : "index.html";
     const params = new URLSearchParams({ id: sourceId, print: "true" });
     if (parsed.setNo) {
       params.set("setNo", parsed.setNo);

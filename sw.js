@@ -4,18 +4,20 @@
 // - use stale-while-revalidate for same-origin static assets and pages
 // - bypass caching for live APIs, Firebase, auth, and runtime env
 
-const CACHE_NAME = "cubesync-v30";
+const CACHE_NAME = "cubesync-v31";
 
 const APP_SHELL = [
   "./",
   "./dashboard.html",
   "./metrics.html",
   "./glassmorphic.html",
+  "./guided.html",
   "./index.html",
   "./rpa-dashboard.html",
   "./rpa-view.html",
   "./tutorial.html",
   "./app.js",
+  "./guided.js",
   "./barcode.js",
   "./chime.js",
   "./cubesync-autocomplete.js",
@@ -35,6 +37,7 @@ const APP_SHELL = [
   "./rpa-view.js",
   "./css/styles.css",
   "./css/glassmorphic.css",
+  "./css/guided.css",
   "./css/shared/tokens-rakmat-base.css",
   "./css/shared/barcode.css",
   "./css/shared/throbber.css",
