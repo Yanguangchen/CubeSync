@@ -532,6 +532,23 @@ test("staff cannot create a cubeRequest with an invalid template", async () => {
   );
 });
 
+test("staff can create and switch a cubeRequest to the Guided template", async () => {
+  await testEnv.clearFirestore();
+  const staff = authedDb("staff-guided", STAFF_EMAIL);
+
+  await assertSucceeds(
+    staff.collection("cubeRequests").doc("req-guided").set(
+      minimalCubeRequest({ template: "Guided" })
+    )
+  );
+  await assertSucceeds(
+    staff.collection("cubeRequests").doc("req-guided").update({ template: "Original" })
+  );
+  await assertSucceeds(
+    staff.collection("cubeRequests").doc("req-guided").update({ template: "Guided" })
+  );
+});
+
 test("staff cannot create a cubeRequest with out-of-range version or attemptCount", async () => {
   await testEnv.clearFirestore();
   const staff = authedDb("staff-bounds", STAFF_EMAIL);

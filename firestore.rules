@@ -956,7 +956,7 @@ service cloud.firestore {
         (!('extraFields' in data) ||
           isValidExtraFields(data.extraFields)) &&
         (!('template' in data) ||
-          data.template in ['Original', 'Glassmorphic']) &&
+          data.template in ['Original', 'Glassmorphic', 'Guided']) &&
         (!('status' in data) ||
           data.status in ['Draft', 'Ready', 'Archived']) &&
         (!('results' in data) ||
@@ -1036,7 +1036,7 @@ service cloud.firestore {
             request.resource.data.attemptCount >= 0 &&
             request.resource.data.attemptCount <= 10000)) &&
         (!changed.hasAny(['template']) ||
-          request.resource.data.template in ['Original', 'Glassmorphic']) &&
+          request.resource.data.template in ['Original', 'Glassmorphic', 'Guided']) &&
         (!changed.hasAny(['status']) ||
           request.resource.data.status in ['Draft', 'Ready', 'Archived']) &&
         (!changed.hasAny(['enableManualCubeJobNumber']) ||

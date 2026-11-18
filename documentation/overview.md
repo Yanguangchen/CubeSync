@@ -14,6 +14,7 @@ CubeSync digitizes the paper concrete cube request process. It includes public s
 |------|------|------------|---------|
 | Original form | `index.html` | `app.js` | PDF-faithful request form |
 | Glassmorphic form | `glassmorphic.html` | `app.js` | Stepped request form |
+| Guided form | `guided.html` | `app.js` + `guided.js` | One question per screen, phone-first |
 | Human dashboard | `dashboard.html` | `dashboard.js` | Staff CRUD, field settings, free-text review |
 | RPA queue | `rpa-dashboard.html` | `rpa-dashboard.js` | Date-filtered bot queue, CSV/ZIP export |
 | RPA form view | `rpa-view.html` | `rpa-view.js` | Read-only single form for bots |

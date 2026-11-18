@@ -8,6 +8,7 @@ Digital submission and management platform for concrete cube test requests. Repl
 |------|------|---------|
 | Original form | `index.html` | PDF-faithful concrete cube request form |
 | Glassmorphic form | `glassmorphic.html` | Modern stepped form with the same Firestore fields |
+| Guided form | `guided.html` | One question per screen, phone-first; skips straight to test results when company details are remembered (see [guided-form.md](guided-form.md)) |
 | Human dashboard | `dashboard.html` | CRUD dashboard — view, edit, print, delete submitted forms |
 | RPA queue | `rpa-dashboard.html` | Bot-facing queue filtered by date, with CSV/ZIP export |
 | RPA form view | `rpa-view.html` | Read-only single-form view for RPA bots |
@@ -19,6 +20,7 @@ Open any page directly in a browser for local development. Customer-facing submi
 ```
 Browser pages (HTML)
   ├── glassmorphic.html / index.html ──→ app.js (form controller)
+  ├── guided.html ─────────────────────→ app.js + guided.js (one question per screen)
   ├── dashboard.html ──────────────────→ dashboard.js (CRUD controller)
   ├── rpa-dashboard.html ──────────────→ rpa-dashboard.js (queue controller)
   └── rpa-view.html ───────────────────→ rpa-view.js (single-form viewer)
@@ -146,7 +148,7 @@ Test-result table headers and cells use `data-result-field="{name}"` for column 
 
 | Field | Purpose |
 |-------|---------|
-| `template` | `Original` or `Glassmorphic` |
+| `template` | `Original`, `Glassmorphic`, or `Guided` |
 | `status` | `Draft`, `Ready`, or `Archived` (human dashboard lifecycle) |
 | `results` | Array of test-result rows (`RESULT_FIELDS`) |
 | `customFields` | Dropdown field names typed as free text at submit time (see [Free-text dropdown review](#free-text-dropdown-review)) |

@@ -67,6 +67,7 @@ export default [
       "cubesync-notifications.js",
       "cubesync-today-toggle.js",
       "dashboard.js",
+      "guided.js",
       "metrics-page.js",
       "env.example.js",
       "rpa-dashboard.js",

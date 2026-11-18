@@ -520,7 +520,7 @@ erDiagram
         number slumpSpecified "Specified slump (mm)"
         string internalDate "Internal reference date"
         timestamp dateTimeSampled "When sample was taken"
-        string template "Original or Glassmorphic"
+        string template "Original, Glassmorphic, or Guided"
         string status "Draft, Ready, Archived"
         string rpaStatus "Ready for Bot, In Progress, etc."
         string erpStatus "Pending, Processing, Success, Error"

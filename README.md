@@ -17,6 +17,7 @@ Digital concrete cube test request forms, staff dashboard, and RPA queue for R.A
 | Form submission throbber | [documentation/form-submission-throbber.md](documentation/form-submission-throbber.md) |
 | Test result row auto-fill | [documentation/result-row-autofill.md](documentation/result-row-autofill.md) |
 | Print layout | [documentation/print-layout.md](documentation/print-layout.md) |
+| Guided (one question at a time) form | [documentation/guided-form.md](documentation/guided-form.md) |
 | Observability | [documentation/observability.md](documentation/observability.md) |
 | Test item lock | [documentation/test-item-lock.md](documentation/test-item-lock.md) |
 | RPA selectors | [documentation/RPA_SELECTOR_REFERENCE.md](documentation/RPA_SELECTOR_REFERENCE.md) |

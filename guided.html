@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Guided Concrete Cube Test Request</title>
+    <link rel="icon" type="image/png" href="favicon.png">
+    <link rel="apple-touch-icon" href="assets/icon-192.png">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#003399">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/guided.css">
+    <script src="cubesync-connectivity.js" defer></script>
+    <script src="barcode.js" defer></script>
+    <script src="cubesync-form-data.js" defer></script>
+    <script src="cubesync-form-prefs.js" defer></script>
+    <script src="cubesync-form-history.js" defer></script>
+    <script src="cubesync-form-markup.js" defer></script>
+    <script src="cubesync-autocomplete.js" defer></script>
+    <script src="cubesync-table-manager.js" defer></script>
+    <script src="env.js"></script>
+    <script type="module" src="firestore.js"></script>
+    <script src="https://www.google.com/recaptcha/api.js?render=explicit" async defer></script>
+    <script src="chime.js" defer></script>
+    <script src="app.js" defer></script>
+    <script src="guided.js" defer></script>
+  </head>
+  <body class="guided-page">
+    <div id="pageLoader" class="page-loader" role="status" aria-live="polite">
+      <span class="throbber" aria-hidden="true"></span>
+      <span>Loading…</span>
+    </div>
+    <script>
+      window.addEventListener("DOMContentLoaded", () => {
+        if (window.CubeSyncChime) window.CubeSyncChime.attachButtonChimes();
+      });
+    </script>
+    <header class="page-tools" aria-label="Form actions">
+      <nav class="tool-section left" aria-label="Back navigation">
+        <a class="version-link" href="dashboard.html">← Dashboard</a>
+      </nav>
+      <nav class="tool-section center" aria-label="Template switcher">
+        <div class="mode-toggle">
+          <a href="glassmorphic.html">Digital</a>
+          <a href="index.html">Original</a>
+          <a href="guided.html" class="active" aria-current="page">Guided</a>
+        </div>
+      </nav>
+      <nav class="tool-section right" aria-label="Help">
+        <a class="version-link" href="tutorial.html">Guide</a>
+      </nav>
+    </header>
+
+    <main class="sheet" aria-labelledby="formTitle">
+      <form id="cubeRequestForm" class="guided-form" data-template="Guided" data-guided-kind="loading" novalidate>
+        <header class="guided-header">
+          <img class="guided-logo" src="assets/logo.png" alt="R.A.K. Materials Consultants Pte. Ltd.">
+          <h1 id="formTitle" class="guided-title">Concrete cube test request</h1>
+        </header>
+
+        <div class="guided-progress" aria-hidden="true">
+          <span id="guidedProgressBar" class="guided-progress-bar"></span>
+        </div>
+
+        <div id="localCopyBanner" class="local-copy-banner" hidden role="status">
+          Viewing a copy saved on this device. This is not loaded from the lab. Save sends a new request.
+        </div>
+
+        <div class="guided-prompt">
+          <p class="guided-eyebrow">
+            <span id="guidedEyebrow"></span>
+            <span id="guidedOptional" class="guided-pill" hidden>Optional</span>
+          </p>
+          <p id="guidedContext" class="guided-context" hidden></p>
+          <h2 id="guidedQuestion" class="guided-question" tabindex="-1"></h2>
+          <p id="guidedHint" class="guided-hint" hidden></p>
+          <p id="guidedIntro" class="guided-intro" hidden>
+            We only ask for your company details once. Keep <strong>Remember company details</strong> ticked when you submit and next time you'll go straight to the test results.
+          </p>
+        </div>
+
+        <p id="guidedError" class="guided-error" role="alert" hidden></p>
+
+        <div class="guided-stage">
+          <div class="request-grid" role="group" aria-label="Concrete cube request details">
+            <label class="field-row" data-form-field="customerBilling">
+              <span>Customer (Billing)</span>
+              <input type="text" name="customerBilling" required>
+            </label>
+            <label class="field-row" data-form-field="contact">
+              <span>Contact</span>
+              <input type="text" name="contact" autocomplete="name" required>
+            </label>
+            <label class="field-row" data-form-field="projectErp">
+              <span>Project (ERP)</span>
+              <input type="text" name="projectErp">
+            </label>
+            <label class="field-row" data-form-field="projectNameOnReport">
+              <span>Project Name on Report</span>
+              <input type="text" name="projectNameOnReport">
+            </label>
+            <label class="field-row" data-form-field="clientNameOnReport">
+              <span>Client Name on Report</span>
+              <input type="text" name="clientNameOnReport">
+            </label>
+            <label class="field-row" data-form-field="dateOfCast">
+              <span>Date of cast</span>
+              <input type="date" name="dateOfCast" required>
+            </label>
+            <label class="field-row" data-form-field="concreteGrade">
+              <span>Concrete Grade</span>
+              <input type="text" name="concreteGrade" autocapitalize="characters" required>
+            </label>
+            <label class="field-row" data-form-field="reportGrade">
+              <span>Report Grade</span>
+              <input type="text" name="reportGrade" autocapitalize="characters" required>
+            </label>
+            <label class="field-row" data-form-field="specimenSize">
+              <span>Size</span>
+              <input type="text" name="specimenSize" placeholder="150 x 150 x 150" required>
+            </label>
+            <label class="field-row" data-form-field="slumpSpecified">
+              <span>Specified Slump</span>
+              <input type="text" name="slumpSpecified" inputmode="decimal">
+            </label>
+            <label class="field-row" data-form-field="slumpMeasured">
+              <span>Mean Slump</span>
+              <input type="text" name="slumpMeasured" inputmode="decimal">
+            </label>
+            <label class="field-row" data-form-field="supplier">
+              <span>Supplier Of Concrete</span>
+              <input type="text" name="supplier" required>
+            </label>
+            <label class="field-row" data-form-field="supplierDisplay">
+              <span>Supplier Of Concrete Display</span>
+              <input type="text" name="supplierDisplay" required>
+            </label>
+            <label class="field-row" data-form-field="locationRepresented">
+              <span>Location</span>
+              <input type="text" name="locationRepresented" required>
+            </label>
+            <label class="field-row" data-form-field="personInCharge">
+              <span>Person In Charge</span>
+              <input type="text" name="personInCharge" required>
+            </label>
+            <label class="field-row" data-form-field="managerInCharge">
+              <span>Manager In Charge</span>
+              <input type="text" name="managerInCharge" required>
+            </label>
+            <label class="field-row" data-form-field="quote">
+              <span>Quote</span>
+              <input type="text" name="quote">
+            </label>
+            <label class="field-row toggle-row" data-form-field="enableManualCubeJobNumber">
+              <span>Enable Manual Cube Job #</span>
+              <input type="checkbox" name="enableManualCubeJobNumber">
+            </label>
+            <label class="field-row" data-form-field="cubeJobNumber">
+              <span>Cube Job #</span>
+              <input type="text" name="cubeJobNumber">
+            </label>
+            <label class="field-row" data-form-field="testItem">
+              <span>Test Item</span>
+              <input type="text" name="testItem">
+            </label>
+            <label class="field-row" data-form-field="additionalInformation">
+              <span>Additional Info</span>
+              <input type="text" name="additionalInformation">
+            </label>
+            <div id="customRequestFields" class="custom-request-fields"></div>
+          </div>
+
+          <section class="results-section" aria-labelledby="resultsTitle">
+            <h2 id="resultsTitle" class="visually-hidden">Test results</h2>
+            <div class="table-wrap">
+              <table class="results-table" data-lock-testing-team>
+                <thead>
+                  <tr>
+                    <th scope="col" data-result-field="setNo">Set No</th>
+                    <th scope="col" data-result-field="size">Size</th>
+                    <th scope="col" data-result-field="specimenRef">Specimen Ref #</th>
+                    <th scope="col" data-result-field="barcode">Barcode</th>
+                    <th scope="col" data-result-field="specifiedSlump">Specified Slump</th>
+                    <th scope="col" data-result-field="meanSlump">Mean Slump</th>
+                    <th scope="col" data-result-field="resultGrade">Concrete Grade</th>
+                    <th scope="col" data-result-field="resultDateOfCast">Date Of Cast</th>
+                    <th scope="col" data-result-field="age">Age (days)</th>
+                    <th scope="col" data-result-field="dateOfTest">Date Of Test</th>
+                    <th scope="col" data-result-field="weightKg">WEIGHT AS RECEIVED (kg)</th>
+                    <th scope="col" data-result-field="loadKn">LOAD (kN)</th>
+                    <th scope="col" data-result-field="strength">COMPRESSIVE STRENGTH (N/mm²)</th>
+                    <th scope="col" data-result-field="failureMode">MODE OF FAILURE</th>
+                    <th scope="col" data-result-field="invoiceNumber">Invoice Number</th>
+                    <th scope="col" class="result-actions">Action</th>
+                  </tr>
+                </thead>
+                <tbody data-initial-result-rows="1"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="guided-screen" data-guided-screen="welcome" hidden>
+            <div id="guidedWelcomeSummary" class="guided-summary"></div>
+          </section>
+
+          <section class="guided-screen" data-guided-screen="another" hidden>
+            <ol id="guidedSpecimenList" class="guided-specimen-list"></ol>
+            <button type="button" id="addRowButton" class="guided-secondary guided-add">+ Add another specimen</button>
+          </section>
+
+          <section class="guided-screen" data-guided-screen="review" hidden>
+            <div id="guidedReviewDetails" class="guided-review-group"></div>
+            <div id="guidedReviewResults" class="guided-review-group"></div>
+            <label class="guided-remember">
+              <input type="checkbox" id="guidedRememberDetails" checked>
+              <span>Remember company details on this device so next time I can go straight to test results</span>
+            </label>
+            <div id="recaptchaContainer" class="guided-recaptcha"></div>
+            <p id="saveStatus" class="save-status" role="status" aria-live="polite"></p>
+            <button type="submit" form="cubeRequestForm" id="saveFormButton" class="guided-submit">Submit request</button>
+          </section>
+
+          <section class="guided-screen" data-guided-screen="done" hidden>
+            <div class="guided-done-mark" aria-hidden="true"></div>
+            <p id="guidedDoneText" class="guided-done-text"></p>
+            <a id="guidedStartAgain" class="guided-primary-link" href="guided.html">Start another request</a>
+          </section>
+        </div>
+
+        <div id="guidedChips" class="guided-chips" hidden></div>
+        <p id="guidedNote" class="guided-note" hidden></p>
+
+        <div class="guided-nav">
+          <button type="button" id="guidedBack" class="guided-back">Back</button>
+          <button type="button" id="guidedNext" class="guided-next">Next</button>
+        </div>
+        <div id="guidedWelcomeActions" class="guided-screen-actions" hidden>
+          <button type="button" id="guidedEditAllDetails" class="guided-secondary">Go through all details</button>
+          <button type="button" id="guidedForgetDetails" class="guided-link">Not your company? Forget these details</button>
+        </div>
+        <p id="guidedLive" class="visually-hidden" aria-live="polite"></p>
+      </form>
+    </main>
+    <script src="https://cdn.botpress.cloud/webchat/v3.6/inject.js"></script>
+    <script src="https://files.bpcontent.cloud/2026/07/13/11/20260713114506-CZSWDJVU.js" defer></script>
+    <script>if("serviceWorker"in navigator){navigator.serviceWorker.register("./sw.js").catch(()=>{});}</script>
+  </body>
+</html>

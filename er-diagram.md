@@ -25,7 +25,7 @@ erDiagram
         number slumpSpecified "Specified slump"
         string personInCharge "Person in charge"
         string managerInCharge "Manager in charge"
-        string template "Original or Glassmorphic"
+        string template "Original, Glassmorphic, or Guided"
         string status "Draft, Ready, or Archived"
         timestamp createdAt "Server timestamp, immutable"
         timestamp updatedAt "Server timestamp, updated on write"
@@ -115,7 +115,7 @@ erDiagram
 
 ### CubeRequest (Firestore: `cubeRequests/{id}`)
 The central entity. Represents a concrete cube test request form submission.
-- **Templates:** `Original` | `Glassmorphic`
+- **Templates:** `Original` | `Glassmorphic` | `Guided`
 - **Statuses:** `Draft` | `Ready` | `Archived`
 - **RPA Statuses:** `Ready for Bot` | `In Progress` | `Submitted to ERP` | `Failed` | `Disabled`
 - **ERP Statuses:** `Pending` | `Processing` | `Success` | `Error`
